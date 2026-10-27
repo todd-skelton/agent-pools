@@ -22,8 +22,8 @@ Plan:
    Agent Pools' own cycle on 42 scripted scenarios (61 cycles): every result, proxy call, event,
    sample, toast, save, hook call and final state (`node golden/refresh-traces.mjs`, then
    `cargo test -p pool-core --test refresh`). `pools-shadow run-copy` runs that cycle, the
-   capacity publisher and a manual refresh on a copied state directory (below). The gateway
-   waits on [corten#117 A route cannot be a WebSocket or pass an upstream response through, so such routes are added outside Corten's checks](https://github.com/todd-skelton/corten/issues/117).
+   capacity publisher, the routing ladders and a manual refresh on a copied state directory
+   (below). The public gateway is ported (`gateway/`, below) on Corten's `Relay`.
 5. Cutover: only with Todd's go-ahead.
 
 ## The shadow
@@ -152,6 +152,31 @@ no `buildLadders` call)
 and, when `AP_LADDER_LIVE` names a file from `node golden/ladder-live.mjs`, to the live
 install's own inputs (398 rungs; not committed, since its inputs are not scrubbed):
 `cargo test -p pool-core --test ladder`.
+
+### The public gateway
+
+`gateway/` (`pools-gateway`, a library for now) is public-gateway.mjs on Corten (`6b86352`, with
+[corten#162 Upgrade and Relay](https://github.com/todd-skelton/corten/pull/162)). Inference routes
+take a machine key and relay the pool's answer as it streams, sent with the pool's key. The
+dashboard routes take a session cookie signed as Agent Pools signs it (the same secret keeps
+today's cookies valid; a test holds the token to Agent Pools' bytes). Everything else is closed.
+`cargo test -p pools-gateway` runs Agent Pools' 12 gateway tests over real sockets, plus four of
+the port's own: the session token, a client that leaves a stream (the upstream request ends
+with it), and two that record what Corten answers itself.
+
+Where it differs, by design or because of Corten:
+
+1. Who is asking is Corten's `ClientIp` (the nearest `X-Forwarded-For` address behind the
+   tunnel on loopback), where Agent Pools reads `CF-Connecting-IP`. cloudflared sets both.
+2. A name that is not the gateway's gets Corten's 421 before routing (Agent Pools: 404).
+   `localhost` and IP addresses, which Corten answers, get the 404.
+3. Failures Corten answers itself (unknown URL, wrong method, cross-site write) use Corten's
+   shape, and machine keys are checked in the handlers rather than a `Caller`, so that a
+   refusal keeps Anthropic's shape:
+   [corten#163 An API cannot shape the failures Corten answers itself (404, 405, cross-site 403, Caller 401), so a gateway that must answer in Anthropic's error shape checks keys outside Caller](https://github.com/todd-skelton/corten/issues/163).
+4. A relayed dashboard page gets Corten's CSP in place of its own, which blocks its scripts:
+   [corten#164 A Relay loses the upstream's Content-Security-Policy, so a relayed page's own scripts are blocked](https://github.com/todd-skelton/corten/issues/164).
+   Until that is fixed, the dashboard does not work through the gateway; the JSON routes do.
 
 ## Golden outputs
 

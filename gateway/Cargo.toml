@@ -1,0 +1,24 @@
+[package]
+name = "pools-gateway"
+version = "0.1.0"
+edition = "2024"
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Agent Pools' public gateway (public-gateway.mjs) on Corten: machine keys for inference, a signed session for the dashboard, everything else closed."
+
+[dependencies]
+pool-core = { path = "../pool-core" }
+# main with Upgrade, Switch and Relay (corten#162, for corten#117).
+corten = { git = "https://github.com/todd-skelton/corten", rev = "6b86352", features = ["json"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "net"] }
+futures-util = { version = "0.3", default-features = false }
+# The pool and the service, over plain HTTP on loopback, bodies streamed both ways.
+reqwest = { version = "0.12", default-features = false, features = ["stream"] }
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
+sha2 = "0.10"
+hmac = "0.12"
+base64 = "0.22"
+form_urlencoded = "1"
+
+[dev-dependencies]

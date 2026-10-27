@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["pool-core", "shadow"]
+members = ["pool-core", "shadow", "gateway"]
 
 [workspace.package]
 edition = "2021"
