@@ -328,6 +328,7 @@ pub fn check_forecast(live: &Value, inp: &ForecastInputs, now: f64) -> Check {
 }
 
 /// The inputs `writeValueReport` read for a report built at `t`.
+#[derive(Clone, Copy)]
 pub struct ValueInputs<'a> {
     pub install: &'a Install,
     pub pool: &'a Value,
@@ -337,6 +338,10 @@ pub struct ValueInputs<'a> {
     /// Samples dated after this were written after the report read the sample logs (it reads
     /// them at once, with no upper bound of its own).
     pub samples_until: f64,
+    /// The live report's `coverage.ledgerRows`. The report streams the ledger while the proxy
+    /// appends to it, so what it read is a prefix of the files in name order; the rows it counted
+    /// say where that prefix ends. `None` reads every row up to `ledger_until`.
+    pub ledger_rows: Option<f64>,
 }
 
 /// `writeValueReport` at `t`, from the files, without writing anything.
@@ -359,8 +364,30 @@ pub fn value_at(inp: &ValueInputs, t: f64) -> Value {
         Some(Value::Object(w)) => w.clone(),
         _ => Map::new(),
     };
+    let analysis_from = t - config.analysis_days * DAY;
+    let target = inp.ledger_rows.unwrap_or(f64::INFINITY);
+    let mut counted = 0.0;
+    let mut seen = std::collections::HashSet::new();
+    // Stops at the row after the last one the report counted (rows outside the window it skips
+    // are not counted, as in buildUsageReports).
+    let rows = inp
+        .install
+        .ledger(&first_day, inp.ledger_until)
+        .take_while(move |r| {
+            if counted >= target {
+                return false;
+            }
+            let duplicate = r
+                .rid
+                .as_ref()
+                .is_some_and(|rid| !seen.insert(format!("{rid}|{}", r.at_text)));
+            if r.at.is_finite() && r.at >= analysis_from && r.at <= t + HOUR && !duplicate {
+                counted += 1.0;
+            }
+            true
+        });
     let reports = value::build_usage_reports(
-        inp.install.ledger(&first_day, inp.ledger_until),
+        rows,
         &value::ReportInput {
             samples: &samples,
             accounts: &accounts,
@@ -393,6 +420,11 @@ fn report_account(a: &Value) -> Value {
 
 pub fn check_value(live: &Value, inp: &ValueInputs, now: f64) -> Check {
     let subject = text(live.get("generatedAt"));
+    let ledger_rows = js::finite(live.pointer("/coverage/ledgerRows"));
+    let inp = &ValueInputs {
+        ledger_rows: inp.ledger_rows.or(ledger_rows),
+        ..*inp
+    };
     let t = js::date_parse_value(live.get("generatedAt"));
     if !t.is_finite() {
         return Check::unaligned(Kind::Value, subject, "the report has no generatedAt", now);

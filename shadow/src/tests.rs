@@ -89,6 +89,7 @@ fn value_check_matches_the_golden_report() {
         forecast: Some(&forecast),
         ledger_until: f64::INFINITY,
         samples_until: f64::INFINITY,
+        ledger_rows: None,
     };
     assert_match(&parity::check_value(
         &read("outputs/value/deployed.json"),

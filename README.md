@@ -45,7 +45,16 @@ Three checks run, each appended to `shadow-state/parity.jsonl`:
 |---|---|---|---|
 | summary (every 60 s) | `GET /api/summary` | `build_summary` over the files read just after, at the live `generatedAt` | the answer names the pool state's `checkedAt`, the forecast and the value report on disk |
 | forecast (each one published) | `state/capacity-forecast.json` | `build_forecast` with the document before it as memory | the shadow saw the one before, and a pool state saved in the same refresh cycle |
-| value (each report) | `state/usage-value.json` | `build_usage_reports` over the ledger, with the pool state and forecast on disk at its `generatedAt` | the shadow was watching before the report was built |
+| value (each report) | `state/usage-value.json` | `build_usage_reports` over the ledger up to the row count the report gives (`coverage.ledgerRows`), with the pool state and forecast on disk at its `generatedAt` | the shadow was watching before the report was built |
+
+The proxy appends to the ledger while the report streams it, so no time cut-off reproduces what
+it read (measured on the 04:25 report: cut-offs from its `generatedAt` to its write came out 33
+rows under to 37 over). The rows it counted mark where its read ended, and cut there the
+rebuilt report matched exactly.
+
+`pools-shadow check-value` rebuilds the live value report once (about 17 s over 611,054 rows)
+and prints the check. It uses the pool state and forecast on disk now, so it is only exact while
+those have not changed what the report shows.
 
 An unaligned check (the live service read its inputs at another moment than the files show) is
 counted apart and never as a match. The shadow's tests (`cargo test --release -p pools-shadow`)

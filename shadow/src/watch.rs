@@ -317,6 +317,7 @@ fn run(shadow: &Shadow, job: Job) -> Check {
                 forecast: forecast.as_deref(),
                 ledger_until,
                 samples_until,
+                ledger_rows: None,
             };
             parity::check_value(&live, &inp, now)
         }

@@ -44,6 +44,9 @@ fn secs(key: &str, default: u64) -> Duration {
 }
 
 fn main() -> std::io::Result<()> {
+    if std::env::args().nth(1).as_deref() == Some("check-value") {
+        return check_value_once();
+    }
     if std::env::var_os("PORT").is_none() {
         // corten::serve takes its port from PORT only (corten#115: no listener of the app's own).
         // SAFETY: the process has one thread here; the runtime is built after.
@@ -80,4 +83,41 @@ async fn serve() -> std::io::Result<()> {
         secs("SHADOW_SUMMARY_SECS", 60),
     ))
     .await
+}
+
+/// `pools-shadow check-value`: rebuilds the live `state/usage-value.json` once at its
+/// `generatedAt`, with the pool state and forecast on disk now (the ones it read are gone, so
+/// account rows may differ), and prints the check. Reads only.
+fn check_value_once() -> std::io::Result<()> {
+    let install = sources::Install::new(env_or("AGENT_POOLS_ROOT", r"D:\Users\ToddS\AgentPools"));
+    let live = install
+        .json("state/usage-value.json")
+        .ok_or_else(|| std::io::Error::other("state/usage-value.json did not read"))?;
+    let pool = install.json("state/pool-state.json").unwrap_or_default();
+    let forecast = install.json("state/capacity-forecast.json");
+    let written = install
+        .modified("state/usage-value.json")
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or(f64::INFINITY, |d| d.as_millis() as f64);
+    let at = pool_core::js::date_parse_value(live.get("generatedAt"));
+    // SHADOW_LEDGER_UNTIL (ISO time): another cut-off for ledger rows, to bracket the moment the
+    // live report stopped reading the ledger.
+    let written = std::env::var("SHADOW_LEDGER_UNTIL")
+        .ok()
+        .and_then(|s| pool_core::js::date_parse(&s))
+        .unwrap_or(written);
+    let inp = parity::ValueInputs {
+        install: &install,
+        pool: &pool,
+        forecast: forecast.as_ref(),
+        ledger_until: written,
+        samples_until: at + 1000.0,
+        ledger_rows: None,
+    };
+    let check = parity::check_value(&live, &inp, watch::now_ms());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&check).unwrap_or_default()
+    );
+    Ok(())
 }
