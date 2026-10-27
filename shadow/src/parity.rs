@@ -3,7 +3,7 @@
 //! state at another moment than the files show) is recorded as unaligned, with the reason, and
 //! never counted as a match or a difference.
 
-use pool_core::{forecast, js, providers, resets, summary, value};
+use pool_core::{forecast, js, providers, resets, status, summary, value};
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
@@ -21,16 +21,19 @@ pub enum Kind {
     Forecast,
     /// `state/usage-value.json` against `build_usage_reports` over the ledger.
     Value,
+    /// `GET /api/status` on the live service against `build_status` over its files.
+    Status,
 }
 
 impl Kind {
-    pub const ALL: [Kind; 3] = [Kind::Summary, Kind::Forecast, Kind::Value];
+    pub const ALL: [Kind; 4] = [Kind::Summary, Kind::Forecast, Kind::Value, Kind::Status];
 
     pub fn name(self) -> &'static str {
         match self {
             Kind::Summary => "summary",
             Kind::Forecast => "forecast",
             Kind::Value => "value",
+            Kind::Status => "status",
         }
     }
 }
@@ -262,6 +265,73 @@ pub fn check_summary(
     );
     Check::compared(
         Kind::Summary,
+        subject,
+        live,
+        &built,
+        started.elapsed().as_secs_f64() * 1000.0,
+        now,
+    )
+}
+
+/// `/api/status` over the install's files at `now`, with what only the live service knows
+/// (`live`) as given.
+pub fn status_now(install: &Install, live: &status::Live, now: f64) -> Option<Value> {
+    let pool = install.json("state/pool-state.json")?;
+    let settings = install.settings();
+    let forecast = install
+        .json("state/capacity-forecast.json")
+        .filter(|d| d.get("format") == Some(&json!(forecast::FORECAST_FORMAT)));
+    Some(status::build_status(
+        &pool,
+        settings.get("expectedAccounts"),
+        &resets::reset_policies(&settings),
+        forecast.as_ref(),
+        live,
+        now,
+    ))
+}
+
+/// The live `/api/status` against `build_status` over the files read just after it, at `at`
+/// (when the answer arrived: the status carries no time of its own). Aligned when the answer
+/// holds the pool state's `checkedAt` and the forecast on disk. `processes`, `holds` and
+/// `usageLedger` are the live service's memory and are taken from its answer.
+pub fn check_status(live: &Value, install: &Install, at: f64, now: f64) -> Check {
+    let subject = text(live.get("checkedAt"));
+    let Some(pool) = install.json("state/pool-state.json") else {
+        return Check::unaligned(
+            Kind::Status,
+            subject,
+            "state/pool-state.json did not read",
+            now,
+        );
+    };
+    let forecast = install.json("state/capacity-forecast.json");
+    let mut skew = Vec::new();
+    if live.get("checkedAt") != Some(pool.get("checkedAt").unwrap_or(&Value::Null)) {
+        skew.push("pool state was saved after the live answer (checkedAt)");
+    }
+    if js::get(live.get("capacity"), "generatedAt") != js::get(forecast.as_ref(), "generatedAt") {
+        skew.push("the forecast was republished after the live answer");
+    }
+    if !skew.is_empty() {
+        return Check::unaligned(Kind::Status, subject, skew.join("; "), now);
+    }
+    let taken = status::Live {
+        processes: live.get("processes").cloned(),
+        holds: live.get("holds").cloned(),
+        usage_ledger: live.get("usageLedger").cloned(),
+    };
+    let started = std::time::Instant::now();
+    let Some(built) = status_now(install, &taken, at) else {
+        return Check::unaligned(
+            Kind::Status,
+            subject,
+            "state/pool-state.json did not read",
+            now,
+        );
+    };
+    Check::compared(
+        Kind::Status,
         subject,
         live,
         &built,

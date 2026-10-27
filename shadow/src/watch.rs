@@ -53,7 +53,7 @@ pub struct Tally {
 
 #[derive(Default)]
 pub struct Inner {
-    pub tallies: [Tally; 3],
+    pub tallies: [Tally; 4],
     /// Newest first.
     pub recent: VecDeque<Check>,
     /// The last `/api/summary` the live service answered, and when.
@@ -344,6 +344,45 @@ pub async fn watch(shadow: Shared, every: Duration, signal: Signal) {
             done = work => if let Err(e) = done { eprintln!("shadow: watch pass failed: {e}") },
             // A check in progress only reads; it is dropped with the process.
             _ = signal.aborted() => return,
+        }
+    }
+}
+
+/// Asks the live service for `/api/status` every `every` and checks it.
+pub async fn compare_status(shadow: Shared, every: Duration, signal: Signal) {
+    let mut tick = tokio::time::interval(every);
+    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    // Offset from the summary check, so the two do not read the files at the same moment.
+    tokio::select! {
+        _ = tokio::time::sleep(every / 2) => {}
+        _ = signal.aborted() => return,
+    }
+    let url = format!("{}/api/status", shadow.live_url.trim_end_matches('/'));
+    loop {
+        tokio::select! {
+            _ = tick.tick() => {}
+            _ = signal.aborted() => return,
+        }
+        let answer = tokio::select! {
+            a = fetch(&shadow.http, &url) => a,
+            _ = signal.aborted() => return,
+        };
+        let at = now_ms();
+        let live = match answer {
+            Ok(live) => live,
+            Err(e) => {
+                shadow.lock().live_error = Some(format!("{}: /api/status: {e}", js::iso(at)));
+                continue;
+            }
+        };
+        let s = shadow.clone();
+        let check = tokio::task::spawn_blocking(move || {
+            parity::check_status(&live, &s.install, at, now_ms())
+        })
+        .await;
+        match check {
+            Ok(check) => shadow.record(check),
+            Err(e) => eprintln!("shadow: status check failed: {e}"),
         }
     }
 }

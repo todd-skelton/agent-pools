@@ -43,6 +43,8 @@ pub struct Capacity {
 pub struct Provider {
     pub id: &'static str,
     pub name: &'static str,
+    /// The proxy's OAuth provider id (`loginId`).
+    pub login_id: &'static str,
     pub redemption: Redemption,
     pub reset_defaults: ResetDefaults,
     pub capacity: Capacity,
@@ -52,6 +54,7 @@ pub struct Provider {
 pub const CODEX: Provider = Provider {
     id: "codex",
     name: "Codex",
+    login_id: "codex",
     redemption: Redemption::Reset,
     reset_defaults: ResetDefaults {
         enabled: true,
@@ -71,6 +74,7 @@ pub const CODEX: Provider = Provider {
 pub const CLAUDE: Provider = Provider {
     id: "claude",
     name: "Claude",
+    login_id: "anthropic",
     redemption: Redemption::Refill,
     reset_defaults: ResetDefaults {
         enabled: true,

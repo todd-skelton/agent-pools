@@ -8,7 +8,7 @@
 //! Ported: quota windows and normalized usage ([`quota`]), routing order and the banked-credit
 //! choice ([`routing`]), Codex credits and the Claude bank ([`banks`]), reset policies
 //! ([`resets`]), the capacity forecast ([`forecast`]), the usage value report and session usage
-//! ([`value`]) and `/api/summary` with account freshness ([`summary`]), over the provider facts
+//! ([`value`]) `/api/summary` with account freshness ([`summary`]) and `/api/status` ([`status`]), over the provider facts
 //! in [`providers`].
 //!
 //! # Where the port knowingly differs
@@ -40,5 +40,6 @@ pub mod providers;
 pub mod quota;
 pub mod resets;
 pub mod routing;
+pub mod status;
 pub mod summary;
 pub mod value;

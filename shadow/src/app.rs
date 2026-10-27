@@ -23,7 +23,7 @@ pub fn app(
     watch_every: std::time::Duration,
     summary_every: std::time::Duration,
 ) -> App {
-    let (w, s) = (shadow.clone(), shadow.clone());
+    let (w, s, st) = (shadow.clone(), shadow.clone(), shadow.clone());
     App::new(url::router(shadow))
         .assets(assets)
         .task("watch-files", move |signal| {
@@ -31,6 +31,9 @@ pub fn app(
         })
         .task("compare-summary", move |signal| {
             crate::watch::compare_summary(s, summary_every, signal)
+        })
+        .task("compare-status", move |signal| {
+            crate::watch::compare_status(st, summary_every, signal)
         })
 }
 
@@ -44,6 +47,9 @@ mod url {
 
     #[route("/api/summary", get = summary_json)]
     pub struct Summary;
+
+    #[route("/api/status", get = status_json)]
+    pub struct Status;
 
     #[route("/api/parity", get = parity_json)]
     pub struct ParityJson;
@@ -71,6 +77,21 @@ async fn build_summary(shadow: &Shared) -> Result<Value> {
 
 async fn summary_json(State(shadow): State<Shared>) -> JsonResult<JsJson> {
     Ok(Json(JsJson(build_summary(&shadow).await?)))
+}
+
+/// `/api/status` from the files. `processes`, `holds` and `usageLedger` are the live service's
+/// memory, so they are `null` here.
+async fn status_json(State(shadow): State<Shared>) -> JsonResult<JsJson> {
+    let s = shadow.clone();
+    let doc = tokio::task::spawn_blocking(move || {
+        parity::status_now(&s.install, &Default::default(), now_ms())
+    })
+    .await?;
+    let doc = doc.ok_or_else(|| {
+        corten::Error::new("state/pool-state.json did not read")
+            .with_status(StatusCode::SERVICE_UNAVAILABLE)
+    })?;
+    Ok(Json(JsJson(doc)))
 }
 
 async fn parity_json(State(shadow): State<Shared>) -> JsonResult<Value> {

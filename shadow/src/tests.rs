@@ -140,6 +140,28 @@ async fn api_summary_is_pool_cores_summary_in_javascripts_bytes() {
 }
 
 #[tokio::test]
+async fn api_status_leaves_out_credit_ids_and_auth() {
+    let t = snapshot("status", false);
+    let (status, body) = get(router(&t), "/api/status").await;
+    assert_eq!(status, StatusCode::OK);
+    let doc: Value = serde_json::from_str(&body).unwrap();
+    let accounts = doc["accounts"].as_array().unwrap();
+    assert_eq!(accounts.len(), 7);
+    for a in accounts {
+        for k in ["credits", "auth_index", "accountId"] {
+            assert!(a.get(k).is_none(), "{k} is left out");
+        }
+        assert!(a["creditExpiries"].is_array());
+    }
+    for k in ["processes", "holds", "usageLedger"] {
+        assert_eq!(doc[k], Value::Null, "{k} is the live service's memory");
+    }
+    assert_eq!(doc["providers"]["claude"]["loginId"], "anthropic");
+    assert_eq!(doc["resetPolicy"]["claude"]["redemption"], "refill");
+    assert_eq!(doc["capacity"]["format"], "capacity-forecast/v1");
+}
+
+#[tokio::test]
 async fn pages_render() {
     let t = snapshot("pages", false);
     let (status, home) = get(router(&t), "/").await;

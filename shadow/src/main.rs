@@ -44,8 +44,15 @@ fn secs(key: &str, default: u64) -> Duration {
 }
 
 fn main() -> std::io::Result<()> {
-    if std::env::args().nth(1).as_deref() == Some("check-value") {
-        return check_value_once();
+    match std::env::args().nth(1).as_deref() {
+        Some("check-value") => return check_value_once(),
+        Some("check-status") => {
+            return tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()?
+                .block_on(check_status_once());
+        }
+        _ => {}
     }
     if std::env::var_os("PORT").is_none() {
         // corten::serve takes its port from PORT only (corten#115: no listener of the app's own).
@@ -115,6 +122,33 @@ fn check_value_once() -> std::io::Result<()> {
         ledger_rows: None,
     };
     let check = parity::check_value(&live, &inp, watch::now_ms());
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&check).unwrap_or_default()
+    );
+    Ok(())
+}
+
+/// `pools-shadow check-status`: asks the live service for `/api/status` once and checks it.
+async fn check_status_once() -> std::io::Result<()> {
+    let install = sources::Install::new(env_or("AGENT_POOLS_ROOT", r"D:\Users\ToddS\AgentPools"));
+    let url = format!(
+        "{}/api/status",
+        env_or("AGENT_POOLS_URL", "http://127.0.0.1:8318")
+    );
+    let live: serde_json::Value = reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .map_err(std::io::Error::other)?
+        .get(url)
+        .send()
+        .await
+        .map_err(std::io::Error::other)?
+        .json()
+        .await
+        .map_err(std::io::Error::other)?;
+    let at = watch::now_ms();
+    let check = parity::check_status(&live, &install, at, watch::now_ms());
     println!(
         "{}",
         serde_json::to_string_pretty(&check).unwrap_or_default()
