@@ -173,7 +173,7 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
 - the guardian's stop: `POST /api/shutdown` with the run's management key as a Bearer
   (`managementKey` in `stand-in/keys.json`; anything else is 403 `Unauthorized`) answers 202,
   logs `supervisor-stopping`, sets `closing` on `/api/health`, and begins Corten's graceful
-  shutdown (`corten::shutdown`, [corten#174 An app cannot begin its own graceful shutdown](https://github.com/todd-skelton/corten/issues/174)):
+  shutdown (`corten::shutdown`, [corten#178 corten::shutdown](https://github.com/todd-skelton/corten/pull/178) for [corten#174 An app cannot begin its own graceful shutdown](https://github.com/todd-skelton/corten/issues/174)):
   writes get 503 `Service stopping`, the tasks are told (a cycle in progress finishes, the
   ledger drains a last time), and every listener closes. A signal stops the copy the same way.
   Measured on 2026-10-27: after the 202, the dashboard, desktop relay, inference relay and
