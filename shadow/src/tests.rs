@@ -449,6 +449,62 @@ async fn a_copys_dashboard_signs_in_and_refreshes_through_the_stand_in() {
     std::fs::remove_file(t.dir.join("logs/fake-proxy.jsonl")).unwrap();
 }
 
+/// The tailnet view (tailnet-dashboard-proxy.mjs): the tailnet name is answered and its pages
+/// read by anyone on it; a write from it (a form, or the service's JSON) needs the owner's
+/// Tailscale login, and the tailnet page's origin passes the JSON write's origin check. Without a
+/// tailnet set, a request carrying a Tailscale identity is refused a write.
+#[tokio::test]
+async fn the_tailnet_reads_and_only_its_owner_writes() {
+    let t = snapshot("copy-tailnet", false);
+    let key = "test-key".to_string();
+    let proxy = crate::writer::fake_proxy::start(t.dir.clone(), key.clone(), None).await.unwrap();
+    let io = std::sync::Arc::new(crate::writer::io::FileIo::new(t.dir.clone(), proxy, key));
+    let copy = std::sync::Arc::new(crate::writer::Copy::new(io));
+    let app_with = |tailnet: Option<crate::tailnet::Tailnet>| {
+        let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
+        if let Some(tn) = tailnet {
+            shadow.tailnet.set(tn).unwrap();
+        }
+        crate::app::app_copy(shadow, std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"), copy.clone(), Default::default(), Default::default()).router()
+    };
+    let app = app_with(Some(crate::tailnet::Tailnet::new("https://box.example.ts.net:8443", "owner@example.com").unwrap()));
+    let send = |method: &'static str, path: &'static str, login: Option<&'static str>, kind: &'static str, body: &'static str| {
+        let mut req = Request::builder()
+            .method(method)
+            .uri(path)
+            .header("host", "box.example.ts.net:8443")
+            .header("origin", "https://box.example.ts.net:8443")
+            .header("content-type", kind);
+        if let Some(l) = login {
+            req = req.header("tailscale-user-login", l);
+        }
+        req.body(Body::from(body)).unwrap()
+    };
+    let status = |app: corten::axum::Router, req: Request<Body>| async move { app.oneshot(req).await.unwrap().status() };
+    let form = "application/x-www-form-urlencoded";
+
+    assert_eq!(status(app.clone(), send("GET", "/", Some("guest@example.com"), form, "")).await, StatusCode::OK, "anyone on the tailnet reads");
+    assert_eq!(status(app.clone(), send("GET", "/accounts", None, form, "")).await, StatusCode::OK);
+    for login in [None, Some("guest@example.com")] {
+        assert_eq!(status(app.clone(), send("POST", "/refresh", login, form, "")).await, StatusCode::FORBIDDEN, "{login:?}");
+        assert_eq!(status(app.clone(), send("POST", "/signin", login, form, "provider=codex")).await, StatusCode::FORBIDDEN, "{login:?}");
+        assert_eq!(status(app.clone(), send("POST", "/api/refresh", login, "application/json", "{}")).await, StatusCode::FORBIDDEN, "{login:?}");
+    }
+    assert_eq!(status(app.clone(), send("POST", "/refresh", Some("owner@example.com"), form, "")).await, StatusCode::SEE_OTHER);
+    assert_eq!(status(app.clone(), send("POST", "/signin", Some("owner@example.com"), form, "provider=codex")).await, StatusCode::OK);
+    assert_eq!(status(app.clone(), send("POST", "/signin/cancel", Some("owner@example.com"), form, "")).await, StatusCode::OK);
+    assert_eq!(status(app.clone(), send("POST", "/api/refresh", Some("owner@example.com"), "application/json", "{}")).await, StatusCode::ACCEPTED, "the tailnet page's origin is taken from the owner");
+
+    let local = Request::builder().method("POST").uri("/refresh").header("host", "localhost").header("origin", "http://localhost").header("content-type", form).body(Body::empty()).unwrap();
+    assert_eq!(status(app.clone(), local).await, StatusCode::SEE_OTHER, "this PC writes as before");
+
+    let without = app_with(None);
+    assert_eq!(status(without.clone(), send("GET", "/", None, form, "")).await, StatusCode::MISDIRECTED_REQUEST, "no tailnet: its name is not answered");
+    let forged = Request::builder().method("POST").uri("/refresh").header("host", "localhost").header("origin", "http://localhost").header("tailscale-user-login", "owner@example.com").header("content-type", form).body(Body::empty()).unwrap();
+    assert_eq!(status(without, forged).await, StatusCode::FORBIDDEN, "a Tailscale identity with no tailnet set");
+    let _ = std::fs::remove_file(t.dir.join("logs/fake-proxy.jsonl"));
+}
+
 /// The copy's ledger end to end: the stand-in's queue drained into the day's raw file (the row
 /// attributed to the account the stand-in named, with the quota from its headers), the stats in
 /// `/api/status`, and a value report written from the ledger.

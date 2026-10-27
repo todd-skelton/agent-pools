@@ -23,6 +23,7 @@ use serde_json::{Value, json};
 use super::model::{Ctx, Tone, View};
 use super::views::{Dash, Header};
 use crate::app::url;
+use crate::tailnet::Owner;
 use crate::watch::{Shared, now_ms};
 
 /// How long a sign-in stays pending (`pendingSignin`: 15 minutes).
@@ -225,7 +226,7 @@ pub async fn page(req: Req, State(shadow): State<Shared>, Query(q): Query<Signin
 
 /// `POST /signin` (`login()`): the stand-in's sign-in address for the provider, the sign-in
 /// noted as pending, and the wait for it started.
-pub async fn open(req: Req, State(shadow): State<Shared>, Form(input): Form<OpenInput>) -> HtmlResult {
+pub async fn open(req: Req, State(shadow): State<Shared>, _owner: Caller<Owner>, Form(input): Form<OpenInput>) -> HtmlResult {
     let copy = copy_of(&shadow)?;
     let d = super::load(&shadow).await?;
     let c = d.ctx();
@@ -257,7 +258,7 @@ pub async fn open(req: Req, State(shadow): State<Shared>, Form(input): Form<Open
 
 /// `POST /signin/finish` (`finishSignin(link)`): the localhost address the provider ended on,
 /// checked as the live page checks it and passed to the proxy's `oauth-callback`.
-pub async fn finish(req: Req, State(shadow): State<Shared>, Form(input): Form<FinishInput>) -> HtmlResult {
+pub async fn finish(req: Req, State(shadow): State<Shared>, _owner: Caller<Owner>, Form(input): Form<FinishInput>) -> HtmlResult {
     let copy = copy_of(&shadow)?;
     let d = super::load(&shadow).await?;
     let c = d.ctx();
@@ -306,7 +307,7 @@ pub async fn finish(req: Req, State(shadow): State<Shared>, Form(input): Form<Fi
 }
 
 /// `POST /signin/cancel` (`si-cancel`): the pending sign-in forgotten.
-pub async fn cancel(req: Req, State(shadow): State<Shared>) -> HtmlResult {
+pub async fn cancel(req: Req, State(shadow): State<Shared>, _owner: Caller<Owner>) -> HtmlResult {
     copy_of(&shadow)?;
     shadow.signin.cancel();
     shadow.changed_inputs();

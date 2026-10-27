@@ -210,6 +210,24 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   the relay accepts and the registered machine `copy-test`'s key). The desktop's
   `~/.codex/auth.json`, `state/secrets.json` and `state/remote-clients.json` are never read.
 
+### The tailnet view
+
+`shadow/src/tailnet.rs` is tailnet-dashboard-proxy.mjs without a proxy. Agent Pools runs a
+proxy on 127.0.0.1:8327 behind `tailscale serve` that rewrites `Host` and `Origin`, forwards
+the dashboard's reads, and forwards `login`, `callback` and `refresh` only from the tailnet
+page's origin and the owner's `Tailscale-User-Login`. Here `SHADOW_TAILNET_ORIGIN`
+(`https://<machine>.<tailnet>.ts.net:8443`) and `SHADOW_TAILNET_OWNER` make the app answer the
+tailnet name itself (`Policy::host`, `Policy::allow_origin`), and every write the dashboard
+makes (the refresh and sign-in forms, and `/api/refresh`, `/api/login`, `/api/callback`) takes a
+`Caller<Owner>`: anyone on this PC, and from the tailnet only the owner's login (403 "Owner
+tailnet identity required" otherwise). A request carrying a Tailscale identity when no tailnet is
+set is refused a write. `tailscale serve` would point at the app's port instead of 8327; that
+change is part of cutover and was not made. Differences: every read the pages use is served on
+the tailnet (their live updates, assets and the JSON reads), where the proxy forwards a fixed
+list; a refused write is Corten's error page (JSON for a JSON client), where the proxy answers
+JSON. `the_tailnet_reads_and_only_its_owner_writes` holds the rules through the router; an
+`Owner` that is always local fails it.
+
 Not ported from pool-service.mjs, and why:
 
 1. Starting, adopting and restarting the proxy child (`child`, `adopt`, `planTakeover`) and

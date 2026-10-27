@@ -20,12 +20,23 @@ use serde_json::{Value, json};
 use crate::dash::signin::{cancel as signin_cancel, finish as signin_finish, open as signin_open, page as signin_page};
 use crate::dash::{accounts, live, overview, policy, usage};
 use crate::parity::{self, Kind, Outcome};
+use crate::tailnet::Owner;
 use crate::watch::{Shared, now_ms};
 
 /// How often the live service's memory (`/api/status`) is read for the dashboard.
 const MEMORY_EVERY: std::time::Duration = std::time::Duration::from_secs(5);
 /// How often the dashboard's files' modification times are looked at.
 const SAVES_EVERY: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// The app's security policy: style attributes allowed (the dashboard sizes meters, bars and
+/// timeline marks from data: corten#139), and the tailnet view's name and origin when it is set.
+fn security(shadow: &Shared) -> corten::security::Policy {
+    let p = corten::security::Policy::new().allow_style_attributes();
+    match shadow.tailnet.get() {
+        Some(t) => t.policy(p),
+        None => p,
+    }
+}
 
 /// The app on a copy of the install (`pools-shadow run-copy`): the same pages over the copy's
 /// files, and the write side's refresh loop in place of the parity checks.
@@ -36,13 +47,14 @@ pub fn app_copy(
     delays: crate::writer::Delays,
     options: pool_core::refresh::Options,
 ) -> App {
+    let security = security(&shadow);
     let _ = shadow.writer.set(copy.trigger.clone());
     let _ = shadow.copy.set(copy.clone());
     let (n, w) = (shadow.clone(), shadow.clone());
     let (watch, drain, d, value, closing) = (copy.clone(), copy.clone(), shadow.clone(), copy.clone(), copy.clone());
     App::new(url::router(shadow))
         .assets(assets)
-        .policy(corten::security::Policy::new().allow_style_attributes())
+        .policy(security)
         .shutdown_grace(std::time::Duration::from_secs(20))
         .task("notice-saves", move |signal| {
             crate::watch::notice_saves(n, SAVES_EVERY, signal)
@@ -74,11 +86,11 @@ pub fn app(
     watch_every: std::time::Duration,
     summary_every: std::time::Duration,
 ) -> App {
+    let security = security(&shadow);
     let (w, s, st, n) = (shadow.clone(), shadow.clone(), shadow.clone(), shadow.clone());
     App::new(url::router(shadow))
         .assets(assets)
-        // The dashboard sizes meters, bars and timeline marks from data (corten#139: no way to write one without style attributes).
-        .policy(corten::security::Policy::new().allow_style_attributes())
+        .policy(security)
         .task("watch-files", move |signal| {
             crate::watch::watch(w, watch_every, signal)
         })
@@ -256,12 +268,20 @@ fn refuse_while_closing(copy: &crate::writer::Copy) -> Result<(), JsonStatus> {
     Ok(())
 }
 
-/// The checks pool-service.mjs puts before every write: from this origin, as JSON, at most
-/// 8 KiB, parsed (`{}` when empty). Its own origin is `http://<the Host it was asked for>`.
-fn json_input(headers: &corten::axum::http::HeaderMap, body: &[u8]) -> Result<Value, JsonStatus> {
+/// The tailnet page's origin when the owner writes from it (tailnet-dashboard-proxy.mjs passes
+/// such a write on with the service's own origin).
+fn tailnet_origin(shadow: &Shared, owner: Owner) -> Option<&str> {
+    (owner == Owner::Tailnet).then(|| shadow.tailnet.get().map(|t| t.origin.as_str())).flatten()
+}
+
+/// The checks pool-service.mjs puts before every write: from this origin (or `also`, the
+/// tailnet page's), as JSON, at most 8 KiB, parsed (`{}` when empty). Its own origin is
+/// `http://<the Host it was asked for>`.
+fn json_input(headers: &corten::axum::http::HeaderMap, body: &[u8], also: Option<&str>) -> Result<Value, JsonStatus> {
     let header = |name: corten::axum::http::HeaderName| headers.get(name).and_then(|v| v.to_str().ok());
     let own = header(corten::axum::http::header::HOST).map(|h| format!("http://{h}"));
-    let same_origin = own.is_some() && header(corten::axum::http::header::ORIGIN) == own.as_deref();
+    let origin = header(corten::axum::http::header::ORIGIN);
+    let same_origin = (own.is_some() && origin == own.as_deref()) || (also.is_some() && origin.map(|o| o.trim_end_matches('/')) == also);
     if !same_origin || !header(corten::axum::http::header::CONTENT_TYPE).is_some_and(|t| t.starts_with("application/json")) {
         return Err(error(StatusCode::FORBIDDEN, "Same-origin JSON required"));
     }
@@ -276,7 +296,7 @@ fn json_input(headers: &corten::axum::http::HeaderMap, body: &[u8]) -> Result<Va
 
 /// `POST /api/refresh`: the stand-in's live model lists re-read (ignored when refused) and a
 /// refresh cycle started; 202 at once.
-async fn api_refresh(State(shadow): State<Shared>, headers: corten::axum::http::HeaderMap, body: corten::axum::body::Bytes) -> JsonStatus {
+async fn api_refresh(State(shadow): State<Shared>, Caller(owner): Caller<Owner>, headers: corten::axum::http::HeaderMap, body: corten::axum::body::Bytes) -> JsonStatus {
     let copy = match copy_of(&shadow) {
         Ok(c) => c,
         Err(e) => return e,
@@ -284,7 +304,7 @@ async fn api_refresh(State(shadow): State<Shared>, headers: corten::axum::http::
     if let Err(e) = refuse_while_closing(&copy) {
         return e;
     }
-    if let Err(e) = json_input(&headers, &body) {
+    if let Err(e) = json_input(&headers, &body, tailnet_origin(&shadow, owner)) {
         return e;
     }
     let io = copy.io.clone();
@@ -296,7 +316,7 @@ async fn api_refresh(State(shadow): State<Shared>, headers: corten::axum::http::
 }
 
 /// `POST /api/login` `{ provider }`: the stand-in's sign-in address for that provider.
-async fn api_login(State(shadow): State<Shared>, headers: corten::axum::http::HeaderMap, body: corten::axum::body::Bytes) -> JsonStatus {
+async fn api_login(State(shadow): State<Shared>, Caller(owner): Caller<Owner>, headers: corten::axum::http::HeaderMap, body: corten::axum::body::Bytes) -> JsonStatus {
     let copy = match copy_of(&shadow) {
         Ok(c) => c,
         Err(e) => return e,
@@ -304,7 +324,7 @@ async fn api_login(State(shadow): State<Shared>, headers: corten::axum::http::He
     if let Err(e) = refuse_while_closing(&copy) {
         return e;
     }
-    let input = match json_input(&headers, &body) {
+    let input = match json_input(&headers, &body, tailnet_origin(&shadow, owner)) {
         Ok(i) => i,
         Err(e) => return e,
     };
@@ -319,7 +339,7 @@ async fn api_login(State(shadow): State<Shared>, headers: corten::axum::http::He
 
 /// `POST /api/callback` `{ provider (a loginId), redirect_url, ... }`: passed to the stand-in's
 /// `oauth-callback`, which signs nothing in.
-async fn api_callback(State(shadow): State<Shared>, headers: corten::axum::http::HeaderMap, body: corten::axum::body::Bytes) -> JsonStatus {
+async fn api_callback(State(shadow): State<Shared>, Caller(owner): Caller<Owner>, headers: corten::axum::http::HeaderMap, body: corten::axum::body::Bytes) -> JsonStatus {
     let copy = match copy_of(&shadow) {
         Ok(c) => c,
         Err(e) => return e,
@@ -327,7 +347,7 @@ async fn api_callback(State(shadow): State<Shared>, headers: corten::axum::http:
     if let Err(e) = refuse_while_closing(&copy) {
         return e;
     }
-    let input = match json_input(&headers, &body) {
+    let input = match json_input(&headers, &body, tailnet_origin(&shadow, owner)) {
         Ok(i) => i,
         Err(e) => return e,
     };
@@ -371,7 +391,7 @@ struct RefreshInput {
 /// `POST /refresh`: a refresh cycle now, on a copy (`run-copy`), then back to the overview, or
 /// to the account's row when the form was on one; the read-only shadow has no write side and
 /// answers 404.
-async fn refresh_now(req: Req, State(shadow): State<Shared>, Form(input): Form<RefreshInput>) -> HtmlResult {
+async fn refresh_now(req: Req, State(shadow): State<Shared>, _owner: Caller<Owner>, Form(input): Form<RefreshInput>) -> HtmlResult {
     let Some(trigger) = shadow.writer.get() else {
         return Err(corten::Error::new("This shadow only reads; refresh on the live dashboard").with_status(StatusCode::NOT_FOUND));
     };

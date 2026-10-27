@@ -12,12 +12,14 @@
 //! | `SHADOW_WATCH_SECS` | 5 | how often the install's files are looked at |
 //! | `SHADOW_SUMMARY_SECS` | 60 | how often the live summary is compared |
 //! | `STATIC_DIR` | `shadow/static` | the stylesheet |
+//! | `SHADOW_TAILNET_ORIGIN`, `SHADOW_TAILNET_OWNER` | none | the tailnet view ([`tailnet`]): the page's `https://` origin and the owner's Tailscale login |
 //! | `PORT`, `HOST` | 8320, loopback | Corten's own |
 
 mod app;
 mod dash;
 mod parity;
 mod sources;
+mod tailnet;
 #[cfg(test)]
 mod testing;
 #[cfg(test)]
@@ -81,6 +83,7 @@ async fn serve() -> std::io::Result<()> {
         env_or("AGENT_POOLS_URL", "http://127.0.0.1:8318"),
         state_dir.join("parity.jsonl"),
     );
+    set_tailnet(&shadow)?;
     println!(
         "shadow: reading {} (read only), comparing with {}",
         shadow.install.root().display(),
@@ -98,6 +101,15 @@ async fn serve() -> std::io::Result<()> {
         app::app(shadow, assets, secs("SHADOW_WATCH_SECS", 5), secs("SHADOW_SUMMARY_SECS", 60)),
     )
     .await
+}
+
+/// The tailnet view from the environment, when it is set.
+fn set_tailnet(shadow: &watch::Shared) -> std::io::Result<()> {
+    if let Some(t) = tailnet::Tailnet::from_env().map_err(std::io::Error::other)? {
+        println!("tailnet: {} answered; writes there only as {}", t.origin, t.owner);
+        let _ = shadow.tailnet.set(t);
+    }
+    Ok(())
 }
 
 /// A port from the environment, or `default`.
@@ -148,6 +160,7 @@ async fn run_copy() -> std::io::Result<()> {
     let gateway = writer::edge::start_gateway(io.clone(), &keys, &proxy, &service, port_env("SHADOW_COPY_GATEWAY_PORT", 8324)?).await?;
     println!("copy: public gateway at http://127.0.0.1:{gateway} for Host {} (keys in stand-in/keys.json)", writer::edge::GATEWAY_HOST);
     let shadow = watch::Shadow::new(sources::Install::new(root.clone()), "(a copy: not compared)".into(), root.join("logs/parity.jsonl"));
+    set_tailnet(&shadow)?;
     let assets = std::env::var_os("STATIC_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"));

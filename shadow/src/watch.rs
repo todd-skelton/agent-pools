@@ -85,6 +85,8 @@ pub struct Shadow {
     pub copy: std::sync::OnceLock<Arc<crate::writer::Copy>>,
     /// A sign-in started on the copy's dashboard and not yet confirmed.
     pub signin: crate::dash::signin::Signins,
+    /// The tailnet view, when it is set (`SHADOW_TAILNET_*`).
+    pub tailnet: std::sync::OnceLock<crate::tailnet::Tailnet>,
     http: reqwest::Client,
 }
 
@@ -116,6 +118,7 @@ impl Shadow {
             writer: std::sync::OnceLock::new(),
             copy: std::sync::OnceLock::new(),
             signin: Default::default(),
+            tailnet: std::sync::OnceLock::new(),
             http,
         })
     }
