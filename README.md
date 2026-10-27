@@ -35,7 +35,9 @@ target\release\pools-shadow.exe   # http://localhost:8320 (PORT), settings in sh
 
 | Route | |
 |---|---|
-| `/` | the dashboard |
+| `/`, `/accounts`, `/usage`, `/policy` | the live dashboard's four tabs (overview, accounts, usage & value, automation), drawn on the server |
+| `/summary` | `/api/summary` as a page |
+| `/api/status` | `/api/status` from the files (`processes`, `holds`, `usageLedger` are `null`: the live service's memory) |
 | `/parity`, `/api/parity` | the parity checks: counts per kind, the last difference, the recent checks |
 | `/api/summary` | `agent-pools-summary/v1`, written as `JSON.stringify` writes it |
 
@@ -55,6 +57,37 @@ rebuilt report matched exactly.
 `pools-shadow check-value` rebuilds the live value report once (about 17 s over 611,054 rows)
 and prints the check. It uses the pool state and forecast on disk now, so it is only exact while
 those have not changed what the report shows.
+
+### The dashboard
+
+`shadow/src/dash/` is `dashboard.html` on Corten: `model.rs` ports its pure functions of `S`
+(`/api/status`), `V` (`/api/value`) and `NOW` (names kept, so the two read side by side),
+`fmt.rs` its en-US formatting in US Central time with daylight saving (`SHADOW_UTC_STANDARD_HOURS`,
+default -6), and `views.rs` its markup as `html!`. The tabs are routes and the account filter
+and open row are query parameters, so every view is a link and there is no script. The pages
+use the shadow's `/api/status`, with the live service's memory keys taken from its last
+`/api/status` answer, and `state/usage-value.json`. Sign-in and refresh change the pool, so
+they are shown disabled.
+
+`golden/dash-text.mjs` draws every part with the live page's own JavaScript and with
+`pools-shadow render-dash` from the same documents at the same moment, and compares the words,
+the tooltips and the computed sizes:
+
+```powershell
+$env:TZ = 'America/Chicago'
+node golden/dash-text.mjs <status.json> <usage-value.json|-> <now ms> [filter] [open account id]
+```
+
+On a live `/api/status` and value report (2026-10-27) every part matched for each filter, each
+account opened, no value report, and `now` moved from -24 h to +14 days. Getting there fixed one
+real difference: Intl rounds a tie away from zero on the shortest decimal (`$1,246.5` is
+`$1,247`, `1.005` is `1.01`), where Rust's `{:.0}` keeps the even digit.
+
+The live page sizes meters, bars and timeline marks with `style` attributes, which Corten's CSP
+blocks, so the app allows them for every page (`allow_style_attributes`); acceptable for a
+loopback, read-only app, and filed as [corten#139 A size or position drawn from data needs style attributes, and allowing them opens style-src-attr 'unsafe-inline' for the whole app](https://github.com/todd-skelton/corten/issues/139).
+The fixed inline styles became classes in `shadow/static/dash.css` (the live stylesheet, less
+the sign-in drawer).
 
 An unaligned check (the live service read its inputs at another moment than the files show) is
 counted apart and never as a match. The shadow's tests (`cargo test --release -p pools-shadow`)

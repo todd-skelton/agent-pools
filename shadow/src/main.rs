@@ -15,6 +15,7 @@
 //! | `PORT`, `HOST` | 8320, loopback | Corten's own |
 
 mod app;
+mod dash;
 mod parity;
 mod sources;
 #[cfg(test)]
@@ -46,6 +47,7 @@ fn secs(key: &str, default: u64) -> Duration {
 fn main() -> std::io::Result<()> {
     match std::env::args().nth(1).as_deref() {
         Some("check-value") => return check_value_once(),
+        Some("render-dash") => return render_dash(),
         Some("check-status") => {
             return tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -153,5 +155,28 @@ async fn check_status_once() -> std::io::Result<()> {
         "{}",
         serde_json::to_string_pretty(&check).unwrap_or_default()
     );
+    Ok(())
+}
+
+/// `pools-shadow render-dash <status.json> <value.json|-> <now ms> [filter] [open]`: the
+/// dashboard's parts drawn from those documents at that moment, as JSON (`golden/dash-text.mjs`
+/// draws the JavaScript's from the same ones and compares them).
+fn render_dash() -> std::io::Result<()> {
+    let args: Vec<String> = std::env::args().skip(2).collect();
+    let read = |p: &str| -> std::io::Result<serde_json::Value> {
+        let text = std::fs::read_to_string(p)?;
+        serde_json::from_str(text.strip_prefix('\u{feff}').unwrap_or(&text)).map_err(std::io::Error::other)
+    };
+    let (Some(status), Some(value), Some(now)) = (args.first(), args.get(1), args.get(2)) else {
+        return Err(std::io::Error::other("usage: pools-shadow render-dash <status.json> <value.json|-> <now ms> [filter] [open]"));
+    };
+    let data = dash::Data {
+        s: read(status)?,
+        v: if value == "-" { None } else { Some(read(value)?) },
+        now: now.parse().map_err(std::io::Error::other)?,
+        z: dash::fmt::Zone::from_env(),
+    };
+    let parts = dash::fragments(&data, args.get(3).map(String::as_str).filter(|f| !f.is_empty()), args.get(4).map(String::as_str));
+    println!("{}", serde_json::Value::Object(parts));
     Ok(())
 }

@@ -59,6 +59,9 @@ pub struct Inner {
     /// The last `/api/summary` the live service answered, and when.
     pub live_summary: Option<(f64, Arc<Value>)>,
     pub live_error: Option<String>,
+    /// What only the live service knows (`processes`, `holds`, `usageLedger`), from its last
+    /// `/api/status` answer: the dashboard shows it beside the files.
+    pub live_memory: pool_core::status::Live,
     pools: VecDeque<Seen>,
     forecasts: VecDeque<Seen>,
     pool_mtime: Option<f64>,
@@ -140,6 +143,10 @@ impl Shadow {
         }
         inner.recent.push_front(check);
         inner.recent.truncate(RECENT);
+    }
+
+    pub fn live_memory(&self) -> pool_core::status::Live {
+        self.lock().live_memory.clone()
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -374,6 +381,11 @@ pub async fn compare_status(shadow: Shared, every: Duration, signal: Signal) {
                 shadow.lock().live_error = Some(format!("{}: /api/status: {e}", js::iso(at)));
                 continue;
             }
+        };
+        shadow.lock().live_memory = pool_core::status::Live {
+            processes: live.get("processes").cloned(),
+            holds: live.get("holds").cloned(),
+            usage_ledger: live.get("usageLedger").cloned(),
         };
         let s = shadow.clone();
         let check = tokio::task::spawn_blocking(move || {

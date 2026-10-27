@@ -3,7 +3,8 @@
 //!
 //! | Route | Answer |
 //! |---|---|
-//! | `GET /` | the dashboard: per provider cost, credits, forecast and scenarios; per account plan, windows and value |
+//! | `GET /`, `/accounts`, `/usage`, `/policy` | the live dashboard's four tabs ([`crate::dash`]) |
+//! | `GET /summary` | `/api/summary` as a page: per provider cost, credits, forecast and scenarios; per account plan, windows and value |
 //! | `GET /parity` | the parity checks: counts per kind, the last difference, the recent checks |
 //! | `GET /api/summary` | `agent-pools-summary/v1`, as `JSON.stringify` writes it |
 //! | `GET /api/parity` | the parity counts and recent checks as JSON |
@@ -13,6 +14,7 @@ use corten::prelude::*;
 use pool_core::js;
 use serde_json::{Value, json};
 
+use crate::dash::{accounts, overview, policy, usage};
 use crate::parity::{self, Kind, Outcome};
 use crate::watch::{Shared, now_ms};
 
@@ -26,6 +28,8 @@ pub fn app(
     let (w, s, st) = (shadow.clone(), shadow.clone(), shadow.clone());
     App::new(url::router(shadow))
         .assets(assets)
+        // The dashboard sizes meters, bars and timeline marks from data (corten#139: no way to write one without style attributes).
+        .policy(corten::security::Policy::new().allow_style_attributes())
         .task("watch-files", move |signal| {
             crate::watch::watch(w, watch_every, signal)
         })
@@ -38,9 +42,24 @@ pub fn app(
 }
 
 #[corten::routes(state = Shared)]
-mod url {
-    #[route("/", get = home)]
-    pub struct Home;
+pub mod url {
+    #[route("/", get = overview)]
+    pub struct Overview;
+
+    #[route("/accounts", get = accounts)]
+    pub struct Accounts<'a> {
+        pub filter: Option<&'a str>,
+        pub open: Option<&'a str>,
+    }
+
+    #[route("/usage", get = usage)]
+    pub struct Usage;
+
+    #[route("/policy", get = policy)]
+    pub struct Policy;
+
+    #[route("/summary", get = summary_page)]
+    pub struct SummaryPage;
 
     #[route("/parity", get = parity_page)]
     pub struct Parity;
@@ -116,7 +135,7 @@ async fn parity_json(State(shadow): State<Shared>) -> JsonResult<Value> {
     })))
 }
 
-async fn home(req: Req, State(shadow): State<Shared>) -> HtmlResult {
+async fn summary_page(req: Req, State(shadow): State<Shared>) -> HtmlResult {
     let doc = build_summary(&shadow).await?;
     let view = SummaryView::of(&doc);
     req.page(html! {
@@ -246,7 +265,8 @@ fn Layout<'a>(req: &'a Req, title: &'a str, children: impl Render) -> impl Docum
             <body>
                 <header>
                     <nav>
-                        <a href={url::Home} data-nav aria-current={req.current(&url::Home)}>"Dashboard"</a>
+                        <a href={url::Overview}>"Dashboard"</a>
+                        <a href={url::SummaryPage} data-nav aria-current={req.current(&url::SummaryPage)}>"Summary"</a>
                         <a href={url::Parity} data-nav aria-current={req.current(&url::Parity)}>"Parity"</a>
                         <a href={url::Summary}>"/api/summary"</a>
                     </nav>

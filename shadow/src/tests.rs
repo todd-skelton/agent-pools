@@ -164,11 +164,33 @@ async fn api_status_leaves_out_credit_ids_and_auth() {
 #[tokio::test]
 async fn pages_render() {
     let t = snapshot("pages", false);
-    let (status, home) = get(router(&t), "/").await;
+    let (status, home) = get(router(&t), "/summary").await;
     assert_eq!(status, StatusCode::OK, "{home}");
     for text in ["Codex", "Claude", "bankedCredits", "Monthly cost"] {
-        assert!(home.contains(text), "the dashboard shows {text}");
+        assert!(home.contains(text), "the summary page shows {text}");
     }
+    // The live dashboard's four tabs.
+    for (path, texts) in [
+        ("/", &["Needs attention", "account-weeks left this cycle", "Next 14 days", "Healthy"][..]),
+        ("/accounts", &["Weekly reset", "Routing order: soonest weekly reset first", " accounts</span>"][..]),
+        ("/accounts?filter=credits", &["aria-current=\"page\">Has credits</a>"][..]),
+        ("/usage", &["Requests", "By model", "Quota left on the table"][..]),
+        ("/policy", &["How sessions are routed", "Which credit goes first", "id=\"config\""][..]),
+    ] {
+        let (status, page) = get(router(&t), path).await;
+        assert_eq!(status, StatusCode::OK, "{path}: {page}");
+        for text in texts {
+            assert!(page.contains(text), "{path} shows {text}");
+        }
+        // Nothing that changes the pool is live here.
+        assert!(!page.contains("<form"), "{path} has no forms");
+    }
+    // An account opened from its link shows its detail row.
+    let status_doc = parity::status_now(&t.install(), &Default::default(), crate::watch::now_ms()).unwrap();
+    let id = status_doc["accounts"][0]["id"].as_str().unwrap().to_string();
+    let (status, page) = get(router(&t), &format!("/accounts?open={id}")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains("Quota windows") && page.contains(&format!("<code>{id}</code>")), "{id} is open");
     let (status, page) = get(router(&t), "/parity").await;
     assert_eq!(status, StatusCode::OK, "{page}");
     assert!(page.contains("Recent checks"));
