@@ -65,6 +65,12 @@ impl FileIo {
         serde_json::from_str(text.trim_start_matches('\u{feff}')).ok()
     }
 
+    /// One line in the copy's `logs/pool-events.jsonl`, for parts outside the refresh cycle (the
+    /// desktop relay); a failed write is dropped, as `event(...).catch(() => {})` does.
+    pub fn log_event(&self, kind: &str, details: Value) {
+        let _ = self.append("logs/pool-events.jsonl", kind, details);
+    }
+
     /// `createEventLog(file)(type, details)`: rotate past 5 MiB, then append one line.
     fn append(&self, rel: &str, kind: &str, details: Value) -> Result<(), Failure> {
         let file = self.path(rel);

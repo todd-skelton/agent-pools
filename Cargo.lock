@@ -158,31 +158,10 @@ checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 [[package]]
 name = "corten"
 version = "0.1.0"
-source = "git+https://github.com/todd-skelton/corten?rev=4a94783#4a94783fbcae9e1ff6a4e211a2b5343917df5554"
+source = "git+https://github.com/todd-skelton/corten?rev=97d9afe#97d9afeb59f0e95a99317504ab448578dde04e6c"
 dependencies = [
  "axum",
- "corten-macros 0.1.0 (git+https://github.com/todd-skelton/corten?rev=4a94783)",
- "form_urlencoded",
- "futures-util",
- "getrandom 0.3.4",
- "http-body",
- "serde",
- "serde_json",
- "tokio",
- "tower-layer",
- "tower-service",
- "tracing",
- "tracing-subscriber",
- "zmij",
-]
-
-[[package]]
-name = "corten"
-version = "0.1.0"
-source = "git+https://github.com/todd-skelton/corten?rev=6b86352#6b863524d98fad4652c05dff7b504b7fd9426bcb"
-dependencies = [
- "axum",
- "corten-macros 0.1.0 (git+https://github.com/todd-skelton/corten?rev=6b86352)",
+ "corten-macros",
  "form_urlencoded",
  "futures-util",
  "getrandom 0.3.4",
@@ -202,12 +181,7 @@ dependencies = [
 [[package]]
 name = "corten-macros"
 version = "0.1.0"
-source = "git+https://github.com/todd-skelton/corten?rev=4a94783#4a94783fbcae9e1ff6a4e211a2b5343917df5554"
-
-[[package]]
-name = "corten-macros"
-version = "0.1.0"
-source = "git+https://github.com/todd-skelton/corten?rev=6b86352#6b863524d98fad4652c05dff7b504b7fd9426bcb"
+source = "git+https://github.com/todd-skelton/corten?rev=97d9afe#97d9afeb59f0e95a99317504ab448578dde04e6c"
 
 [[package]]
 name = "cpufeatures"
@@ -848,7 +822,7 @@ name = "pools-gateway"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
- "corten 0.1.0 (git+https://github.com/todd-skelton/corten?rev=6b86352)",
+ "corten",
  "form_urlencoded",
  "futures-util",
  "hmac",
@@ -867,11 +841,12 @@ dependencies = [
 name = "pools-shadow"
 version = "0.1.0"
 dependencies = [
- "corten 0.1.0 (git+https://github.com/todd-skelton/corten?rev=4a94783)",
+ "corten",
  "flate2",
  "futures-util",
  "http-body-util",
  "pool-core",
+ "pools-gateway",
  "reqwest",
  "serde",
  "serde_json",

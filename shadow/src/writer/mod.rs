@@ -1,9 +1,10 @@
 //! The pool's write side on Corten, run only against a copy of the install: the refresh loop
 //! (refresh-loop.mjs) driving `pool_core::refresh` with file and proxy I/O ([`io`]), the
-//! capacity publisher ([`publisher`]), and a stand-in proxy ([`fake_proxy`]) so no request
-//! reaches a provider. [`copy::guard`] refuses the live install.
+//! capacity publisher ([`publisher`]), the desktop relay ([`desktop`]), and a stand-in proxy
+//! ([`fake_proxy`]) so no request reaches a provider. [`copy::guard`] refuses the live install.
 
 pub mod copy;
+pub mod desktop;
 pub mod fake_proxy;
 pub mod io;
 pub mod publisher;

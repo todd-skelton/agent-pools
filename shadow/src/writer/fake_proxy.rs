@@ -3,6 +3,10 @@
 //! dashboard moves), their banked credits and plans. Every claim is refused (`no_credit`,
 //! `ineligible`), so the reset lifecycle runs end to end and nothing is ever spent. No request
 //! leaves the machine; each one is logged to `logs/fake-proxy.jsonl` in the copy.
+//!
+//! It also stands in for chatgpt.com's `/backend-api` as the copy's desktop relay sees it:
+//! `GET /backend-api/wham/usage` answers the signed-in account's usage (the account named by
+//! `chatgpt-account-id`, else the first Codex account), and anything else there is a 404.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -50,6 +54,8 @@ pub async fn start(root: PathBuf, key: String) -> std::io::Result<String> {
         .route("/v0/management/client-versions", get(client_versions))
         .route("/v0/management/oauth-callback", post(oauth_callback))
         .route("/v0/management/{endpoint}", get(other_get).post(other_post))
+        .route("/backend-api/wham/usage", get(desktop_usage))
+        .route("/backend-api/{*rest}", axum::routing::any(desktop_other))
         .with_state(fake);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let url = format!("http://{}", listener.local_addr()?);
@@ -288,4 +294,25 @@ async fn other_post(State(f): State<Shared>, headers: HeaderMap, Path(endpoint):
     }
     f.log(&endpoint, &Value::Null);
     Err(StatusCode::NOT_FOUND)
+}
+
+/// The desktop's own usage poll, as chatgpt.com answers it for the signed-in account. The
+/// credential is the desktop's and is not checked or logged.
+async fn desktop_usage(State(f): State<Shared>, headers: HeaderMap) -> Result<AxumJson<Value>, StatusCode> {
+    let named = headers.get("chatgpt-account-id").and_then(|v| v.to_str().ok());
+    f.log("backend-api/wham/usage", &json!({ "chatgpt-account-id": named }));
+    let codex = |a: &&Value| a.get("provider").and_then(Value::as_str) == Some("codex") && !js::truthy(a.get("disabled"));
+    let account = named
+        .and_then(|id| f.accounts.iter().filter(codex).find(|a| a.get("accountId").and_then(Value::as_str) == Some(id)))
+        .or_else(|| f.accounts.iter().find(codex));
+    let Some(a) = account else { return Err(StatusCode::NOT_FOUND) };
+    let mut body = f.codex_usage(a);
+    body["account_id"] = a.get("accountId").cloned().unwrap_or(Value::Null);
+    body["plan_type"] = json!(f.plan(a).unwrap_or_else(|| "pro".into()));
+    Ok(AxumJson(body))
+}
+
+async fn desktop_other(State(f): State<Shared>, Path(rest): Path<String>) -> (StatusCode, AxumJson<Value>) {
+    f.log("backend-api", &json!({ "path": rest }));
+    (StatusCode::NOT_FOUND, AxumJson(json!({ "detail": "not served by the stand-in" })))
 }

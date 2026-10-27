@@ -139,12 +139,22 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   served at `/api/ladders` (503 before there are any, as the live service answers);
 - the dashboard, where Refresh is a form posting to `/refresh` (Corten's cross-site check
   applies: a cross-site POST gets 403). The read-only shadow keeps it disabled and answers 404.
+- the desktop relay on `http://127.0.0.1:8322/backend-api` (`SHADOW_COPY_RELAY_PORT`; Agent
+  Pools' is 8000): `gateway::backend` in front of the stand-in's `/backend-api`, never chatgpt.com,
+  with `/wham/usage` rewritten by `pool_core::pool_usage` over the copy's saved accounts
+  (`poolUsageMode` from the copy's install.json, else `capped`; make-copy does not copy that key).
+  Plain HTTP, since the live install's `state/certs` is not copied. Overlay errors go to the
+  copy's `logs/pool-events.jsonl`.
 
 Measured on 2026-10-27: a POST at 13:11:12.40Z started a cycle at 13:11:12.58Z; cycles saved the
 copy's pool state and forecast, and appended usage samples only for windows whose use changed.
 The ladders the copy published at 14:01:41.935Z were byte for byte what Agent Pools' own
 `buildLadders` makes from the copy's files at that moment
 (`node golden/ladder-live.mjs shadow-state\copy 2026-10-27T14:01:41.935Z`).
+At 16:07Z the copy's desktop relay answered `/backend-api/wham/usage` for no account id and for
+each of the copy's 4 Codex account ids (200, 1,559 to 1,563 bytes, rewritten), each byte for byte
+what Agent Pools' own `poolUsage` makes from the same stand-in body and saved accounts at a moment
+within the request (`node golden/usage-relay.mjs`).
 
 The ladders are held to every `buildLadders` call in Agent Pools' routing-ladder.test.mjs (36,
 recorded by `node --import ./golden/ladder-hook.mjs reference/agent-pools/routing-ladder.test.mjs`);
@@ -156,7 +166,7 @@ install's own inputs (398 rungs; not committed, since its inputs are not scrubbe
 
 ### The public gateway
 
-`gateway/` (`pools-gateway`, a library for now) is public-gateway.mjs on Corten (`6b86352`, with
+`gateway/` (`pools-gateway`, a library for now) is public-gateway.mjs on Corten (`97d9afe`, with
 [corten#162 Upgrade and Relay](https://github.com/todd-skelton/corten/pull/162)). Inference routes
 take a machine key and relay the pool's answer as it streams, sent with the pool's key. The
 dashboard routes take a session cookie signed as Agent Pools signs it (the same secret keeps
@@ -190,7 +200,8 @@ inference` runs Agent Pools' 22 relay tests over real sockets (its 5 tests of Co
 file are not the relay's). Disabling the per-frame admission check fails the sign-out test.
 
 Differences: Corten's 426, 404, 405 and 421 where Agent Pools answers 404 or 403 (`src/inference.rs`
-lists them), and no setting for the server's connection cap or header timeout. On Windows a
+lists them), and no setting for the server's connection cap or header timeout
+([corten#170 A client that never finishes its request head holds a connection open forever](https://github.com/todd-skelton/corten/issues/170)). On Windows a
 refused loopback connect takes about 2 s (measured 2,076 ms), so the restart test brings the pool
 up after 3 s rather than Agent Pools' 0.6 s.
 

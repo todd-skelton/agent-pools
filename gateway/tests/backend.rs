@@ -91,7 +91,7 @@ async fn fake_upstream(stream_gap: Duration) -> (u16, Seen_, tokio::task::JoinHa
                     format!("HTTP/1.1 {status}\r\ncontent-type: {kind}\r\n{extra}content-length: {}\r\nconnection: close\r\n\r\n{body}", body.len())
                 };
                 let out = if url == "/backend-api/wham/usage" {
-                    simple("200 OK", "application/json", "x-upstream: yes\r\n", r#"{"rate_limit":{"allowed":false}}"#)
+                    simple("200 OK", "application/json", "x-upstream: yes\r\ncache-control: max-age=7\r\n", r#"{"rate_limit":{"allowed":false}}"#)
                 } else if url == "/backend-api/broken-usage" {
                     simple("200 OK", "application/json", "", "not json")
                 } else if url.starts_with("/backend-api/stream") {
@@ -197,6 +197,8 @@ async fn relay_rewrites_usage_forwards_other_calls_verbatim_and_streams() {
     let usage = http.get(format!("{origin}/backend-api/wham/usage")).header("authorization", "Bearer t").header("chatgpt-account-id", "acct").send().await.unwrap();
     assert_eq!(usage.status(), 200);
     assert_eq!(usage.headers().get("x-upstream").unwrap(), "yes");
+    // The upstream's own headers stand, Corten's default cache header included.
+    assert_eq!(usage.headers().get_all("cache-control").iter().collect::<Vec<_>>(), ["max-age=7"]);
     assert_eq!(body(usage).await, json!({ "rate_limit": { "allowed": false }, "pool": "rewritten" }));
     assert_eq!(last().header("authorization"), Some("Bearer t"));
     assert_eq!(last().header("chatgpt-account-id"), Some("acct"));

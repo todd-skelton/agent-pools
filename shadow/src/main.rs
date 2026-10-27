@@ -99,6 +99,14 @@ async fn serve() -> std::io::Result<()> {
     .await
 }
 
+/// A port from the environment, or `default`.
+fn port_env(name: &str, default: u16) -> std::io::Result<u16> {
+    match std::env::var(name) {
+        Ok(v) => v.parse().map_err(|_| std::io::Error::other(format!("{name} is not a port number: {v}"))),
+        Err(_) => Ok(default),
+    }
+}
+
 const LIVE_ROOT: &str = r"D:\Users\ToddS\AgentPools";
 
 /// `pools-shadow make-copy <dest>`: copies what the write side reads from the live install
@@ -115,7 +123,8 @@ fn make_copy() -> std::io::Result<()> {
 
 /// `pools-shadow run-copy <root>`: the dashboard and the write side on a copy made by
 /// `make-copy`, with a stand-in proxy on loopback. Refuses the live install. Settings:
-/// `SHADOW_COPY_REFRESH_SECS` (120) and `SHADOW_COPY_DEGRADED_SECS` (30), `PORT` (8321).
+/// `SHADOW_COPY_REFRESH_SECS` (120) and `SHADOW_COPY_DEGRADED_SECS` (30), `PORT` (8321),
+/// `SHADOW_COPY_RELAY_PORT` (8322, the desktop relay; Agent Pools' is 8000).
 async fn run_copy() -> std::io::Result<()> {
     let root = std::env::args().nth(2).ok_or_else(|| std::io::Error::other("usage: pools-shadow run-copy <root>"))?;
     let live = env_or("AGENT_POOLS_ROOT", LIVE_ROOT);
@@ -124,7 +133,9 @@ async fn run_copy() -> std::io::Result<()> {
     let key = uuid::Uuid::new_v4().to_string();
     let proxy = writer::fake_proxy::start(root.clone(), key.clone()).await?;
     println!("copy: writing {} only; stand-in proxy at {proxy}", root.display());
-    let io = std::sync::Arc::new(writer::io::FileIo::new(root.clone(), proxy, key));
+    let io = std::sync::Arc::new(writer::io::FileIo::new(root.clone(), proxy.clone(), key));
+    let relay = writer::desktop::start(io.clone(), &format!("{proxy}/backend-api"), port_env("SHADOW_COPY_RELAY_PORT", 8322)?).await?;
+    println!("copy: desktop relay at http://127.0.0.1:{relay}/backend-api (in front of the stand-in)");
     let shadow = watch::Shadow::new(sources::Install::new(root.clone()), "(a copy: not compared)".into(), root.join("logs/parity.jsonl"));
     let assets = std::env::var_os("STATIC_DIR")
         .map(PathBuf::from)

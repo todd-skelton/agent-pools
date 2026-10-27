@@ -18,7 +18,7 @@
 //! 2. Unknown routes and wrong methods get Corten's 404 and 405 (Agent Pools: 404), and a `Host`
 //!    that is not `localhost` or an address gets Corten's 421 (Agent Pools: 403).
 //! 3. The server's own limits (`maxConnections`, `headersTimeout`) are not set: Corten's `serve`
-//!    has no setting for them. The body read keeps its header timeout.
+//!    has no setting for them (corten#170). The body read keeps its header timeout.
 //! 4. A client frame's backpressure is tungstenite's write buffer (`max_write_buffer_size`), where
 //!    Agent Pools checks `bufferedAmount` before each send; both end the socket past the limit.
 
