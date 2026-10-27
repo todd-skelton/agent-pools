@@ -8,8 +8,10 @@ Plan:
 1. Golden outputs: what the current JavaScript produces from recorded inputs (`golden/`). Done.
 2. `pool-core`: the forecast, routing, reset choice, quota windows and value report in Rust with
    no web dependencies, matching the golden outputs exactly. In progress: quota windows,
-   normalized usage, routing order, `chooseReset` and both credit banks match every case
-   (`cargo test`); the capacity forecast, the value report and the summary are next.
+   normalized usage, routing order, `chooseReset`, both credit banks, reset policies and the
+   whole capacity forecast (`buildForecast`: the document now, 72 replayed hours and 19
+   variants) match every case (`cargo test --release`); the value report and the summary are
+   next.
 3. A read-only shadow dashboard on Corten, compared with the live `/api/summary` over days.
 4. Writes and the public gateway, in the port only.
 5. Cutover: only with Todd's go-ahead.
@@ -44,6 +46,7 @@ reference never reads the clock, `Date.now` throws while it runs). Node 24.
 |---|---|---|
 | `forecast/now.json` | `buildForecast` at the snapshot, with the published forecast as memory | 1 |
 | `forecast/replay.json` | `buildForecast` hourly for 72 hours, each hour's output the next one's memory | 72 |
+| `forecast/variants.json` | `buildForecast` over edited snapshot accounts: banked Claude refills (redeem now, drain first, kept plans), unlisted and unmodeled credits, policies and automation off, stale hold and expiry, pace reuse, no history, settings and rejected settings; with `forecastConfig` problems and `resetPolicies` | 19 |
 | `value/deployed.json`, `value/deployed-session-usage.json` | `buildUsageReports`, deployed config | 1 |
 | `value/short-windows.json` | the same with 3/2/5-day windows and 6-hour buckets | 1 |
 | `summary/now.json` | `buildSummary` (`GET /api/summary`) from the two above | 1 |
@@ -70,7 +73,9 @@ arguments are arrays. The documents (`forecast`, `value`, `summary`) are plain
 3. `Math.exp`, `Math.pow` and similar appear in the forecast and value report (7 places).
    V8's are fdlibm ports; use the `libm` crate (also fdlibm-derived) rather than the platform's
    so the last bit agrees. If a value still differs in the last place, record which and why
-   before accepting a tolerance for it.
+   before accepting a tolerance for it. The forecast has one, `Math.pow(0.5, 1 / halfLifeHours)`;
+   `f64::powf` matches it bit for bit here (Windows, MSVC runtime), and every forecast output
+   matches with no tolerance.
 4. Sorting: the JavaScript sorts are stable and break ties with `localeCompare` on ids. The ids
    here are ASCII, where `localeCompare` and byte order agree except for case and punctuation
    (ICU orders `-` and `_` differently from bytes); match it on these ids, not in general.

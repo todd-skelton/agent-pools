@@ -11,6 +11,10 @@
    "bytes": 1112837,
    "sha256": "3751689a72624175c55577c5eb4dfbdacc1af7b37e6c05e9455cdf5621b8dfb1"
   },
+  "forecast/variants.json": {
+   "bytes": 929496,
+   "sha256": "0116fb8ff3debd386945a4152316a1c1a9427c157b28bdebe5a2ea485d80c4ec"
+  },
   "js/semantics.json": {
    "bytes": 533609,
    "sha256": "a7722f468116418e6be0a0810f2864fc2276b355ad509378ab2055a7f6e2dc54"

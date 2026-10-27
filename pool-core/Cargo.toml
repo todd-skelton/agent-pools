@@ -14,3 +14,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
 # ECMAScript Number::toString, for text built from numbers (labels, notes, digests).
 ryu-js = "1"
+# capacity-forecast.mjs digest(): the first 16 hex of SHA-256 over JSON.stringify.
+sha2 = "0.10"
+
+[dev-dependencies]
+# The golden inputs keep the sample and ledger streams gzipped.
+flate2 = "1"

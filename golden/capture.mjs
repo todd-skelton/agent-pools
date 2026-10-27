@@ -97,6 +97,57 @@ const replay = [];
 }
 emit("forecast/replay.json", { hours: REPLAY_HOURS, input: "accounts from pool-state.json with windows from the newest sample at or before each hour; previous = the hour before (none for the first)", steps: replay });
 
+// Variants over the same snapshot that reach what it does not: banked Claude refills (the
+// counterfactual planner, drain-first, redeem-now, keep), unlisted and unmodeled credits,
+// policies and automation off, stale holds, spend, other settings and rejected ones. Credits
+// are synthetic; inputs are stored in full so a port replays them without this script.
+const isoAt = (t) => new Date(t).toISOString();
+const claudeIds = pool.accounts.filter((a) => a.provider === "claude").map((a) => a.id);
+const editClaude = (accts, fn) => accts.map((a) => (a.provider === "claude" ? fn(a, claudeIds.indexOf(a.id)) : a));
+const banked = (list) => ({ creditsKnown: true, creditCount: list.length, credits: list.map(([id, t]) => ({ id, expires_at: t === null ? null : isoAt(t) })) });
+const weekly = (a, used, resetAt) => ({ ...a, quotaWindows: (a.quotaWindows ?? []).map((w) => (w.id === "limit:1" ? { ...w, used, resetAt: resetAt === undefined ? w.resetAt : resetAt } : w)) });
+const staggered = (t) => (a, i) => ({ ...a, ...banked([[`syn-c${i + 1}-a`, t + (i + 1) * 30 * HOUR], [`syn-c${i + 1}-b`, t + (i + 4) * DAY]]) });
+const variantSpecs = [
+  { name: "claude-banked", at: now, previous: "snapshot", accounts: editClaude(pool.accounts, staggered(now)) },
+  { name: "claude-banked-reuse", at: now + 5 * 60000, previous: "claude-banked", accounts: editClaude(pool.accounts, staggered(now)) },
+  { name: "claude-banked-later", at: now + 7 * HOUR, previous: "claude-banked", accounts: editClaude(pool.accounts, staggered(now)) },
+  { name: "claude-all-out", at: now, previous: null, accounts: editClaude(pool.accounts, (a, i) => staggered(now)(weekly(a, 100), i)) },
+  { name: "claude-one-left", at: now, previous: null, accounts: editClaude(pool.accounts, (a, i) => staggered(now)(weekly(a, i === 1 ? 35 : 100, now + (3 + i) * DAY), i)) },
+  { name: "claude-urgent-unlisted", at: now, previous: null, accounts: editClaude(pool.accounts, (a, i) =>
+    i === 0 ? { ...a, creditsKnown: true, creditCount: 3, credits: [{ id: "syn-u", expires_at: isoAt(now + 12 * HOUR) }] }
+    : i === 1 ? { ...a, creditsKnown: true, creditCount: 2, credits: [] }
+    : { ...a, creditsKnown: true, creditCount: 2, credits: [{ id: "syn-camel", expiresAt: isoAt(now + 9 * DAY) }, { id: "syn-none", expires_at: null }] }) },
+  { name: "claude-low-runway", at: now, previous: "snapshot", install: { ...install, resetPolicy: { claude: { maxRunwayPercent: 10 } } }, accounts: editClaude(pool.accounts, staggered(now)) },
+  { name: "policies-off", at: now, previous: "snapshot", install: { ...install, resetPolicy: { claude: { enabled: false, trigger: "sometimes" }, codex: { enabled: false, headroomPercent: 50 } } }, accounts: editClaude(pool.accounts, staggered(now)) },
+  { name: "automation-off", at: now, previous: "snapshot", resetAutomation: false, accounts: editClaude(pool.accounts, staggered(now)) },
+  { name: "claude-fresh-spend", at: now, previous: null, accounts: editClaude(pool.accounts, (a) => weekly(a, 10, now + 30 * HOUR)) },
+  { name: "claude-fresh-from-conserve", at: now + 3 * HOUR, previous: "snapshot", accounts: editClaude(pool.accounts, (a) => weekly(a, 10, now + 30 * HOUR)) },
+  { name: "stale-hold", at: now + 20 * 60000, previous: "snapshot", accounts: pool.accounts.map((a) => ({ ...a, usageStale: true })) },
+  { name: "stale-expired", at: now + 45 * 60000, previous: "stale-hold", accounts: pool.accounts.map((a) => ({ ...a, usageStale: true })) },
+  { name: "stale-recovered", at: now + 50 * 60000, previous: "stale-expired", accounts: pool.accounts },
+  { name: "no-history", at: now, previous: null, samples: "none", accounts: pool.accounts },
+  { name: "settings", at: now, previous: "snapshot", capacityForecast: { horizonDays: 7, maxSteps: 2, margin: 1, spendEnterUnits: 0.1, planWindowDays: 3, mode: "shadow", weights: { "codex:pro": 2, [claudeIds[1]]: 0.5 } }, accounts: editClaude(pool.accounts, staggered(now)) },
+  { name: "settings-rejected", at: now, previous: null, capacityForecast: { margin: -1, maxSteps: 2.5, weights: { a: 0 }, mode: "loud", lookbackHours: "168", halfLifeHours: null, staleHoldMinutes: 1e9 }, accounts: pool.accounts },
+  { name: "settings-not-object", at: now, previous: null, capacityForecast: "active", accounts: pool.accounts },
+  { name: "disabled-and-unknown", at: now, previous: "snapshot", accounts: pool.accounts.map((a, i) => (i === 0 ? { ...a, disabled: true } : i === 4 ? { ...a, status: "unknown" } : a)) },
+];
+const variantDocs = new Map();
+const variants = [];
+for (const v of variantSpecs) {
+  const inst = v.install ?? install;
+  const capacityInput = "capacityForecast" in v ? v.capacityForecast : inst.capacityForecast;
+  const { config, problems } = forecastConfig(capacityInput);
+  const pols = resetPolicies(inst);
+  const prev = v.previous === "snapshot" ? previousForecast : v.previous ? roundTrip(variantDocs.get(v.previous)) : null;
+  const doc = await run(() => buildForecast({
+    accounts: v.accounts, samples: v.samples === "none" ? [] : samplesFor(v.at).filter((s) => Date.parse(s.at) >= v.at - (config.lookbackHours + 48) * HOUR),
+    config, now: v.at, previous: prev, resetPolicies: pols, resetAutomation: v.resetAutomation ?? resetAutomation,
+  }));
+  variantDocs.set(v.name, doc);
+  variants.push({ name: v.name, input: { now: v.at, previous: v.previous, accounts: v.accounts, install: inst, capacityForecast: capacityInput ?? null, resetAutomation: v.resetAutomation ?? resetAutomation, samples: v.samples ?? "samplesFor(now)" },
+    result: { problems, resetPolicies: roundTrip(pols), forecast: doc } });
+}
+emit("forecast/variants.json", { function: "capacity-forecast.mjs buildForecast over edited snapshot accounts; previous names an earlier case, \"snapshot\" (inputs/capacity-forecast.json) or none", cases: variants });
 // --- 2. usage value report -------------------------------------------------------
 async function valueCase(usageLedger) {
   const { config, problems } = valueConfig(usageLedger);

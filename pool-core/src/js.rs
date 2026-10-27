@@ -440,3 +440,166 @@ pub fn expiry_ms(v: Option<&Value>) -> f64 {
         f64::INFINITY
     }
 }
+
+/// A number as a JSON value the way `JSON.stringify` publishes it: `null` when not finite.
+pub fn number_value(f: f64) -> Value {
+    serde_json::Number::from_f64(f).map_or(Value::Null, Value::Number)
+}
+
+/// `JSON.stringify(v)` with no spacing: object keys in JavaScript's own-key order (see
+/// [`entries`]), numbers as ECMAScript writes them, strings escaped as V8 does.
+pub fn stringify(v: &Value) -> String {
+    let mut out = String::new();
+    write_json(&mut out, v);
+    out
+}
+
+fn write_json(out: &mut String, v: &Value) {
+    match v {
+        Value::Null => out.push_str("null"),
+        Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
+        Value::Number(n) => match n.as_f64().filter(|f| f.is_finite()) {
+            Some(f) => out.push_str(&number_to_string(f)),
+            None => out.push_str("null"),
+        },
+        Value::String(s) => write_quoted(out, s),
+        Value::Array(a) => {
+            out.push('[');
+            for (i, x) in a.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                write_json(out, x);
+            }
+            out.push(']');
+        }
+        Value::Object(_) => {
+            out.push('{');
+            for (i, (k, x)) in entries(Some(v)).into_iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                write_quoted(out, &k);
+                out.push(':');
+                write_json(out, x);
+            }
+            out.push('}');
+        }
+    }
+}
+
+fn write_quoted(out: &mut String, s: &str) {
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\u{8}' => out.push_str("\\b"),
+            '\u{c}' => out.push_str("\\f"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+}
+
+/// `createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 16)`.
+pub fn digest(v: &Value) -> String {
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::digest(stringify(v).as_bytes());
+    hash.iter().take(8).map(|b| format!("{b:02x}")).collect()
+}
+
+/// `Math.round(x)`: the nearest integer, ties toward +Infinity (V8's ceil-based form, so
+/// 0.49999999999999994 rounds to 0).
+pub fn round(x: f64) -> f64 {
+    if !x.is_finite() {
+        return x;
+    }
+    let r = x.ceil();
+    if r - 0.5 > x {
+        r - 1.0
+    } else {
+        r
+    }
+}
+
+/// `Math.min(...xs)`: `Infinity` for none, `NaN` if any is `NaN`, -0 below +0.
+pub fn min(xs: impl IntoIterator<Item = f64>) -> f64 {
+    let mut r = f64::INFINITY;
+    for x in xs {
+        if x.is_nan() {
+            return f64::NAN;
+        }
+        if x < r || (x == 0.0 && r == 0.0 && x.is_sign_negative()) {
+            r = x;
+        }
+    }
+    r
+}
+
+/// `Math.max(...xs)`: `-Infinity` for none, `NaN` if any is `NaN`, +0 above -0.
+pub fn max(xs: impl IntoIterator<Item = f64>) -> f64 {
+    let mut r = f64::NEG_INFINITY;
+    for x in xs {
+        if x.is_nan() {
+            return f64::NAN;
+        }
+        if x > r || (x == 0.0 && r == 0.0 && r.is_sign_negative()) {
+            r = x;
+        }
+    }
+    r
+}
+
+/// `new Date(ms).toISOString()`. The time is truncated to a whole millisecond as `Date` does;
+/// a time outside `Date`'s range (where JavaScript throws a `RangeError`) is clamped to it.
+pub fn iso(ms: f64) -> String {
+    let t = if ms.is_nan() {
+        0
+    } else {
+        ms.trunc().clamp(-8.64e15, 8.64e15) as i64
+    };
+    let days = t.div_euclid(86_400_000);
+    let rem = t.rem_euclid(86_400_000);
+    let (y, m, d) = civil_from_days(days);
+    let year = if (0..=9999).contains(&y) {
+        format!("{y:04}")
+    } else if y < 0 {
+        format!("-{:06}", -y)
+    } else {
+        format!("+{y:06}")
+    };
+    format!(
+        "{year}-{m:02}-{d:02}T{:02}:{:02}:{:02}.{:03}Z",
+        rem / 3_600_000,
+        rem / 60_000 % 60,
+        rem / 1000 % 60,
+        rem % 1000
+    )
+}
+
+/// A proleptic Gregorian date from days since 1970-01-01 (Howard Hinnant's algorithm).
+fn civil_from_days(z: i64) -> (i64, i64, i64) {
+    let z = z + 719_468;
+    let era = (if z >= 0 { z } else { z - 146_096 }) / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    (yoe + era * 400 + i64::from(m <= 2), m, d)
+}
+
+/// `Date.parse(String(v))` for a value read from JSON: `NaN` when unreadable.
+pub fn date_parse_value(v: Option<&Value>) -> f64 {
+    match v {
+        Some(Value::String(s)) => date_parse(s),
+        other => date_parse(&to_string(other)),
+    }
+    .unwrap_or(f64::NAN)
+}

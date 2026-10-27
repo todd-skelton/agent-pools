@@ -6,7 +6,9 @@
 //! the port has to read them the same way.
 //!
 //! Ported so far: quota windows and normalized usage ([`quota`]), routing order and the
-//! banked-credit choice ([`routing`]), Codex credits and the Claude bank ([`banks`]).
+//! banked-credit choice ([`routing`]), Codex credits and the Claude bank ([`banks`]), reset
+//! policies ([`resets`]) and the capacity forecast ([`forecast`]), over the provider facts in
+//! [`providers`].
 //!
 //! # Where the port knowingly differs
 //!
@@ -28,6 +30,9 @@
 //!    `starts_at: 5`) is not coerced the way JavaScript would; no provider sends one.
 
 pub mod banks;
+pub mod forecast;
 pub mod js;
+pub mod providers;
 pub mod quota;
+pub mod resets;
 pub mod routing;
