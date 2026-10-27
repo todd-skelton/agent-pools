@@ -1,0 +1,16 @@
+[package]
+name = "pool-core"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Agent Pools' decisions (quota windows, routing order, banked-credit choice, forecast, value report) with no web or I/O dependencies."
+publish = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# preserve_order: JavaScript iterates object keys in insertion order, and the port must too.
+# float_roundtrip: parse every recorded number to the exact f64 JavaScript reads.
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
+# ECMAScript Number::toString, for text built from numbers (labels, notes, digests).
+ryu-js = "1"

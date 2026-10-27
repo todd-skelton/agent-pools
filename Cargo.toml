@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = ["pool-core"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.88"
+license = "MIT"

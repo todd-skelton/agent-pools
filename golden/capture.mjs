@@ -225,6 +225,50 @@ const bankVariants = [
 for (const [name, block] of bankVariants) for (const t of nows) creditCases.push({ name: `claudeBank ${name} @${iso(t)}`, input: { block: block ?? null, now: t }, result: runSync(() => claudeBank(block, t)) });
 emit("quota/banks.json", { function: "provider-codex.mjs availableCredits(data, now) and provider-claude.mjs claudeBank(block, now)", cases: creditCases }, tagged);
 
+// --- 6. JavaScript semantics the port relies on --------------------------------------
+// localeCompare (id tie-breaks), Date.parse (provider timestamps) and number-to-string
+// (labels, notes, digests), as this Node's V8 and ICU answer them.
+let seed = 42;
+const random = () => { seed = (seed + 0x6d2b79f5) | 0; let x = Math.imul(seed ^ (seed >>> 15), 1 | seed); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
+const ascii = Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i));
+const idChars = "abcxyzABCXYZ0129-_.@ |~";
+const randomId = () => Array.from({ length: Math.floor(random() * 7) }, () => idChars[Math.floor(random() * idChars.length)]).join("");
+const comparePairs = [];
+for (const a of ascii) for (const b of ascii) comparePairs.push([a, b]);
+for (let i = 0; i < 4000; i++) comparePairs.push([randomId(), randomId()]);
+const ids = pool.accounts.map((a) => a.id);
+for (const a of ids) for (const b of ids) comparePairs.push([a, b]);
+const dateStrings = ["2026-09-22T20:42:33.558403Z", "2026-09-22T20:42:33.5Z", "2026-09-30T13:00:00+00:00", "2026-09-30T13:00:00-05:30", "2026-10-28", "2026-10", "2026",
+  "2026-10-28T00:00Z", "2026-10-28 00:00:00Z", "2026-10-28T24:00:00Z", "2026-02-30T00:00:00Z", "2026-10-28t00:00:00z", "+002026-10-28T00:00:00Z", "Bad", "", "2026-10-28T00:00:00.Z",
+  "2026-13-01T00:00:00Z", "2026-10-32T00:00:00Z", "2026-10-28T25:00:00Z", "2026-10-28T00:60:00Z", "2026-10-28T00:00:60Z", "2026-10-28T00:00:00+24:00", "1969-12-31T23:59:59.999Z", "0000-01-01T00:00:00Z"];
+for (let i = 0; i < 300; i++) {
+  const t = Math.floor(random() * 4e12) - 1e12;
+  const s = new Date(t).toISOString();
+  dateStrings.push(s, s.replace(".", ",").replace(/,\d+/, ""), s.slice(0, 19) + "+0" + Math.floor(random() * 10) + ":30", s.slice(0, 10), s.slice(0, 16) + "Z");
+}
+// Every timestamp shape in the recorded inputs (digits folded to 9), up to 40 strings each, so a
+// stricter parser in the port is still held to everything Agent Pools actually reads.
+const recorded = new Map();
+const looksLikeDate = /^[+-]?\d{4,6}-\d\d(-\d\d)?([T ]\d\d:\d\d)?/;
+const collect = (v) => {
+  if (typeof v === "string") {
+    if (!looksLikeDate.test(v)) return;
+    const shape = v.replace(/\d/g, "9");
+    const list = recorded.get(shape) ?? [];
+    if (list.length < 40 && !list.includes(v)) list.push(v);
+    recorded.set(shape, list);
+  } else if (v && typeof v === "object") for (const x of Object.values(v)) collect(x);
+};
+for (const doc of [pool, previousForecast, registry, samples, ledger, ...fs.readdirSync(path.join(inputs, "provider")).map((n) => provider(n))]) collect(doc);
+for (const s of [...recorded.values()].flat()) dateStrings.push(s);const numbers = [0, -0, 1, -1, 1.5, 0.1 + 0.2, 1e21, 1e-7, 5e-7, 123456789012345680000, 2 ** 53, 2 ** 53 + 2, 1 / 3, 100, 604800, 18000, 3.5, -2.25e-10, 1.7976931348623157e308, 5e-324];
+for (let i = 0; i < 500; i++) numbers.push((random() - 0.5) * 10 ** Math.floor(random() * 40 - 20));
+emit("js/semantics.json", {
+  node: process.version, icu: process.versions.icu, locale: Intl.Collator().resolvedOptions().locale,
+  localeCompare: comparePairs.map(([a, b]) => [a, b, Math.sign(a.localeCompare(b))]),
+  dateParse: [...new Set(dateStrings)].map((s) => [s, Number.isFinite(Date.parse(s)) ? Date.parse(s) : null]),
+  recordedDateShapes: [...recorded.keys()].sort(),
+  numberToString: numbers.map((n) => [n, String(n)]),
+});
 // --- write or check --------------------------------------------------------------------
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 const index = { format: "agent-pools-golden-outputs/v1", inputs: manifest.now, forecastProblems, files: Object.fromEntries([...produced].sort(([a], [b]) => a.localeCompare(b)).map(([rel, text]) => [rel, { bytes: Buffer.byteLength(text), sha256: sha(text) }])) };

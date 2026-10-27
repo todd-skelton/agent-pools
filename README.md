@@ -7,7 +7,9 @@ Plan:
 
 1. Golden outputs: what the current JavaScript produces from recorded inputs (`golden/`). Done.
 2. `pool-core`: the forecast, routing, reset choice, quota windows and value report in Rust with
-   no web dependencies, matching the golden outputs exactly.
+   no web dependencies, matching the golden outputs exactly. In progress: quota windows,
+   normalized usage, routing order, `chooseReset` and both credit banks match every case
+   (`cargo test`); the capacity forecast, the value report and the summary are next.
 3. A read-only shadow dashboard on Corten, compared with the live `/api/summary` over days.
 4. Writes and the public gateway, in the port only.
 5. Cutover: only with Todd's go-ahead.
@@ -49,6 +51,7 @@ reference never reads the clock, `Date.now` throws while it runs). Node 24.
 | `routing/rank-accounts.json` | `rankAccounts`, with and without drain-first | 16 |
 | `quota/usage.json` | `quotaWindows` and `normalizeUsage` on payloads and edge cases | 33 |
 | `quota/banks.json` | `availableCredits` (Codex) and `claudeBank` | 42 |
+| `js/semantics.json` | `localeCompare`, `Date.parse` (every timestamp shape in the inputs) and number-to-string, as Node 24 answers them | 13,074 / 1,597 / 520 |
 
 Case files hold `input` and `result` per case. In them, a non-finite number is
 `{"$number": "Infinity"}` (or `-Infinity`, `NaN`), and the function's `Set` and `Map`

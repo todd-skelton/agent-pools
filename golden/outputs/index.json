@@ -11,6 +11,10 @@
    "bytes": 1112837,
    "sha256": "3751689a72624175c55577c5eb4dfbdacc1af7b37e6c05e9455cdf5621b8dfb1"
   },
+  "js/semantics.json": {
+   "bytes": 533609,
+   "sha256": "a7722f468116418e6be0a0810f2864fc2276b355ad509378ab2055a7f6e2dc54"
+  },
   "quota/banks.json": {
    "bytes": 49460,
    "sha256": "f5e83697598f5deaf6631ad6b704ad6a8a23a8368d0cb9b10379b362900bc4a9"
