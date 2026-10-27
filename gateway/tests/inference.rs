@@ -564,3 +564,20 @@ async fn empty_frame_floods_are_bounded_while_credential_reads_are_pending() {
     assert_eq!(seen.lock().unwrap().len(), 0);
     let _ = Role::Client;
 }
+
+/// A client that never finishes its request head is closed after `header_timeout` (Node:
+/// `server.headersTimeout`), with no answer, and frees nothing it never took.
+#[tokio::test]
+async fn a_request_head_that_never_ends_is_closed_after_the_header_timeout() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let (r, _) = fixture(None, |c| c.header_timeout = Duration::from_millis(300)).await;
+    let mut tcp = tokio::net::TcpStream::connect(("127.0.0.1", r.port)).await.unwrap();
+    tcp.write_all(format!("POST /v1/responses HTTP/1.1\r\nHost: 127.0.0.1:{}\r\n", r.port).as_bytes()).await.unwrap();
+    let started = std::time::Instant::now();
+    let mut buf = Vec::new();
+    let read = tokio::time::timeout(Duration::from_secs(5), tcp.read_to_end(&mut buf)).await;
+    assert!(read.is_ok(), "still open after 5 s");
+    assert!(started.elapsed() >= Duration::from_millis(250), "closed at {:?}", started.elapsed());
+    assert!(buf.is_empty(), "no answer: {}", String::from_utf8_lossy(&buf));
+    assert_eq!(r.health().await["active"], 0);
+}

@@ -17,8 +17,10 @@
 //!    with its status (Agent Pools: the bare status line).
 //! 2. Unknown routes and wrong methods get Corten's 404 and 405 (Agent Pools: 404), and a `Host`
 //!    that is not `localhost` or an address gets Corten's 421 (Agent Pools: 403).
-//! 3. The server's own limits (`maxConnections`, `headersTimeout`) are not set: Corten's `serve`
-//!    has no setting for them (corten#170). The body read keeps its header timeout.
+//! 3. The server's limits are Corten's (corten#173): `App::header_timeout` closes a connection
+//!    whose request head takes longer than `header_timeout` without answering it (Node answers
+//!    408), and at `max_connections` further connections wait in the operating system's queue
+//!    (Node closes them). The body read keeps its own header timeout, as Agent Pools' does.
 //! 4. A client frame's backpressure is tungstenite's write buffer (`max_write_buffer_size`), where
 //!    Agent Pools checks `bufferedAmount` before each send; both end the socket past the limit.
 
@@ -58,6 +60,8 @@ pub struct Config {
     pub tls: bool,
     pub observe: Observe,
     pub max_body_bytes: usize,
+    /// Connections held open at once (`maxConnections`).
+    pub max_connections: usize,
     pub max_active: i64,
     pub header_timeout: Duration,
     pub stream_timeout: Duration,
@@ -72,6 +76,7 @@ impl Config {
             tls: false,
             observe: Arc::new(|_, _| {}),
             max_body_bytes: 32 * 1024 * 1024,
+            max_connections: 128,
             max_active: 64,
             header_timeout: Duration::from_secs(30),
             stream_timeout: Duration::from_secs(30 * 60),
@@ -136,7 +141,11 @@ pub fn app(config: Config, port: u16) -> Result<(App, Inf), String> {
         stopping: AtomicBool::new(false),
         config,
     }));
-    let app = App::new(url::router(inf.clone())).deadline(None);
+    let app = App::new(url::router(inf.clone()))
+        .deadline(None)
+        // `server.headersTimeout` and `server.maxConnections`.
+        .header_timeout(inf.c().header_timeout)
+        .max_connections(inf.c().max_connections.max(1));
     Ok((app, inf))
 }
 

@@ -198,7 +198,7 @@ install's own inputs (398 rungs; not committed, since its inputs are not scrubbe
 
 ### The public gateway
 
-`gateway/` (`pools-gateway`, a library for now) is public-gateway.mjs on Corten (`af0019f`, with
+`gateway/` (`pools-gateway`; `run-copy` serves it in front of the stand-in) is public-gateway.mjs on Corten (`77bcbbb`, with
 [corten#162 Upgrade and Relay](https://github.com/todd-skelton/corten/pull/162)). Inference routes
 take a machine key and relay the pool's answer as it streams, sent with the pool's key. The
 dashboard routes take a session cookie signed as Agent Pools signs it (the same secret keeps
@@ -236,12 +236,16 @@ on this machine sends `/v1/responses` over HTTP or a WebSocket (Corten's `Upgrad
 tokio-tungstenite) with its own sign-in. The relay checks the sign-in and sends the request on
 with the pool's key. Every WebSocket frame is admitted again, so signing out ends an open socket.
 A refused connect is retried while the pool restarts. `cargo test -p pools-gateway --test
-inference` runs Agent Pools' 22 relay tests over real sockets (its 5 tests of Codex's config
+inference` runs Agent Pools' 22 relay tests over real sockets, plus the head timeout, (its 5 tests of Codex's config
 file are not the relay's). Disabling the per-frame admission check fails the sign-out test.
 
 Differences: Corten's 426, 404, 405 and 421 where Agent Pools answers 404 or 403 (`src/inference.rs`
-lists them), and no setting for the server's connection cap or header timeout
-([corten#170 A client that never finishes its request head holds a connection open forever](https://github.com/todd-skelton/corten/issues/170)). On Windows a
+lists them). The server's limits are Corten's
+([corten#173 App::header_timeout and App::max_connections](https://github.com/todd-skelton/corten/pull/173), for
+[corten#170 A client that never finishes its request head holds a connection open forever](https://github.com/todd-skelton/corten/issues/170)):
+a request head that takes over 30 s closes the connection without an answer (Node answers 408),
+and past 128 connections the rest wait in the system's queue (Node closes them). A port test
+holds a half-sent head to the timeout; turning the timeout off fails it. On Windows a
 refused loopback connect takes about 2 s (measured 2,076 ms), so the restart test brings the pool
 up after 3 s rather than Agent Pools' 0.6 s.
 
