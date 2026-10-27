@@ -11,7 +11,7 @@ import zlib from "node:zlib";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { buildForecast, forecastConfig, HOUR } from "../reference/agent-pools/capacity-forecast.mjs";
-import { buildUsageReports, valueConfig } from "../reference/agent-pools/usage-value.mjs";
+import { buildUsageReports, valueConfig, quotaIncrements, costOf } from "../reference/agent-pools/usage-value.mjs";
 import { buildSummary } from "../reference/agent-pools/pool-summary.mjs";
 import { chooseReset, rankAccounts, normalizeUsage } from "../reference/agent-pools/routing.mjs";
 import { quotaWindows } from "../reference/agent-pools/quota-windows.mjs";
@@ -166,6 +166,45 @@ emit("value/deployed-session-usage.json", deployed.sessionUsage);
 const short = await valueCase({ ...(install.usageLedger ?? {}), analysisDays: 3, valueDays: 2, wasteDays: 5, bucketHours: 6 });
 emit("value/short-windows.json", short.valueReport);
 
+// Direct cases for the report's helpers: quota increments around the refill and jitter
+// edges, pricing names and token types, and usageLedger settings.
+{
+  const stream = (rows) => rows.map(([h, used, resetH]) => ({ at: now + h * HOUR, used, resetAt: resetH === null ? NaN : now + resetH * HOUR }));
+  const incrementCases = [
+    ["climb with out-of-order reads", [[0, 10, 100], [1, 12, 100], [1.1, 11, 100], [2, 12, 100], [3, 15, 100]]],
+    ["drop of exactly 5 is a refill", [[0, 50, 100], [1, 45, 100], [2, 47, 100]]],
+    ["drop of 4.9 is noise", [[0, 50, 100], [1, 45.1, 100], [2, 52, 100]]],
+    ["reset moved within jitter", [[0, 20, 100], [1, 22, 100.9], [2, 25, 101.5]]],
+    ["reset moved past jitter, early", [[0, 60, 100], [1, 5, 268], [2, 9, 268]]],
+    ["natural end", [[0, 70, 2], [3, 0, 170], [4, 4, 170]]],
+    ["unknown reset", [[0, 10, null], [1, 30, null], [2, 2, null]]],
+    ["bad readings skipped", [[0, 10, 100], [1, NaN, 100], [2, 15, 100]]],
+    ["empty", []],
+  ].map(([name, rows]) => { const s = stream(rows); return { name, input: s, result: runSync(() => quotaIncrements(s)) }; });
+  emit("value/quota-increments.json", { function: "usage-value.mjs quotaIncrements(stream)", cases: incrementCases }, tagged);
+  const rowsFor = [
+    { model: "gpt-6.1-sol", in: 1000, cr: 50000, cw: 0, out: 300 },
+    { model: "openai/GPT-6.1-SOL-high", in: 10, cr: 0, cw: 0, out: 5, tier: "priority" },
+    { model: "gpt-6-astra", in: 300000, cr: 0, cw: 1000, out: 10, tier: "priority" },
+    { model: "claude-opus-5-5-20261001", in: 7, cr: 9, cw: 11, out: 13 },
+    { model: "claude-fable-5-2026-10-01", in: 1, out: 1 },
+    { model: "gpt-6.1-sol-mini", in: 1, out: 1 },
+    { model: null, in: 1 },
+    { model: "x/y/gpt-6.1-sol", in: 1 },
+  ];
+  const custom = { models: { "m-plain": { input: 3, output: 6 }, "m-long": { input: 1, output: 2, longContext: { threshold: 10, input: 5 } }, "m-strings": { input: "2", output: null, cacheRead: "0.5" } } };
+  const costCases = [];
+  for (const row of rowsFor) costCases.push({ name: `deployed prices ${row.model}`, input: { row, prices: "deployed" }, result: runSync(() => costOf(row, prices)) });
+  for (const row of [{ model: "m-plain", in: 4, cr: 4, cw: 4, out: 4 }, { model: "m-long", in: 6, cr: 3, cw: 2, out: 1 }, { model: "m-long", in: 5, cr: 3, cw: 2, out: 1 }, { model: "m-strings", in: 1, cr: 1, cw: 1, out: 1 }])
+    costCases.push({ name: `custom prices ${row.model} ${row.in}`, input: { row, prices: custom }, result: runSync(() => costOf(row, custom)) });
+  emit("value/cost.json", { function: "usage-value.mjs costOf(row, prices) (prices \"deployed\" = inputs/model-prices.json)", cases: costCases }, tagged);
+  const configCases = [undefined, null, {}, { analysisDays: 3, valueDays: 5 }, { analysisDays: 2.5, wasteDays: 91, bucketHours: "6", reportIntervalMinutes: 4 },
+    { planPrices: { "codex:pro": 200, claude: 100, bad: 0, worse: "1" } }, { planPrices: [1] },
+    { modelLimits: { claude: { Fable: { kind: "cap" }, Other: { shareOfCommon: 0.3 }, Both: { kind: "reserve", shareOfCommon: 2 }, Bad: { kind: "huge" }, Empty: {}, Zero: { shareOfCommon: 0 } }, codex: 5 } },
+    { modelLimits: "no" }]
+    .map((input, i) => { const { config, problems } = valueConfig(input); return { name: `valueConfig ${i}`, input: input === undefined ? "undefined" : input, result: { config: roundTrip(config), problems } }; });
+  emit("value/config.json", { function: "usage-value.mjs valueConfig(input) (input \"undefined\" = no argument)", cases: configCases }, tagged);
+}
 // --- 3. /api/summary ---------------------------------------------------------------
 const summary = await run(() => buildSummary({
   state: { ...pool, accounts: pool.accounts.map((a) => currentAccount(a, now)) },
@@ -174,6 +213,21 @@ const summary = await run(() => buildSummary({
 }));
 emit("summary/now.json", summary);
 
+// The same at other times and without the forecast or value report: freshness turns accounts
+// unknown after five minutes, and a missing document leaves its blocks null.
+{
+  const summaryCases = [];
+  for (const [name, at, withForecast, withValue] of [["four minutes on", now + 4 * 60000, true, true], ["ten minutes on", now + 10 * 60000, true, true],
+    ["no forecast", now, false, true], ["no value report", now, true, false], ["neither, an hour on", now + HOUR, false, false]]) {
+    const result = runSync(() => buildSummary({
+      state: { ...pool, accounts: pool.accounts.map((a) => currentAccount(a, at)) },
+      providers: Object.fromEntries(PROVIDER_IDS.map((id) => [id, { name: PROVIDERS[id].name }])),
+      forecast: withForecast ? roundTrip(forecastNow) : null, value: withValue ? roundTrip(deployed.valueReport) : null, now: at,
+    }));
+    summaryCases.push({ name, input: { now: at, forecast: withForecast, value: withValue }, result });
+  }
+  emit("summary/cases.json", { function: "pool-summary.mjs buildSummary over freshness.mjs currentAccount at other times; forecast/value true = forecast/now.json and value/deployed.json", cases: summaryCases });
+}
 // --- 4. reset choice (routing.mjs chooseReset) and routing order ----------------------
 const routingFields = (a) => ({
   id: a.id, provider: a.provider, disabled: !!a.disabled, status: a.status, creditsKnown: a.creditsKnown === true,

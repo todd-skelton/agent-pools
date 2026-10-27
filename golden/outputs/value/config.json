@@ -1,0 +1,246 @@
+{
+ "function": "usage-value.mjs valueConfig(input) (input \"undefined\" = no argument)",
+ "cases": [
+  {
+   "name": "valueConfig 0",
+   "input": "undefined",
+   "result": {
+    "config": {
+     "analysisDays": 14,
+     "valueDays": 7,
+     "wasteDays": 30,
+     "bucketHours": 12,
+     "reportIntervalMinutes": 60,
+     "minFitObservations": 6,
+     "singleModelShare": 0.95,
+     "planPrices": {},
+     "modelLimits": {}
+    },
+    "problems": []
+   }
+  },
+  {
+   "name": "valueConfig 1",
+   "input": null,
+   "result": {
+    "config": {
+     "analysisDays": 14,
+     "valueDays": 7,
+     "wasteDays": 30,
+     "bucketHours": 12,
+     "reportIntervalMinutes": 60,
+     "minFitObservations": 6,
+     "singleModelShare": 0.95,
+     "planPrices": {},
+     "modelLimits": {}
+    },
+    "problems": []
+   }
+  },
+  {
+   "name": "valueConfig 2",
+   "input": {},
+   "result": {
+    "config": {
+     "analysisDays": 14,
+     "valueDays": 7,
+     "wasteDays": 30,
+     "bucketHours": 12,
+     "reportIntervalMinutes": 60,
+     "minFitObservations": 6,
+     "singleModelShare": 0.95,
+     "planPrices": {},
+     "modelLimits": {}
+    },
+    "problems": []
+   }
+  },
+  {
+   "name": "valueConfig 3",
+   "input": {
+    "analysisDays": 3,
+    "valueDays": 5
+   },
+   "result": {
+    "config": {
+     "analysisDays": 3,
+     "valueDays": 3,
+     "wasteDays": 30,
+     "bucketHours": 12,
+     "reportIntervalMinutes": 60,
+     "minFitObservations": 6,
+     "singleModelShare": 0.95,
+     "planPrices": {},
+     "modelLimits": {}
+    },
+    "problems": [
+     "usageLedger.valueDays cannot exceed analysisDays; using analysisDays"
+    ]
+   }
+  },
+  {
+   "name": "valueConfig 4",
+   "input": {
+    "analysisDays": 2.5,
+    "wasteDays": 91,
+    "bucketHours": "6",
+    "reportIntervalMinutes": 4
+   },
+   "result": {
+    "config": {
+     "analysisDays": 14,
+     "valueDays": 7,
+     "wasteDays": 30,
+     "bucketHours": 12,
+     "reportIntervalMinutes": 60,
+     "minFitObservations": 6,
+     "singleModelShare": 0.95,
+     "planPrices": {},
+     "modelLimits": {}
+    },
+    "problems": [
+     "usageLedger.analysisDays must be an integer from 1 to 35",
+     "usageLedger.wasteDays must be an integer from 1 to 90",
+     "usageLedger.bucketHours must be an integer from 1 to 48",
+     "usageLedger.reportIntervalMinutes must be an integer from 5 to 1440"
+    ]
+   }
+  },
+  {
+   "name": "valueConfig 5",
+   "input": {
+    "planPrices": {
+     "codex:pro": 200,
+     "claude": 100,
+     "bad": 0,
+     "worse": "1"
+    }
+   },
+   "result": {
+    "config": {
+     "analysisDays": 14,
+     "valueDays": 7,
+     "wasteDays": 30,
+     "bucketHours": 12,
+     "reportIntervalMinutes": 60,
+     "minFitObservations": 6,
+     "singleModelShare": 0.95,
+     "planPrices": {
+      "codex:pro": 200,
+      "claude": 100
+     },
+     "modelLimits": {}
+    },
+    "problems": [
+     "usageLedger.planPrices.bad must be a positive number (USD per month)",
+     "usageLedger.planPrices.worse must be a positive number (USD per month)"
+    ]
+   }
+  },
+  {
+   "name": "valueConfig 6",
+   "input": {
+    "planPrices": [
+     1
+    ]
+   },
+   "result": {
+    "config": {
+     "analysisDays": 14,
+     "valueDays": 7,
+     "wasteDays": 30,
+     "bucketHours": 12,
+     "reportIntervalMinutes": 60,
+     "minFitObservations": 6,
+     "singleModelShare": 0.95,
+     "planPrices": {},
+     "modelLimits": {}
+    },
+    "problems": [
+     "usageLedger.planPrices must be an object of USD per month"
+    ]
+   }
+  },
+  {
+   "name": "valueConfig 7",
+   "input": {
+    "modelLimits": {
+     "claude": {
+      "Fable": {
+       "kind": "cap"
+      },
+      "Other": {
+       "shareOfCommon": 0.3
+      },
+      "Both": {
+       "kind": "reserve",
+       "shareOfCommon": 2
+      },
+      "Bad": {
+       "kind": "huge"
+      },
+      "Empty": {},
+      "Zero": {
+       "shareOfCommon": 0
+      }
+     },
+     "codex": 5
+    }
+   },
+   "result": {
+    "config": {
+     "analysisDays": 14,
+     "valueDays": 7,
+     "wasteDays": 30,
+     "bucketHours": 12,
+     "reportIntervalMinutes": 60,
+     "minFitObservations": 6,
+     "singleModelShare": 0.95,
+     "planPrices": {},
+     "modelLimits": {
+      "claude": {
+       "Fable": {
+        "kind": "cap"
+       },
+       "Other": {
+        "shareOfCommon": 0.3
+       },
+       "Both": {
+        "kind": "reserve",
+        "shareOfCommon": 2
+       }
+      }
+     }
+    },
+    "problems": [
+     "usageLedger.modelLimits.claude.Bad needs kind (cap, reserve or unknown) and/or positive shareOfCommon",
+     "usageLedger.modelLimits.claude.Empty needs kind (cap, reserve or unknown) and/or positive shareOfCommon",
+     "usageLedger.modelLimits.claude.Zero needs kind (cap, reserve or unknown) and/or positive shareOfCommon",
+     "usageLedger.modelLimits.codex must be an object"
+    ]
+   }
+  },
+  {
+   "name": "valueConfig 8",
+   "input": {
+    "modelLimits": "no"
+   },
+   "result": {
+    "config": {
+     "analysisDays": 14,
+     "valueDays": 7,
+     "wasteDays": 30,
+     "bucketHours": 12,
+     "reportIntervalMinutes": 60,
+     "minFitObservations": 6,
+     "singleModelShare": 0.95,
+     "planPrices": {},
+     "modelLimits": {}
+    },
+    "problems": [
+     "usageLedger.modelLimits must be an object"
+    ]
+   }
+  }
+ ]
+}

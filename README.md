@@ -6,12 +6,13 @@ service. Nothing here writes to the live install, calls a provider, or restarts 
 Plan:
 
 1. Golden outputs: what the current JavaScript produces from recorded inputs (`golden/`). Done.
-2. `pool-core`: the forecast, routing, reset choice, quota windows and value report in Rust with
-   no web dependencies, matching the golden outputs exactly. In progress: quota windows,
-   normalized usage, routing order, `chooseReset`, both credit banks, reset policies and the
-   whole capacity forecast (`buildForecast`: the document now, 72 replayed hours and 19
-   variants) match every case (`cargo test --release`); the value report and the summary are
-   next.
+2. `pool-core`: the forecast, routing, reset choice, quota windows, value report and summary in
+   Rust with no web dependencies, matching the golden outputs exactly. Done: every golden
+   output matches with no tolerance (`cargo test --release`, 15 tests): quota windows,
+   normalized usage, routing order, `chooseReset`, both credit banks, reset policies, the
+   capacity forecast (now, 72 replayed hours, 19 variants), the usage value report and session
+   usage (deployed and short windows, plus quota increments, pricing and settings), and
+   `/api/summary` (now and five other times or missing documents).
 3. A read-only shadow dashboard on Corten, compared with the live `/api/summary` over days.
 4. Writes and the public gateway, in the port only.
 5. Cutover: only with Todd's go-ahead.
@@ -49,7 +50,9 @@ reference never reads the clock, `Date.now` throws while it runs). Node 24.
 | `forecast/variants.json` | `buildForecast` over edited snapshot accounts: banked Claude refills (redeem now, drain first, kept plans), unlisted and unmodeled credits, policies and automation off, stale hold and expiry, pace reuse, no history, settings and rejected settings; with `forecastConfig` problems and `resetPolicies` | 19 |
 | `value/deployed.json`, `value/deployed-session-usage.json` | `buildUsageReports`, deployed config | 1 |
 | `value/short-windows.json` | the same with 3/2/5-day windows and 6-hour buckets | 1 |
+| `value/quota-increments.json`, `value/cost.json`, `value/config.json` | `quotaIncrements` at the refill and jitter edges, `costOf` on name variants and price shapes, `valueConfig` on valid and rejected settings | 9 / 12 / 9 |
 | `summary/now.json` | `buildSummary` (`GET /api/summary`) from the two above | 1 |
+| `summary/cases.json` | the same 4 and 10 minutes on (freshness), and without the forecast, the value report or both | 5 |
 | `routing/choose-reset.json` | `chooseReset`: times, all-out/one-short, bank unknown, synthetic credits, skips, before-lapse sets, refill demand, both triggers | 1,512 (562 choose a credit, 130 before lapse) |
 | `routing/rank-accounts.json` | `rankAccounts`, with and without drain-first | 16 |
 | `quota/usage.json` | `quotaWindows` and `normalizeUsage` on payloads and edge cases | 33 |

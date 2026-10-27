@@ -1,0 +1,306 @@
+{
+ "function": "usage-value.mjs quotaIncrements(stream)",
+ "cases": [
+  {
+   "name": "climb with out-of-order reads",
+   "input": [
+    {
+     "at": 1793068893487,
+     "used": 10,
+     "resetAt": 1793428893487
+    },
+    {
+     "at": 1793072493487,
+     "used": 12,
+     "resetAt": 1793428893487
+    },
+    {
+     "at": 1793072853487,
+     "used": 11,
+     "resetAt": 1793428893487
+    },
+    {
+     "at": 1793076093487,
+     "used": 12,
+     "resetAt": 1793428893487
+    },
+    {
+     "at": 1793079693487,
+     "used": 15,
+     "resetAt": 1793428893487
+    }
+   ],
+   "result": {
+    "increments": [
+     {
+      "at": 1793072493487,
+      "percent": 2
+     },
+     {
+      "at": 1793079693487,
+      "percent": 3
+     }
+    ],
+    "windowEnds": [],
+    "refills": []
+   }
+  },
+  {
+   "name": "drop of exactly 5 is a refill",
+   "input": [
+    {
+     "at": 1793068893487,
+     "used": 50,
+     "resetAt": 1793428893487
+    },
+    {
+     "at": 1793072493487,
+     "used": 45,
+     "resetAt": 1793428893487
+    },
+    {
+     "at": 1793076093487,
+     "used": 47,
+     "resetAt": 1793428893487
+    }
+   ],
+   "result": {
+    "increments": [
+     {
+      "at": 1793076093487,
+      "percent": 2
+     }
+    ],
+    "windowEnds": [],
+    "refills": [
+     {
+      "at": 1793072493487,
+      "from": 50,
+      "to": 45
+     }
+    ]
+   }
+  },
+  {
+   "name": "drop of 4.9 is noise",
+   "input": [
+    {
+     "at": 1793068893487,
+     "used": 50,
+     "resetAt": 1793428893487
+    },
+    {
+     "at": 1793072493487,
+     "used": 45.1,
+     "resetAt": 1793428893487
+    },
+    {
+     "at": 1793076093487,
+     "used": 52,
+     "resetAt": 1793428893487
+    }
+   ],
+   "result": {
+    "increments": [
+     {
+      "at": 1793076093487,
+      "percent": 2
+     }
+    ],
+    "windowEnds": [],
+    "refills": []
+   }
+  },
+  {
+   "name": "reset moved within jitter",
+   "input": [
+    {
+     "at": 1793068893487,
+     "used": 20,
+     "resetAt": 1793428893487
+    },
+    {
+     "at": 1793072493487,
+     "used": 22,
+     "resetAt": 1793432133487
+    },
+    {
+     "at": 1793076093487,
+     "used": 25,
+     "resetAt": 1793434293487
+    }
+   ],
+   "result": {
+    "increments": [
+     {
+      "at": 1793072493487,
+      "percent": 2
+     },
+     {
+      "at": 1793076093487,
+      "percent": 3
+     }
+    ],
+    "windowEnds": [],
+    "refills": []
+   }
+  },
+  {
+   "name": "reset moved past jitter, early",
+   "input": [
+    {
+     "at": 1793068893487,
+     "used": 60,
+     "resetAt": 1793428893487
+    },
+    {
+     "at": 1793072493487,
+     "used": 5,
+     "resetAt": 1794033693487
+    },
+    {
+     "at": 1793076093487,
+     "used": 9,
+     "resetAt": 1794033693487
+    }
+   ],
+   "result": {
+    "increments": [
+     {
+      "at": 1793076093487,
+      "percent": 4
+     }
+    ],
+    "windowEnds": [
+     {
+      "at": 1793072493487,
+      "lastUsed": 60,
+      "endedAt": 1793428893487,
+      "early": true
+     }
+    ],
+    "refills": []
+   }
+  },
+  {
+   "name": "natural end",
+   "input": [
+    {
+     "at": 1793068893487,
+     "used": 70,
+     "resetAt": 1793076093487
+    },
+    {
+     "at": 1793079693487,
+     "used": 0,
+     "resetAt": 1793680893487
+    },
+    {
+     "at": 1793083293487,
+     "used": 4,
+     "resetAt": 1793680893487
+    }
+   ],
+   "result": {
+    "increments": [
+     {
+      "at": 1793083293487,
+      "percent": 4
+     }
+    ],
+    "windowEnds": [
+     {
+      "at": 1793079693487,
+      "lastUsed": 70,
+      "endedAt": 1793076093487,
+      "early": false
+     }
+    ],
+    "refills": []
+   }
+  },
+  {
+   "name": "unknown reset",
+   "input": [
+    {
+     "at": 1793068893487,
+     "used": 10,
+     "resetAt": {
+      "$number": "NaN"
+     }
+    },
+    {
+     "at": 1793072493487,
+     "used": 30,
+     "resetAt": {
+      "$number": "NaN"
+     }
+    },
+    {
+     "at": 1793076093487,
+     "used": 2,
+     "resetAt": {
+      "$number": "NaN"
+     }
+    }
+   ],
+   "result": {
+    "increments": [
+     {
+      "at": 1793072493487,
+      "percent": 20
+     }
+    ],
+    "windowEnds": [],
+    "refills": [
+     {
+      "at": 1793076093487,
+      "from": 30,
+      "to": 2
+     }
+    ]
+   }
+  },
+  {
+   "name": "bad readings skipped",
+   "input": [
+    {
+     "at": 1793068893487,
+     "used": 10,
+     "resetAt": 1793428893487
+    },
+    {
+     "at": 1793072493487,
+     "used": {
+      "$number": "NaN"
+     },
+     "resetAt": 1793428893487
+    },
+    {
+     "at": 1793076093487,
+     "used": 15,
+     "resetAt": 1793428893487
+    }
+   ],
+   "result": {
+    "increments": [
+     {
+      "at": 1793076093487,
+      "percent": 5
+     }
+    ],
+    "windowEnds": [],
+    "refills": []
+   }
+  },
+  {
+   "name": "empty",
+   "input": [],
+   "result": {
+    "increments": [],
+    "windowEnds": [],
+    "refills": []
+   }
+  }
+ ]
+}

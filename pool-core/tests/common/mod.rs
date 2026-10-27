@@ -82,3 +82,40 @@ pub fn diff(path: &str, expected: &Value, actual: &Value) -> Option<String> {
         _ => (expected != actual).then(|| format!("{path}: expected {expected}, got {actual}")),
     }
 }
+
+/// Like [`diff`], but a tagged number (`{"$number": "NaN"}`) in the expected value must be
+/// the same tag in the actual one.
+pub fn diff_tagged(path: &str, expected: &Value, actual: &Value) -> Option<String> {
+    match (expected, actual) {
+        (Value::Object(e), Value::Object(a)) if e.contains_key("$number") => {
+            (e != a).then(|| format!("{path}: expected {expected}, got {actual}"))
+        }
+        (Value::Object(e), Value::Object(a)) => {
+            for k in e.keys().chain(a.keys()) {
+                match (e.get(k), a.get(k)) {
+                    (Some(x), Some(y)) => {
+                        if let Some(d) = diff_tagged(&format!("{path}.{k}"), x, y) {
+                            return Some(d);
+                        }
+                    }
+                    (x, y) => return Some(format!("{path}.{k}: expected {x:?}, got {y:?}")),
+                }
+            }
+            None
+        }
+        (Value::Array(e), Value::Array(a)) => {
+            if e.len() != a.len() {
+                return Some(format!(
+                    "{path}: expected {} items, got {}",
+                    e.len(),
+                    a.len()
+                ));
+            }
+            e.iter()
+                .zip(a)
+                .enumerate()
+                .find_map(|(i, (x, y))| diff_tagged(&format!("{path}[{i}]"), x, y))
+        }
+        _ => diff(path, expected, actual),
+    }
+}

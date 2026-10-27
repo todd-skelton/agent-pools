@@ -5,10 +5,11 @@
 //! Provider payloads stay `serde_json::Value`, because the JavaScript reads them loosely and
 //! the port has to read them the same way.
 //!
-//! Ported so far: quota windows and normalized usage ([`quota`]), routing order and the
-//! banked-credit choice ([`routing`]), Codex credits and the Claude bank ([`banks`]), reset
-//! policies ([`resets`]) and the capacity forecast ([`forecast`]), over the provider facts in
-//! [`providers`].
+//! Ported: quota windows and normalized usage ([`quota`]), routing order and the banked-credit
+//! choice ([`routing`]), Codex credits and the Claude bank ([`banks`]), reset policies
+//! ([`resets`]), the capacity forecast ([`forecast`]), the usage value report and session usage
+//! ([`value`]) and `/api/summary` with account freshness ([`summary`]), over the provider facts
+//! in [`providers`].
 //!
 //! # Where the port knowingly differs
 //!
@@ -28,6 +29,9 @@
 //!    treats the value as a string. Agent Pools catches such a throw as a failed read.
 //! 6. A numeric string where a number is expected (`limit_window_seconds: "3600"`,
 //!    `starts_at: 5`) is not coerced the way JavaScript would; no provider sends one.
+//! 7. A ledger row with neither an account nor a `prov` is filed under the provider
+//!    `"undefined"`, where the JavaScript keeps `undefined` and so drops `provider` from that
+//!    model's row. The proxy writes `prov` on every row (all 250,238 recorded rows have it).
 
 pub mod banks;
 pub mod forecast;
@@ -36,3 +40,5 @@ pub mod providers;
 pub mod quota;
 pub mod resets;
 pub mod routing;
+pub mod summary;
+pub mod value;

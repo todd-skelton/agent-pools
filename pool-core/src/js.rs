@@ -244,22 +244,53 @@ pub fn sort_by<T>(items: &mut [T], mut user_cmp: impl FnMut(&T, &T) -> f64) {
 }
 
 fn merge_sort<T>(items: &mut [T], cmp: &mut impl FnMut(&T, &T) -> f64) {
+    // Stable top-down merge sort over indexes (O(n log n), never panics), then the items are
+    // permuted into that order: a later element moves before an earlier one only when strictly
+    // less.
     let n = items.len();
-    if n < 2 {
-        return;
-    }
-    let mid = n / 2;
-    merge_sort(&mut items[..mid], cmp);
-    merge_sort(&mut items[mid..], cmp);
-    // Stable in-place merge by rotation: a later element moves before an earlier one only when
-    // strictly less.
-    let (mut i, mut j) = (0, mid);
-    while i < j && j < n {
-        if cmp(&items[j], &items[i]) < 0.0 {
-            items[i..=j].rotate_right(1);
-            j += 1;
+    let mut order: Vec<usize> = (0..n).collect();
+    let mut buffer = vec![0usize; n];
+    let mut width = 1;
+    while width < n {
+        let mut lo = 0;
+        while lo < n {
+            let mid = (lo + width).min(n);
+            let hi = (lo + 2 * width).min(n);
+            let (mut i, mut j, mut k) = (lo, mid, lo);
+            while i < mid && j < hi {
+                if cmp(&items[order[j]], &items[order[i]]) < 0.0 {
+                    buffer[k] = order[j];
+                    j += 1;
+                } else {
+                    buffer[k] = order[i];
+                    i += 1;
+                }
+                k += 1;
+            }
+            buffer[k..k + (mid - i)].copy_from_slice(&order[i..mid]);
+            k += mid - i;
+            buffer[k..k + (hi - j)].copy_from_slice(&order[j..hi]);
+            lo = hi;
         }
-        i += 1;
+        std::mem::swap(&mut order, &mut buffer);
+        width *= 2;
+    }
+    // Apply the permutation in place: position p takes the item that was at order[p].
+    let mut done = vec![false; n];
+    for start in 0..n {
+        if done[start] {
+            continue;
+        }
+        let mut p = start;
+        loop {
+            done[p] = true;
+            let next = order[p];
+            if next == start {
+                break;
+            }
+            items.swap(p, next);
+            p = next;
+        }
     }
 }
 
