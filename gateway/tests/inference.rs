@@ -258,6 +258,21 @@ async fn wrong_credentials_browsers_hosts_and_other_routes_fail_closed() {
     assert_eq!(seen.lock().unwrap().len(), 0);
 }
 
+/// A `GET /v1/responses` that does not ask to switch is not the socket: the relay's own 404 (the
+/// HTTP side takes only POSTs), signed in or not, as inference-relay.mjs answers it.
+#[tokio::test]
+async fn a_plain_get_on_the_socket_route_is_the_relays_404() {
+    let (r, seen) = fixture(None, |_| {}).await;
+    for auth in [AUTH, ""] {
+        let res = r.http.get(r.url("/v1/responses")).header("authorization", auth).send().await.unwrap();
+        assert_eq!(res.status(), 404, "{auth:?}");
+        assert_eq!(res.headers()["cache-control"], "no-store");
+        let body: serde_json::Value = serde_json::from_str(&res.text().await.unwrap()).unwrap();
+        assert_eq!(body, serde_json::json!({ "error": { "message": "Inference relay HTTP 404", "type": "relay_error" } }));
+    }
+    assert_eq!(seen.lock().unwrap().len(), 0);
+}
+
 #[tokio::test]
 async fn unauthenticated_and_browser_upgrades_never_reach_the_pool() {
     let (r, seen) = fixture(None, |_| {}).await;

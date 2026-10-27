@@ -12,9 +12,10 @@
 //!
 //! # Where it differs from inference-relay.mjs
 //!
-//! 1. A WebSocket's handshake is Corten's `Upgrade`: a `GET /v1/responses` that does not ask to
-//!    switch gets Corten's 426 (Agent Pools: 404), and a refused one gets this relay's JSON body
-//!    with its status (Agent Pools: the bare status line).
+//! 1. A WebSocket's handshake is Corten's `Upgrade` (an `Option<Upgrade>`, corten#176): a
+//!    `GET /v1/responses` that does not ask to switch gets this relay's 404, as Agent Pools
+//!    answers it, and a refused one gets this relay's JSON body with its status (Agent Pools: the
+//!    bare status line).
 //! 2. Unknown routes and wrong methods get Corten's 404 and 405 (Agent Pools: 404), and a `Host`
 //!    that is not `localhost` or an address gets Corten's 421 (Agent Pools: 403).
 //! 3. The server's limits are Corten's (corten#173): `App::header_timeout` closes a connection
@@ -413,7 +414,9 @@ async fn http(State(inf): State<Inf>, peer: Option<ClientIp>, req: Request) -> O
     Out::Relay(Relay::new(status, out, Body::from_stream(stream)))
 }
 
-async fn socket(State(inf): State<Inf>, peer: Option<ClientIp>, headers: HeaderMap, uri: corten::axum::http::Uri, upgrade: Upgrade) -> Out {
+async fn socket(State(inf): State<Inf>, peer: Option<ClientIp>, headers: HeaderMap, uri: corten::axum::http::Uri, upgrade: Option<Upgrade>) -> Out {
+    // Not a switch: the HTTP side's `GET`, which only POSTs reach (`reply(res, 404)`, unadmitted).
+    let Some(upgrade) = upgrade else { return reply(StatusCode::NOT_FOUND) };
     let key = match inf.admission(&headers, peer).await {
         Ok(k) => k,
         Err(status) => {

@@ -256,8 +256,9 @@ A refused connect is retried while the pool restarts. `cargo test -p pools-gatew
 inference` runs Agent Pools' 22 relay tests over real sockets, plus the head timeout, (its 5 tests of Codex's config
 file are not the relay's). Disabling the per-frame admission check fails the sign-out test.
 
-Differences: Corten's 426, 404, 405 and 421 where Agent Pools answers 404 or 403 (`src/inference.rs`
-lists them). The server's limits are Corten's
+Differences: Corten's 404, 405 and 421 where Agent Pools answers 404 or 403 (`src/inference.rs`
+lists them). A `GET /v1/responses` that does not ask to switch gets the relay's own 404, as Agent
+Pools answers it ([corten#176 Option<Upgrade> and SwitchOr](https://github.com/todd-skelton/corten/pull/176)). The server's limits are Corten's
 ([corten#173 App::header_timeout and App::max_connections](https://github.com/todd-skelton/corten/pull/173), for
 [corten#170 A client that never finishes its request head holds a connection open forever](https://github.com/todd-skelton/corten/issues/170)):
 a request head that takes over 30 s closes the connection without an answer (Node answers 408),

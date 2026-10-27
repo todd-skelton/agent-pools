@@ -12,7 +12,7 @@ pool-core = { path = "../pool-core" }
 # The desktop relay on a copy (backend-relay.mjs), on the same Corten revision.
 pools-gateway = { path = "../gateway" }
 # main with Upgrade and Relay (corten#162), ClientIp (corten#145), serve_on (corten#137) and per-area deadlines (corten#135).
-corten = { git = "https://github.com/todd-skelton/corten", rev = "77bcbbb", features = ["json"] }
+corten = { git = "https://github.com/todd-skelton/corten", rev = "f144a5a", features = ["json"] }
 # The dashboard's live stream (corten::live takes a Stream).
 futures-util = { version = "0.3", default-features = false }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "net"] }
