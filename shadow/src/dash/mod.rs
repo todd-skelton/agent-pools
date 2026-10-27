@@ -39,11 +39,12 @@ impl Data {
     }
 }
 
-/// The status as the shadow builds it (the live service's memory, `processes`, `holds` and
-/// `usageLedger`, from its last `/api/status` answer when there is one) and the value report.
+/// The status as the shadow builds it (the service's memory, `processes`, `holds` and
+/// `usageLedger`: the live service's last `/api/status` answer, or a copy's own) and the value
+/// report.
 pub async fn load(shadow: &Shared) -> corten::Result<Data> {
     let s = shadow.clone();
-    let live = shadow.live_memory();
+    let live = shadow.memory();
     let (status, value, now) = tokio::task::spawn_blocking(move || {
         let now = now_ms();
         (crate::parity::status_now(&s.install, &live, now), s.install.json("state/usage-value.json"), now)

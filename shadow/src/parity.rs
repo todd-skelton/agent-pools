@@ -416,6 +416,12 @@ pub struct ValueInputs<'a> {
 
 /// `writeValueReport` at `t`, from the files, without writing anything.
 pub fn value_at(inp: &ValueInputs, t: f64) -> Value {
+    reports_at(inp, t).value_report
+}
+
+/// What `writeValueReport` builds at `t`: the value report (with its config `problems`) and the
+/// session usage document.
+pub fn reports_at(inp: &ValueInputs, t: f64) -> value::UsageReports {
     let settings = inp.install.settings();
     let (config, problems) = value::value_config(settings.get("usageLedger"));
     let prices = inp.install.json("model-prices.json").unwrap_or(Value::Null);
@@ -469,9 +475,9 @@ pub fn value_at(inp: &ValueInputs, t: f64) -> Value {
             now: t,
         },
     );
-    let mut report = reports.value_report;
-    report["problems"] = json!(problems);
-    report
+    let mut reports = reports;
+    reports.value_report["problems"] = json!(problems);
+    reports
 }
 
 /// `{ id, provider, email, auth_index, plan: a.plan ?? null, quotaWindows: a.quotaWindows ?? [] }`.

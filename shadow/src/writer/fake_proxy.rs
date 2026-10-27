@@ -7,6 +7,11 @@
 //! It also stands in for chatgpt.com's `/backend-api` as the copy's desktop relay sees it:
 //! `GET /backend-api/wham/usage` answers the signed-in account's usage (the account named by
 //! `chatgpt-account-id`, else the first Codex account), and anything else there is a 404.
+//!
+//! Its usage queue (`usage-queue?count=`, which the ledger drains) makes up requests on the
+//! copy's accounts, `SHADOW_STANDIN_REQUESTS_PER_HOUR` of them (30; 0 for none), with the
+//! shape of the proxy's records and quota headers from the drifting windows. As in the proxy, a
+//! record not read within 60 s is gone. Each made-up request names its client `stand-in`.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -26,6 +31,8 @@ const CLAUDE_USAGE: &str = "https://api.anthropic.com/api/oauth/usage?cedar_embe
 const CLAUDE_PROFILE: &str = "https://api.anthropic.com/api/oauth/profile";
 /// Use rises this many points an hour on every window, up to 100.
 const DRIFT_PER_HOUR: f64 = 2.0;
+/// The proxy keeps a usage record this long for the ledger to read (`redis-usage-queue-retention-seconds`).
+const QUEUE_RETENTION_MS: f64 = 60_000.0;
 
 struct Fake {
     root: PathBuf,
@@ -33,6 +40,9 @@ struct Fake {
     started: f64,
     accounts: Vec<Value>,
     priorities: Mutex<Map<String, Value>>,
+    /// The made-up requests: when the next is due, and how many have been made.
+    queue: Mutex<(f64, u64)>,
+    requests_per_hour: f64,
     /// Handlers run concurrently; one whole line per write, one writer at a time.
     log_lock: Mutex<()>,
 }
@@ -45,7 +55,18 @@ pub async fn start(root: PathBuf, key: String) -> std::io::Result<String> {
     let state = std::fs::read_to_string(root.join("state/pool-state.json")).unwrap_or_default();
     let state: Value = serde_json::from_str(state.trim_start_matches('\u{feff}')).unwrap_or(Value::Null);
     let accounts = js::values(state.get("accounts")).into_iter().cloned().collect();
-    let fake = Arc::new(Fake { root, key, started: crate::watch::now_ms(), accounts, priorities: Mutex::new(Map::new()), log_lock: Mutex::new(()) });
+    let started = crate::watch::now_ms();
+    let requests_per_hour = std::env::var("SHADOW_STANDIN_REQUESTS_PER_HOUR").ok().and_then(|v| v.parse::<f64>().ok()).filter(|n| n.is_finite() && *n >= 0.0).unwrap_or(30.0);
+    let fake = Arc::new(Fake {
+        root,
+        key,
+        started,
+        accounts,
+        priorities: Mutex::new(Map::new()),
+        queue: Mutex::new((started, 0)),
+        requests_per_hour,
+        log_lock: Mutex::new(()),
+    });
     let app = Router::new()
         .route("/v0/management/auth-files", get(auth_files))
         .route("/v0/management/auth-files/fields", patch(fields))
@@ -54,6 +75,7 @@ pub async fn start(root: PathBuf, key: String) -> std::io::Result<String> {
         .route("/v0/management/client-versions", get(client_versions))
         .route("/v0/management/oauth-callback", post(oauth_callback))
         .route("/v0/management/outage-holds", get(outage_holds))
+        .route("/v0/management/usage-queue", get(usage_queue))
         .route("/v0/management/{endpoint}", get(other_get).post(other_post))
         .route("/backend-api/wham/usage", get(desktop_usage))
         .route("/backend-api/{*rest}", axum::routing::any(desktop_other))
@@ -88,7 +110,7 @@ impl Fake {
         let provider = js::to_string(a.get("provider"));
         let priority = self.priorities.lock().unwrap().get(&id).cloned().or_else(|| a.get("priority").cloned()).unwrap_or(json!(0));
         let mut f = json!({
-            "id": id, "name": a.get("name").cloned().unwrap_or(json!(id)), "auth_index": format!("{id}-idx"), "provider": provider,
+            "id": id, "name": a.get("name").cloned().unwrap_or(json!(id)), "auth_index": index_of(a), "provider": provider,
             "email": a.get("email").cloned().unwrap_or(json!("")), "path": self.root.join("auth").join(&id).to_string_lossy(),
             "disabled": js::truthy(a.get("disabled")), "priority": priority,
             "routing": { "status": "ready", "quota_blocked": false, "generation": "1", "checked_at": js::iso(crate::watch::now_ms()),
@@ -101,7 +123,7 @@ impl Fake {
     }
 
     fn account(&self, auth_index: &str) -> Option<&Value> {
-        self.accounts.iter().find(|a| format!("{}-idx", js::to_string(a.get("id"))) == auth_index)
+        self.accounts.iter().find(|a| index_of(a) == auth_index)
     }
 
     /// A saved window's use, drifted up since the stand-in started.
@@ -113,6 +135,82 @@ impl Fake {
 
     fn windows<'a>(&self, a: &'a Value) -> Vec<&'a Value> {
         js::values(a.get("quotaWindows"))
+    }
+
+    /// Up to `count` made-up requests that are due by `now`, oldest first; ones older than the
+    /// proxy's 60 s queue retention are skipped.
+    fn pop_queue(&self, count: usize, now: f64) -> Vec<Value> {
+        let mut out = Vec::new();
+        if self.requests_per_hour <= 0.0 || self.accounts.is_empty() {
+            return out;
+        }
+        let every = 3_600_000.0 / self.requests_per_hour;
+        let mut q = self.queue.lock().unwrap_or_else(|e| e.into_inner());
+        while q.0 < now - QUEUE_RETENTION_MS {
+            q.0 += every;
+            q.1 += 1;
+        }
+        while q.0 <= now && out.len() < count {
+            out.push(self.request(q.1, q.0));
+            q.0 += every;
+            q.1 += 1;
+        }
+        out
+    }
+
+    /// The `n`th made-up request, at `at`: one of the copy's accounts in turn, a priced model of its
+    /// provider, and the quota headers its windows give.
+    fn request(&self, n: u64, at: f64) -> Value {
+        let a = &self.accounts[(n % self.accounts.len() as u64) as usize];
+        let provider = js::to_string(a.get("provider"));
+        let codex = provider == "codex";
+        let models: &[&str] = if codex { &["gpt-6.1-sol", "gpt-6-luna"] } else { &["claude-opus-5-5", "claude-sonnet-5-5"] };
+        let model = models[(n / self.accounts.len() as u64 % models.len() as u64) as usize];
+        // Varied but repeatable sizes.
+        let k = (n % 7) + 1;
+        let (input, cached, output) = (2_000 * k, 30_000 * k, 400 * k);
+        let window = |pick: &dyn Fn(&Value) -> bool| self.windows(a).into_iter().find(|w| pick(w)).cloned();
+        let seconds = |w: &Value| js::finite(w.get("resetAt")).map(|ms| json!([format!("{}", (ms / 1000.0).floor())]));
+        let mut headers = Map::new();
+        if codex {
+            if let Some(w) = window(&|w| w.get("id").and_then(Value::as_str) == Some("codex:primary_window")) {
+                let minutes = js::finite(w.get("durationSeconds")).unwrap_or(604_800.0) / 60.0;
+                headers.insert("X-Codex-Primary-Used-Percent".into(), json!([format!("{}", self.used(&w, true))]));
+                headers.insert("X-Codex-Primary-Window-Minutes".into(), json!([format!("{minutes}")]));
+                if let Some(s) = seconds(&w) {
+                    headers.insert("X-Codex-Primary-Reset-At".into(), s);
+                }
+            }
+        } else {
+            for (id, name) in [("limit:1", "7d"), ("limit:0", "5h")] {
+                if let Some(w) = window(&|w| w.get("id").and_then(Value::as_str) == Some(id)) {
+                    headers.insert(format!("Anthropic-Ratelimit-Unified-{name}-Utilization"), json!([format!("{}", self.used(&w, false) / 100.0)]));
+                    if let Some(s) = seconds(&w) {
+                        headers.insert(format!("Anthropic-Ratelimit-Unified-{name}-Reset"), s);
+                    }
+                }
+            }
+        }
+        json!({
+            "timestamp": js::iso(at),
+            "latency_ms": 900 + 300 * k,
+            "auth_index": index_of(a),
+            "user_agent": "stand-in/1 (agent-pools-corten copy)",
+            "tokens": if codex {
+                json!({ "input_tokens": input + cached, "cached_tokens": cached, "output_tokens": output, "reasoning_tokens": output / 4 })
+            } else {
+                json!({ "input_tokens": input, "cache_read_tokens": cached, "cache_creation_tokens": input / 2, "output_tokens": output })
+            },
+            "failed": false,
+            "fail": { "status_code": 200, "body": "" },
+            "response_headers": headers,
+            "provider": provider,
+            "model": model,
+            "endpoint": if codex { "POST /v1/responses" } else { "POST /v1/messages" },
+            "request_id": format!("stand-in-{n}"),
+            "session_id": format!("stand-in-session-{}", n / 10),
+            "reasoning_effort": "medium",
+        })
     }
 
     fn codex_usage(&self, a: &Value) -> Value {
@@ -319,6 +417,31 @@ async fn desktop_other(State(f): State<Shared>, Path(rest): Path<String>) -> (St
 }
 
 /// The proxy's provider outage hold counters: nothing is ever held by the stand-in.
+/// The proxy's index for an account: the one the copy saved (the live proxy's), else `{id}-idx`.
+fn index_of(a: &Value) -> String {
+    match a.get("auth_index").and_then(Value::as_str) {
+        Some(i) if !i.is_empty() => i.to_string(),
+        _ => format!("{}-idx", js::to_string(a.get("id"))),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct QueueQuery {
+    count: Option<usize>,
+}
+
+/// `GET usage-queue?count=`: the made-up requests due now, removed as they are read.
+async fn usage_queue(State(f): State<Shared>, headers: HeaderMap, axum::extract::Query(q): axum::extract::Query<QueueQuery>) -> Result<AxumJson<Value>, StatusCode> {
+    if !f.allowed(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    let records = f.pop_queue(q.count.unwrap_or(1).clamp(1, 10_000), crate::watch::now_ms());
+    if !records.is_empty() {
+        f.log("usage-queue", &json!({ "count": q.count, "returned": records.len() }));
+    }
+    Ok(AxumJson(Value::Array(records)))
+}
+
 async fn outage_holds(State(f): State<Shared>, headers: HeaderMap) -> Result<AxumJson<Value>, StatusCode> {
     if !f.allowed(&headers) {
         return Err(StatusCode::UNAUTHORIZED);

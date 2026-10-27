@@ -144,8 +144,7 @@ async fn run_copy() -> std::io::Result<()> {
     let options = pool_core::refresh::Options { read_plans: true, ..Default::default() };
     let listeners = corten::listeners(8321).await?;
     println!("copy: listening on http://localhost:{}", listeners[0].local_addr()?.port());
-    let health = std::sync::Arc::new(writer::health::Health::new(&writer::load_state(&root)));
-    let copy = std::sync::Arc::new(writer::Copy { io, health, trigger: Default::default() });
+    let copy = std::sync::Arc::new(writer::Copy::new(io));
     corten::serve_on(listeners, app::app_copy(shadow, assets, copy, delays, options)).await
 }
 

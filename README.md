@@ -124,8 +124,8 @@ target\release\pools-shadow.exe make-copy shadow-state\copy   # reads the live i
 target\release\pools-shadow.exe run-copy shadow-state\copy    # http://localhost:8321
 ```
 
-`make-copy` copies the state documents, the four `install.json` keys and the usage-sample logs,
-and writes stand-in Claude auth files that hold only a fake organization id. `run-copy` refuses
+`make-copy` copies the state documents, the four `install.json` keys, the usage-sample logs and
+the public price table (`model-prices.json`), and writes stand-in Claude auth files that hold only a fake organization id. `run-copy` refuses
 the live install and any directory with `state/secrets.json` (`writer::copy::guard`), starts a
 stand-in proxy on a free loopback port (answers from the copy's accounts, refuses every credit
 claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
@@ -151,7 +151,19 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   with `/wham/usage` rewritten by `pool_core::pool_usage` over the copy's saved accounts
   (`poolUsageMode` from the copy's install.json, else `capped`; make-copy does not copy that key).
   Plain HTTP, since the live install's `state/certs` is not copied. Overlay errors go to the
-  copy's `logs/pool-events.jsonl`.
+  copy's `logs/pool-events.jsonl`;
+- the usage ledger (usage-ledger.mjs's drain, `writer::ledger`): the stand-in's `usage-queue`
+  popped in batches of 1,000 every `drainIntervalSeconds` (10) while the proxy answers, rows
+  (`pool_core::ledger`) appended to `logs/usage-ledger/raw-YYYY-MM-DD.jsonl` by UTC day, rows
+  held across a failed write (up to 100,000), files pruned past `rawRetentionDays`, a problem
+  logged once per change, stats as `usageLedger` on `/api/status` and the dashboard. The live
+  proxy's queue is never read (reading it removes records). The stand-in makes up
+  `SHADOW_STANDIN_REQUESTS_PER_HOUR` (30) requests on the copy's accounts, client `stand-in`,
+  with quota headers from its drifting windows;
+- the value report (`writer::report`): `writeValueReport` two minutes after the start, then every
+  `reportIntervalMinutes` (60), writing `state/usage-value.json` and `state/session-usage.json`
+  from the copy's ledger, samples, state and forecast. Not ported: `state/routing-attempts.json`
+  (the join with the orchestrator's dispatch log, outside the install); the copied file stays.
 
 Measured on 2026-10-27: a POST at 13:11:12.40Z started a cycle at 13:11:12.58Z; cycles saved the
 copy's pool state and forecast, and appended usage samples only for windows whose use changed.
@@ -162,6 +174,11 @@ At 16:07Z the copy's desktop relay answered `/backend-api/wham/usage` for no acc
 each of the copy's 4 Codex account ids (200, 1,559 to 1,563 bytes, rewritten), each byte for byte
 what Agent Pools' own `poolUsage` makes from the same stand-in body and saved accounts at a moment
 within the request (`node golden/usage-relay.mjs`).
+
+Ledger rows are held to Agent Pools' own functions over 230 queue records, 18 configs and 7 user
+agents (`node golden/ledger-cases.mjs`, `cargo test -p pool-core --test ledger_rows`); the drain
+to usage-ledger.test.mjs's three drain tests (`writer::ledger::tests`). A drain's write error
+text is Rust's, not Node's.
 
 The ladders are held to every `buildLadders` call in Agent Pools' routing-ladder.test.mjs (36,
 recorded by `node --import ./golden/ladder-hook.mjs reference/agent-pools/routing-ladder.test.mjs`);

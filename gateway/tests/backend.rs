@@ -45,7 +45,7 @@ async fn read_head(tcp: &mut TcpStream) -> Option<(String, Vec<u8>)> {
     }
 }
 
-/// Fake chatgpt.com on loopback; \`stream_gap\` is the pause between the stream's two events.
+/// Fake chatgpt.com on loopback; `stream_gap` is the pause between the stream's two events.
 async fn fake_upstream(stream_gap: Duration) -> (u16, Seen_, tokio::task::JoinHandle<()>) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -111,7 +111,7 @@ async fn fake_upstream(stream_gap: Duration) -> (u16, Seen_, tokio::task::JoinHa
     (port, seen, task)
 }
 
-/// The relay on a listener of its own, with \`tune\` applied to its options.
+/// The relay on a listener of its own, with `tune` applied to its options.
 async fn front(upstream_port: u16, tune: impl FnOnce(&mut Config)) -> u16 {
     let mut config = Config::new(&format!("http://127.0.0.1:{upstream_port}/backend-api"));
     tune(&mut config);

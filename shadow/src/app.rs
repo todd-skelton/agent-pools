@@ -37,7 +37,7 @@ pub fn app_copy(
     let _ = shadow.writer.set(copy.trigger.clone());
     let _ = shadow.copy.set(copy.clone());
     let (n, w) = (shadow.clone(), shadow.clone());
-    let watch = copy.clone();
+    let (watch, drain, d, value) = (copy.clone(), copy.clone(), shadow.clone(), copy.clone());
     App::new(url::router(shadow))
         .assets(assets)
         .policy(corten::security::Policy::new().allow_style_attributes())
@@ -50,6 +50,12 @@ pub fn app_copy(
         })
         .task("check-proxy", move |signal| {
             crate::writer::health::run(watch.io.clone(), watch.health.clone(), watch.trigger.clone(), crate::writer::health::EVERY, signal)
+        })
+        .task("usage-ledger", move |signal| {
+            crate::writer::ledger::run(drain.ledger.clone(), drain.io.clone(), drain.health.clone(), std::time::Duration::from_secs(5), move || d.changed_inputs(), signal)
+        })
+        .task("value-report", move |signal| {
+            crate::writer::report::run(value.io.clone(), crate::writer::report::FIRST, signal)
         })
 }
 
@@ -346,10 +352,11 @@ async fn summary_json(State(shadow): State<Shared>) -> JsonResult<JsJson> {
 }
 
 /// `/api/status` from the files. `processes`, `holds` and `usageLedger` are the live service's
-/// memory, so they are `null` here; on a copy, `holds` is its proxy watch's last reading.
+/// memory, so they are `null` here; on a copy, `holds` is its proxy watch's last reading and
+/// `usageLedger` its ledger's stats.
 async fn status_json(State(shadow): State<Shared>) -> JsonResult<JsJson> {
     let s = shadow.clone();
-    let live = pool_core::status::Live { holds: shadow.copy.get().and_then(|c| c.health.holds()), ..Default::default() };
+    let live = shadow.memory();
     let doc = tokio::task::spawn_blocking(move || {
         parity::status_now(&s.install, &live, now_ms())
     })

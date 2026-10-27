@@ -1,6 +1,6 @@
-//! \`poolUsage\` against every call Agent Pools' own pool-usage.test.mjs makes, recorded by
-//! \`node --import ./golden/usage-hook.mjs reference/agent-pools/pool-usage.test.mjs\`: the overlay
-//! as \`JSON.stringify\` writes it, byte for byte, the upstream itself when unchanged, or the same
+//! `poolUsage` against every call Agent Pools' own pool-usage.test.mjs makes, recorded by
+//! `node --import ./golden/usage-hook.mjs reference/agent-pools/pool-usage.test.mjs`: the overlay
+//! as `JSON.stringify` writes it, byte for byte, the upstream itself when unchanged, or the same
 //! error.
 
 mod common;

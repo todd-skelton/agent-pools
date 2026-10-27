@@ -57,7 +57,8 @@ pub fn make_copy(live: &Install, dest: &Path) -> std::io::Result<Vec<PathBuf>> {
         written.push(p);
         Ok(())
     };
-    for rel in ["state/pool-state.json", "state/capacity-forecast.json", "state/usage-value.json"] {
+    // The price table is public list prices (the value report reads it), not a secret.
+    for rel in ["state/pool-state.json", "state/capacity-forecast.json", "state/usage-value.json", "model-prices.json"] {
         if let Ok(text) = std::fs::read_to_string(live.root().join(rel)) {
             put(rel, &text)?;
         }

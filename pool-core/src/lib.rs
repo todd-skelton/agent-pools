@@ -13,6 +13,7 @@
 //! to traces of Agent Pools' own cycle (`golden/refresh-traces.mjs`, `tests/refresh.rs`).
 //! The routing ladders ([`ladder`]) are held to every call in Agent Pools' routing-ladder tests,
 //! and the desktop's pool-wide usage overlay ([`pool_usage`]) to every call in its pool-usage tests.
+//! The usage ledger's rows ([`ledger`]) are held to Agent Pools' own functions over 230 records.
 //!
 //! # Where the port knowingly differs
 //!
@@ -40,6 +41,7 @@ pub mod banks;
 pub mod forecast;
 pub mod js;
 pub mod ladder;
+pub mod ledger;
 pub mod pool_usage;
 pub mod providers;
 pub mod quota;

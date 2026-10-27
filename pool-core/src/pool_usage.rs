@@ -1,13 +1,13 @@
-//! pool-usage.mjs: the pool-wide overlay on the Codex desktop's \`/wham/usage\` poll, so its banner
+//! pool-usage.mjs: the pool-wide overlay on the Codex desktop's `/wham/usage` poll, so its banner
 //! and usage panel show the pool rather than the one signed-in account. The upstream body stays
 //! the base (account id, credits, plan), and the rate-limit blocks are the pool's.
 //!
-//! Accounts are read as the service holds them (JSON, after \`currentAccount\`), so the port reads
+//! Accounts are read as the service holds them (JSON, after `currentAccount`), so the port reads
 //! them as loosely as the JavaScript does. Held to every call in Agent Pools' pool-usage tests
-//! (\`golden/usage-hook.mjs\`, \`tests/pool_usage.rs\`).
+//! (`golden/usage-hook.mjs`, `tests/pool_usage.rs`).
 //!
-//! Where the JavaScript would throw a \`TypeError\` (a \`null\` in \`additional_rate_limits\`, a window
-//! with no \`id\`), the port skips the entry or reads the id as empty; the relay fails open on a
+//! Where the JavaScript would throw a `TypeError` (a `null` in `additional_rate_limits`, a window
+//! with no `id`), the port skips the entry or reads the id as empty; the relay fails open on a
 //! throw either way and passes the account's own numbers on.
 
 use crate::{js, quota};
@@ -110,7 +110,7 @@ fn aggregate_window(rows: &[Row], mode: &str, now: f64, unverified: usize) -> Op
     let pct = used_percent(mode, &used, total_remaining);
     let resets: Vec<f64> = metered.iter().filter_map(|r| finite(r.w.get("resetAt"))).filter(|t| *t > now).collect();
     let reset_at = if resets.is_empty() { None } else { Some(js::min(resets)) };
-    // \`resetAt ? ... : null\`: a reset at 0 counts as none.
+    // `resetAt ? ... : null`: a reset at 0 counts as none.
     let reset_at = reset_at.filter(|t| *t != 0.0);
     Some(Agg {
         used_percent: js::round(pct),
@@ -140,7 +140,7 @@ struct Scope {
 type Slots<'a> = Vec<(Value, Vec<Row<'a>>)>;
 
 /// scopedWindows: grouped by scope, then by slot (primary/secondary by id, weekly/session by
-/// duration, else the label or id), each in the order first seen, as a \`Map\` keeps them.
+/// duration, else the label or id), each in the order first seen, as a `Map` keeps them.
 fn scoped_windows(accounts: &[&Value], mode: &str, now: f64, unverified: usize) -> Vec<Scope> {
     // (scope, common of its first window, [(slot, rows)])
     let mut by_scope: Vec<(Value, bool, Slots)> = Vec::new();
@@ -291,7 +291,7 @@ fn rate_limit_block(windows: &[(Value, Agg)], pool_exhausted: Option<bool>) -> (
     (block, primary.cloned())
 }
 
-/// \`String(s).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")\`.
+/// `String(s).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")`.
 fn slug(s: &str) -> String {
     let mut out = String::new();
     let mut gap = false;
@@ -308,7 +308,7 @@ fn slug(s: &str) -> String {
     out.strip_suffix('_').unwrap_or(out).to_string()
 }
 
-/// poolLabel: \`Codex pool: 1 of 3 available, 99% of 300% left\`.
+/// poolLabel: `Codex pool: 1 of 3 available, 99% of 300% left`.
 pub fn pool_label(scope: &str, accounts: usize, available: usize, unverified: usize, total_remaining_percent: f64) -> String {
     let note = if unverified > 0 { format!(", {unverified} unverified") } else { String::new() };
     format!(
@@ -369,8 +369,8 @@ fn set_resets(block: &mut Map<String, Value>, at: f64, now: f64) {
     }
 }
 
-/// \`poolUsage(upstream, accounts, { mode, now, includeClaude })\`: the overlay, or \`upstream\`
-/// unchanged (\`None\`) when the pool has no fresh Codex data. An unknown mode is an error.
+/// `poolUsage(upstream, accounts, { mode, now, includeClaude })`: the overlay, or `upstream`
+/// unchanged (`None`) when the pool has no fresh Codex data. An unknown mode is an error.
 pub fn pool_usage(upstream: &Value, accounts: &[Value], mode: &str, now: f64, include_claude: bool) -> Result<Option<Value>, String> {
     if !POOL_MODES.contains(&mode) {
         return Err(format!("Unknown pool mode: {mode}"));

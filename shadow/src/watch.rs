@@ -164,6 +164,15 @@ impl Shadow {
         self.lock().live_memory.clone()
     }
 
+    /// The service's memory as `/api/status` and the dashboard show it: on a copy, its own proxy
+    /// watch (`holds`) and ledger (`usageLedger`); otherwise the live service's last answer.
+    pub fn memory(&self) -> pool_core::status::Live {
+        match self.copy.get() {
+            Some(c) => pool_core::status::Live { holds: c.health.holds(), usage_ledger: Some(c.ledger.stats()), ..Default::default() },
+            None => self.live_memory(),
+        }
+    }
+
     pub fn snapshot(&self) -> Snapshot {
         let inner = self.lock();
         Snapshot {

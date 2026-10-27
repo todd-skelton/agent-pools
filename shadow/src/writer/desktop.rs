@@ -1,7 +1,7 @@
 //! The desktop relay on the copy (pool-service.mjs's desktop relay listener): Agent Pools'
-//! backend relay (\`pools_gateway::backend\`) with the pool-wide usage overlay over the copy's own
-//! accounts, in front of the stand-in's \`/backend-api\` (\`fake_proxy\`), never chatgpt.com. Plain
-//! HTTP: the TLS pair in the live install's \`state/certs\` is not copied.
+//! backend relay (`pools_gateway::backend`) with the pool-wide usage overlay over the copy's own
+//! accounts, in front of the stand-in's `/backend-api` (`fake_proxy`), never chatgpt.com. Plain
+//! HTTP: the TLS pair in the live install's `state/certs` is not copied.
 
 use std::sync::Arc;
 
@@ -10,9 +10,9 @@ use serde_json::Value;
 
 use super::io::FileIo;
 
-/// \`poolUsageMode\` from the copy's install.json when it is one of the modes, else the first
-/// (\`capped\`), as pool-service.mjs chooses it. make-copy does not copy that key, so a copy runs
-/// \`capped\` unless its install.json is edited.
+/// `poolUsageMode` from the copy's install.json when it is one of the modes, else the first
+/// (`capped`), as pool-service.mjs chooses it. make-copy does not copy that key, so a copy runs
+/// `capped` unless its install.json is edited.
 pub fn mode(install: Option<&Value>) -> &'static str {
     let named = install.and_then(|i| i.get("poolUsageMode")).and_then(Value::as_str);
     pool_usage::POOL_MODES.iter().copied().find(|m| Some(*m) == named).unwrap_or(pool_usage::POOL_MODES[0])
@@ -25,8 +25,8 @@ fn accounts(io: &FileIo, now: f64) -> Result<Vec<Value>, String> {
     Ok(js::values(state.get("accounts")).into_iter().map(|a| summary::current_account(a, now)).collect())
 }
 
-/// Serves the relay on \`127.0.0.1:<port>\` (and \`[::1]\` when the system has it, as the desktop
-/// relay listens on both), in front of \`upstream\` (the stand-in's \`/backend-api\`). Returns the
+/// Serves the relay on `127.0.0.1:<port>` (and `[::1]` when the system has it, as the desktop
+/// relay listens on both), in front of `upstream` (the stand-in's `/backend-api`). Returns the
 /// port it got.
 pub async fn start(io: Arc<FileIo>, upstream: &str, port: u16) -> std::io::Result<u16> {
     let v4 = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;

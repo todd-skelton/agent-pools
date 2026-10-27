@@ -8,7 +8,9 @@ pub mod desktop;
 pub mod fake_proxy;
 pub mod health;
 pub mod io;
+pub mod ledger;
 pub mod publisher;
+pub mod report;
 
 use std::path::Path;
 use std::sync::Arc;
@@ -25,6 +27,17 @@ pub struct Copy {
     pub io: Arc<io::FileIo>,
     pub health: Arc<health::Health>,
     pub trigger: Arc<Trigger>,
+    pub ledger: Arc<ledger::Ledger>,
+}
+
+impl Copy {
+    /// The write side over `io`'s copy, starting from its saved state.
+    pub fn new(io: Arc<io::FileIo>) -> Copy {
+        let state = load_state(&io.root);
+        let ledger = Arc::new(ledger::Ledger::new(io.root.clone()));
+        ledger.set_accounts(&state);
+        Copy { health: Arc::new(health::Health::new(&state)), trigger: Default::default(), ledger, io }
+    }
 }
 
 /// A manual refresh request (`POST /refresh`). While a cycle runs, a request joins it, as
@@ -94,6 +107,7 @@ pub trait Check {
 struct Cycle<F> {
     io: Arc<io::FileIo>,
     health: Arc<health::Health>,
+    ledger: Arc<ledger::Ledger>,
     state: Value,
     refresh: Refresh,
     changed: F,
@@ -104,6 +118,8 @@ impl<F: Fn() + Send> Check for Cycle<F> {
         // The proxy watch's holdSince, as the one state object pool-service.mjs shares holds it.
         self.health.apply(&mut self.state);
         let outcome = self.refresh.refresh(&mut self.state, &*self.io).await;
+        // The ledger attributes rows by the accounts the cycle left (`accounts: () => state.accounts`).
+        self.ledger.set_accounts(&self.state);
         (self.changed)();
         println!(
             "writer: cycle at {} degraded={} followUp={}",
@@ -126,7 +142,7 @@ pub async fn run(copy: Arc<Copy>, delays: Delays, options: Options, changed: imp
     // The proxy watch starts the first cycle instead when the proxy is not up yet.
     let bootstrap = healthy && !copy.health.bootstrapped.swap(true, Ordering::SeqCst);
     let trigger = copy.trigger.clone();
-    let mut cycle = Cycle { io: copy.io.clone(), health: copy.health.clone(), state, refresh, changed };
+    let mut cycle = Cycle { io: copy.io.clone(), health: copy.health.clone(), ledger: copy.ledger.clone(), state, refresh, changed };
     run_loop(&trigger, delays, bootstrap, &mut cycle, &signal).await;
 }
 

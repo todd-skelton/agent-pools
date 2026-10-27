@@ -1,8 +1,8 @@
-//! pool-service.mjs's proxy watch on the copy: \`checkProxy\` every 10 s (healthy when the
-//! stand-in's \`auth-files\` answers with a \`files\` list), then \`readHolds\` (the proxy's provider
-//! outage hold counters, \`outage-holds\`), whose transitions (notifications.mjs \`holdTransition\`)
+//! pool-service.mjs's proxy watch on the copy: `checkProxy` every 10 s (healthy when the
+//! stand-in's `auth-files` answers with a `files` list), then `readHolds` (the proxy's provider
+//! outage hold counters, `outage-holds`), whose transitions (notifications.mjs `holdTransition`)
 //! are logged and toasted. A first healthy answer starts a refresh when the writer's own start did
-//! not find the proxy (\`bootstrapped\`). Restarting the proxy is not ported: the copy's proxy is
+//! not find the proxy (`bootstrapped`). Restarting the proxy is not ported: the copy's proxy is
 //! the stand-in, which this process owns.
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -18,12 +18,12 @@ use super::io::FileIo;
 
 pub const EVERY: Duration = Duration::from_secs(10);
 
-/// What \`/api/health\` and \`/api/status\` read, and the \`holdSince\` the refresh cycle saves.
+/// What `/api/health` and `/api/status` read, and the `holdSince` the refresh cycle saves.
 pub struct Health {
     pub proxy_healthy: AtomicBool,
-    /// The last \`holds\` reading, \`None\` until the proxy answers (or when it stops).
+    /// The last `holds` reading, `None` until the proxy answers (or when it stops).
     pub holds: Mutex<Option<Value>>,
-    /// \`state.holdSince\`: set when a hold starts, removed when it clears. Shared with the
+    /// `state.holdSince`: set when a hold starts, removed when it clears. Shared with the
     /// refresh cycle, which writes it into the state it saves.
     pub hold_since: Mutex<Option<String>>,
     /// The writer's first cycle has run (or been asked for).
@@ -31,7 +31,7 @@ pub struct Health {
 }
 
 impl Health {
-    /// Starting from the saved state's \`holdSince\`.
+    /// Starting from the saved state's `holdSince`.
     pub fn new(state: &Value) -> Health {
         Health {
             proxy_healthy: AtomicBool::new(false),
@@ -49,7 +49,7 @@ impl Health {
         self.holds.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
-    /// Writes \`holdSince\` into \`state\` as the shared state would hold it.
+    /// Writes `holdSince` into `state` as the shared state would hold it.
     pub fn apply(&self, state: &mut Value) {
         let since = self.hold_since.lock().unwrap_or_else(|e| e.into_inner()).clone();
         if let Value::Object(m) = state {
@@ -65,7 +65,7 @@ impl Health {
     }
 }
 
-/// notifications.mjs \`holdTransition(state, holds, now)\`: a hold starts when requests are held
+/// notifications.mjs `holdTransition(state, holds, now)`: a hold starts when requests are held
 /// and none was, and clears when none are held and one was.
 pub fn hold_transition(hold_since: &mut Option<String>, holds: Option<&Value>, now: f64) -> Option<&'static str> {
     let active = holds?.get("active")?.as_f64()?;
@@ -80,13 +80,13 @@ pub fn hold_transition(hold_since: &mut Option<String>, holds: Option<&Value>, n
     None
 }
 
-/// \`Number(v) || 0\`.
+/// `Number(v) || 0`.
 fn count(v: Option<&Value>) -> f64 {
     let n = js::to_number(v);
     if n.is_nan() { 0.0 } else { n }
 }
 
-/// \`readHolds()\`: the counters, or \`None\` when the proxy does not give them.
+/// `readHolds()`: the counters, or `None` when the proxy does not give them.
 fn reading(v: &Value, now: f64) -> Value {
     json!({
         "enabled": js::truthy(v.get("enabled")),
@@ -96,7 +96,7 @@ fn reading(v: &Value, now: f64) -> Value {
     })
 }
 
-/// One \`checkProxy()\`.
+/// One `checkProxy()`.
 pub async fn check(io: &FileIo, health: &Health, trigger: &Trigger) {
     let healthy = io.call("auth-files", None, None).await.is_ok_and(|v| v.get("files").is_some_and(Value::is_array));
     health.proxy_healthy.store(healthy, Ordering::SeqCst);
@@ -129,7 +129,7 @@ pub async fn check(io: &FileIo, health: &Health, trigger: &Trigger) {
     }
 }
 
-/// \`setInterval(checkProxy, 10000)\` until the app stops.
+/// `setInterval(checkProxy, 10000)` until the app stops.
 pub async fn run(io: Arc<FileIo>, health: Arc<Health>, trigger: Arc<Trigger>, every: Duration, signal: corten::Signal) {
     loop {
         check(&io, &health, &trigger).await;

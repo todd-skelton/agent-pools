@@ -1,31 +1,31 @@
 //! Agent Pools' ChatGPT backend relay (backend-relay.mjs at 5c696f6) on Corten: the desktop
-//! relay listener. Everything under \`/backend-api/\` goes to the upstream with the caller's own
-//! credentials and streams back; only \`GET /backend-api/wham/usage\` is handed to the usage
+//! relay listener. Everything under `/backend-api/` goes to the upstream with the caller's own
+//! credentials and streams back; only `GET /backend-api/wham/usage` is handed to the usage
 //! rewrite, so the desktop's banner and usage panel show the pool. A WebSocket handshake (Remote
 //! Control's host and client links, dictation) is relayed to the upstream, and once the upstream
 //! has switched, bytes go both ways untouched.
 //!
 //! | Route | Answer |
 //! |---|---|
-//! | any method on \`/backend-api\`, \`/backend-api/{*rest}\` | the upstream's answer, streamed (\`/wham/usage\` rewritten) |
-//! | \`GET\` asking to switch protocols on the same paths | the upstream's 101, then a tunnel |
+//! | any method on `/backend-api`, `/backend-api/{*rest}` | the upstream's answer, streamed (`/wham/usage` rewritten) |
+//! | `GET` asking to switch protocols on the same paths | the upstream's 101, then a tunnel |
 //!
 //! # Where it differs from backend-relay.mjs
 //!
-//! 1. A switch is Corten's \`Upgrade\`: the handshake is checked as a route (host, cross-site),
-//!    the upstream's 101 is relayed with \`Upgrade::switch\`, and the tunnel starts after it.
+//! 1. A switch is Corten's `Upgrade`: the handshake is checked as a route (host, cross-site),
+//!    the upstream's 101 is relayed with `Upgrade::switch`, and the tunnel starts after it.
 //!    Agent Pools writes the handshake to a raw socket and pipes whatever comes back. An upstream
 //!    that does not switch is relayed as an ordinary answer either way.
 //! 2. A switch the relay cannot carry (not a backend path, the upstream unreachable or slower than
 //!    the connect timeout) gets an answer: Corten's 404, or 502 with this relay's JSON. Agent Pools
 //!    drops the connection.
-//! 3. The host check covers switches too: Agent Pools' \`upgrade\` handler is not behind it.
-//! 4. A browser's write from another site (an \`Origin\` not this listener's, or
-//!    \`Sec-Fetch-Site: cross-site\`) is Corten's 403 unless \`Config::allow_origins\` names it.
-//!    Agent Pools checks only the \`Host\`. Codex's own HTTP client sends neither header.
+//! 3. The host check covers switches too: Agent Pools' `upgrade` handler is not behind it.
+//! 4. A browser's write from another site (an `Origin` not this listener's, or
+//!    `Sec-Fetch-Site: cross-site`) is Corten's 403 unless `Config::allow_origins` names it.
+//!    Agent Pools checks only the `Host`. Codex's own HTTP client sends neither header.
 //! 5. A usage body that is not JSON is passed on as Agent Pools does, and the event's message is
-//!    serde_json's, not \`JSON.parse\`'s.
-//! 6. TLS (\`state/certs\`) is the listener's: \`load_relay_tls\` reads the pair as Agent Pools does,
+//!    serde_json's, not `JSON.parse`'s.
+//! 6. TLS (`state/certs`) is the listener's: `load_relay_tls` reads the pair as Agent Pools does,
 //!    and the program that serves the app wraps its listeners (corten::serve_on).
 
 use std::path::Path;
@@ -48,22 +48,22 @@ pub const BACKEND_PREFIX: &str = "/backend-api";
 pub const MAX_BODY_BYTES: usize = 32 * 1024 * 1024;
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 /// Request headers that are the connection's, not the request's, and the encoding the relay
-/// sets itself (\`identity\`, so the usage body can be read).
+/// sets itself (`identity`, so the usage body can be read).
 const HOP_HEADERS: [&str; 9] = ["host", "connection", "content-length", "transfer-encoding", "accept-encoding", "keep-alive", "proxy-connection", "te", "upgrade"];
 const DROPPED_RESPONSE_HEADERS: [&str; 4] = ["content-encoding", "content-length", "transfer-encoding", "connection"];
 
-/// \`isBackendPath\`: \`/backend-api\` or anything under it.
+/// `isBackendPath`: `/backend-api` or anything under it.
 pub fn is_backend_path(path: &str) -> bool {
     path == BACKEND_PREFIX || path.strip_prefix(BACKEND_PREFIX).is_some_and(|rest| rest.starts_with('/'))
 }
 
-/// The desktop relay's TLS pair, as Set-Desktop-Relay.ps1 writes it to \`state/certs\`.
+/// The desktop relay's TLS pair, as Set-Desktop-Relay.ps1 writes it to `state/certs`.
 pub struct TlsMaterial {
     pub cert: Vec<u8>,
     pub key: Vec<u8>,
 }
 
-/// \`loadRelayTls(dir)\`: the pair, \`None\` when either file is missing (plain HTTP then), or the
+/// `loadRelayTls(dir)`: the pair, `None` when either file is missing (plain HTTP then), or the
 /// error when one cannot be read for another reason.
 pub fn load_relay_tls(dir: &Path) -> std::io::Result<Option<TlsMaterial>> {
     load_relay_tls_files(dir, "desktop-relay.crt", "desktop-relay.key")
@@ -83,15 +83,15 @@ pub fn load_relay_tls_files(dir: &Path, cert_file: &str, key_file: &str) -> std:
     }
 }
 
-/// The usage rewrite: the account's \`/wham/usage\` body in, the body the desktop sees out. An
-/// error passes the account's own body on and is reported (\`pool-usage-overlay-error\`).
+/// The usage rewrite: the account's `/wham/usage` body in, the body the desktop sees out. An
+/// error passes the account's own body on and is reported (`pool-usage-overlay-error`).
 pub type Rewrite = Arc<dyn Fn(Value) -> Result<Value, String> + Send + Sync>;
 pub type Observe = Arc<dyn Fn(&str, Value) + Send + Sync>;
 
 /// createBackendRelay's options, and the listener's port (its hosts name it).
 #[derive(Clone)]
 pub struct Config {
-    /// The upstream's \`/backend-api\`: \`https://chatgpt.com/backend-api\` in service.
+    /// The upstream's `/backend-api`: `https://chatgpt.com/backend-api` in service.
     pub upstream: String,
     pub rewrite_usage: Option<Rewrite>,
     pub observe: Observe,
@@ -120,15 +120,15 @@ pub struct Backend(Arc<Inner>);
 
 struct Inner {
     config: Config,
-    /// \`https://chatgpt.com\`
+    /// `https://chatgpt.com`
     origin: String,
-    /// \`/backend-api\`, without a trailing slash.
+    /// `/backend-api`, without a trailing slash.
     base_path: String,
     http: reqwest::Client,
 }
 
-/// The relay's app for a listener on \`port\`: it answers \`localhost:<port>\` and
-/// \`127.0.0.1:<port>\` only, as the desktop relay does.
+/// The relay's app for a listener on `port`: it answers `localhost:<port>` and
+/// `127.0.0.1:<port>` only, as the desktop relay does.
 pub fn app(config: Config, port: u16) -> Result<App<Hosts>, String> {
     let url = reqwest::Url::parse(&config.upstream).map_err(|e| format!("upstream: {e}"))?;
     if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
@@ -154,7 +154,7 @@ pub fn app(config: Config, port: u16) -> Result<App<Hosts>, String> {
         .middleware(Hosts { hosts: vec![format!("localhost:{port}"), format!("127.0.0.1:{port}")] }))
 }
 
-/// \`desktopRelayHosts\`: only the listener's own names, else 403 \`{"error":"Invalid host"}\`.
+/// `desktopRelayHosts`: only the listener's own names, else 403 `{"error":"Invalid host"}`.
 pub struct Hosts {
     hosts: Vec<String>,
 }
@@ -181,7 +181,7 @@ pub mod url {
     }
 }
 
-/// \`reply(res, status, data)\`: JSON, never cached.
+/// `reply(res, status, data)`: JSON, never cached.
 fn reply(status: StatusCode, data: Value) -> Out {
     let mut res = Response::new(Body::from(data.to_string()));
     *res.status_mut() = status;
@@ -191,7 +191,7 @@ fn reply(status: StatusCode, data: Value) -> Out {
     Out::Own(res)
 }
 
-/// Whether a request asks to switch protocols (Corten's own test, which its \`Upgrade\` applies).
+/// Whether a request asks to switch protocols (Corten's own test, which its `Upgrade` applies).
 fn asks_to_switch(method: &Method, headers: &HeaderMap) -> bool {
     *method == Method::GET
         && headers.contains_key(header::UPGRADE)
@@ -213,7 +213,7 @@ impl Backend {
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| observe(kind, data)));
     }
 
-    /// \`upstreamPath(url)\`: the upstream's base path, the rest after \`/backend-api\`, the query.
+    /// `upstreamPath(url)`: the upstream's base path, the rest after `/backend-api`, the query.
     fn upstream_url(&self, uri: &corten::axum::http::Uri) -> String {
         let rest = &uri.path()[BACKEND_PREFIX.len()..];
         let query = uri.query().map_or(String::new(), |q| format!("?{q}"));
@@ -233,7 +233,7 @@ async fn handle(State(b): State<Backend>, req: Request) -> Out {
     relay(b, req).await
 }
 
-/// \`readBody(req, limit)\`: the whole body, \`None\` when empty, or the status and message.
+/// `readBody(req, limit)`: the whole body, `None` when empty, or the status and message.
 async fn read_body(body: Body, limit: usize) -> Result<Option<Vec<u8>>, (StatusCode, String)> {
     let mut stream = body.into_data_stream();
     let mut out = Vec::new();
@@ -247,7 +247,7 @@ async fn read_body(body: Body, limit: usize) -> Result<Option<Vec<u8>>, (StatusC
     Ok((!out.is_empty()).then_some(out))
 }
 
-/// \`handle(req, res, url)\`: the request to the upstream with the caller's headers, its answer
+/// `handle(req, res, url)`: the request to the upstream with the caller's headers, its answer
 /// streamed back (the usage poll rewritten).
 async fn relay(b: Backend, req: Request) -> Out {
     let (parts, body) = req.into_parts();
@@ -314,7 +314,7 @@ fn chain(e: &(dyn std::error::Error + 'static)) -> String {
     text
 }
 
-/// \`upgrade(req, socket, head)\`: the handshake to the upstream with every header but \`Host\`;
+/// `upgrade(req, socket, head)`: the handshake to the upstream with every header but `Host`;
 /// once the upstream switches, its 101 is relayed and bytes pass both ways until either side
 /// closes or the app shuts down.
 async fn tunnel(b: Backend, req: Request) -> Out {

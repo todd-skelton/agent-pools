@@ -13,7 +13,7 @@ use tower::ServiceExt;
 
 use crate::parity::{self, Outcome};
 use crate::testing::{read, snapshot};
-use crate::watch::Shadow;
+use crate::watch::{Shadow, now_ms};
 
 fn assert_match(c: &parity::Check) {
     assert_eq!(
@@ -307,8 +307,7 @@ async fn a_copy_answers_the_services_api_through_the_stand_in() {
     let key = "test-key".to_string();
     let proxy = crate::writer::fake_proxy::start(t.dir.clone(), key.clone()).await.unwrap();
     let io = std::sync::Arc::new(crate::writer::io::FileIo::new(t.dir.clone(), proxy, key));
-    let health = std::sync::Arc::new(crate::writer::health::Health::new(&crate::writer::load_state(&t.dir)));
-    let copy = std::sync::Arc::new(crate::writer::Copy { io, health, trigger: Default::default() });
+    let copy = std::sync::Arc::new(crate::writer::Copy::new(io));
     let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
     let app = crate::app::app_copy(
         shadow,
@@ -355,6 +354,59 @@ async fn a_copy_answers_the_services_api_through_the_stand_in() {
     let log = std::fs::read_to_string(t.dir.join("logs/fake-proxy.jsonl")).unwrap();
     assert!(log.contains("codex-auth-url") && log.contains("oauth-callback"));
     std::fs::remove_file(t.dir.join("logs/fake-proxy.jsonl")).unwrap();
+}
+
+/// The copy's ledger end to end: the stand-in's queue drained into the day's raw file (the row
+/// attributed to the account the stand-in named, with the quota from its headers), the stats in
+/// `/api/status`, and a value report written from the ledger.
+#[tokio::test]
+async fn a_copy_drains_the_stand_ins_queue_into_its_ledger_and_reports_value_from_it() {
+    let t = snapshot("copy-ledger", false);
+    let key = "test-key".to_string();
+    let proxy = crate::writer::fake_proxy::start(t.dir.clone(), key.clone()).await.unwrap();
+    let io = std::sync::Arc::new(crate::writer::io::FileIo::new(t.dir.clone(), proxy, key));
+    let copy = std::sync::Arc::new(crate::writer::Copy::new(io));
+    let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
+    let app = crate::app::app_copy(
+        shadow,
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"),
+        copy.clone(),
+        Default::default(),
+        Default::default(),
+    )
+    .router();
+
+    let (_, body) = get(app.clone(), "/api/status").await;
+    let before = serde_json::from_str::<Value>(&body).unwrap()["usageLedger"].clone();
+    assert_eq!((&before["rows"], &before["enabled"], &before["drainedAt"]), (&Value::from(0), &Value::Bool(true), &Value::Null));
+
+    // The stand-in's first made-up request is due at its start.
+    let stats = copy.ledger.drain(&*copy.io, now_ms).await;
+    assert_eq!((&stats["rows"], &stats["dropped"], &stats["pending"], &stats["lastError"]), (&Value::from(1), &Value::from(0), &Value::from(0), &Value::Null), "{stats}");
+    let (_, body) = get(app.clone(), "/api/status").await;
+    assert_eq!(serde_json::from_str::<Value>(&body).unwrap()["usageLedger"]["rows"], 1);
+
+    let state: Value = serde_json::from_str(&std::fs::read_to_string(t.dir.join("state/pool-state.json")).unwrap()).unwrap();
+    let first = &state["accounts"][0];
+    let day: String = pool_core::js::iso(now_ms()).chars().take(10).collect();
+    let file = t.dir.join(format!("logs/usage-ledger/raw-{day}.jsonl"));
+    let text = std::fs::read_to_string(&file).unwrap();
+    let row: Value = serde_json::from_str(text.lines().next().unwrap()).unwrap();
+    assert_eq!(row["acct"], first["id"]);
+    assert_eq!(row.get("ai"), None, "the account is known");
+    assert_eq!((&row["client"], &row["prov"], &row["ok"], &row["st"]), (&Value::from("stand-in"), &first["provider"], &Value::Bool(true), &Value::from(200)));
+    assert!(row["quota"].is_object(), "quota from the stand-in's headers: {row}");
+
+    let rows = crate::writer::report::write_value_report(&t.dir, now_ms()).unwrap();
+    assert_eq!(rows, 1.0, "the report read the one row");
+    let report: Value = serde_json::from_str(&std::fs::read_to_string(t.dir.join("state/usage-value.json")).unwrap()).unwrap();
+    assert_eq!(report["format"], "usage-value/v1");
+    let session: Value = serde_json::from_str(&std::fs::read_to_string(t.dir.join("state/session-usage.json")).unwrap()).unwrap();
+    assert_eq!(session["format"], "session-usage/v1");
+
+    for f in [file, t.dir.join("state/session-usage.json"), t.dir.join("logs/fake-proxy.jsonl")] {
+        std::fs::remove_file(f).unwrap();
+    }
 }
 
 #[tokio::test]

@@ -465,8 +465,8 @@ async fn a_relayed_page_and_its_csp() {
     assert_eq!(r.headers.get("x-content-type-options").map(|v| v.to_str().unwrap()), Some("nosniff"));
 }
 
-/// The live service's own dashboard through the gateway, when \`AP_GATEWAY_LIVE\` names the
-/// service (\`http://127.0.0.1:8318\`): GETs only (\`/\` and \`/api/status\`), never a write. The page
+/// The live service's own dashboard through the gateway, when `AP_GATEWAY_LIVE` names the
+/// service (`http://127.0.0.1:8318`): GETs only (`/` and `/api/status`), never a write. The page
 /// arrives with its bytes and its own Content-Security-Policy, so its scripts run as they do on
 /// the service itself.
 #[tokio::test]
