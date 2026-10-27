@@ -124,18 +124,28 @@ fn make_copy() -> std::io::Result<()> {
 /// `pools-shadow run-copy <root>`: the dashboard and the write side on a copy made by
 /// `make-copy`, with a stand-in proxy on loopback. Refuses the live install. Settings:
 /// `SHADOW_COPY_REFRESH_SECS` (120) and `SHADOW_COPY_DEGRADED_SECS` (30), `PORT` (8321),
-/// `SHADOW_COPY_RELAY_PORT` (8322, the desktop relay; Agent Pools' is 8000).
+/// `SHADOW_COPY_RELAY_PORT` (8322, the desktop relay; Agent Pools' is 8000),
+/// `SHADOW_COPY_INFERENCE_PORT` (8323; Agent Pools' 8319) and `SHADOW_COPY_GATEWAY_PORT` (8324;
+/// Agent Pools' 8330).
 async fn run_copy() -> std::io::Result<()> {
     let root = std::env::args().nth(2).ok_or_else(|| std::io::Error::other("usage: pools-shadow run-copy <root>"))?;
     let live = env_or("AGENT_POOLS_ROOT", LIVE_ROOT);
     let root = writer::copy::guard(std::path::Path::new(&root), std::path::Path::new(&live)).map_err(|e| std::io::Error::other(e.0))?;
     // A key for this run only, known to the stand-in and the writer; never written down.
     let key = uuid::Uuid::new_v4().to_string();
-    let proxy = writer::fake_proxy::start(root.clone(), key.clone()).await?;
+    // The run's made-up inference keys (writer::edge), written under the copy's stand-in/.
+    let keys = writer::edge::Keys::new();
+    keys.write(&root)?;
+    let proxy = writer::fake_proxy::start(root.clone(), key.clone(), Some(keys.client_key.clone())).await?;
     println!("copy: writing {} only; stand-in proxy at {proxy}", root.display());
     let io = std::sync::Arc::new(writer::io::FileIo::new(root.clone(), proxy.clone(), key));
     let relay = writer::desktop::start(io.clone(), &format!("{proxy}/backend-api"), port_env("SHADOW_COPY_RELAY_PORT", 8322)?).await?;
     println!("copy: desktop relay at http://127.0.0.1:{relay}/backend-api (in front of the stand-in)");
+    let inference = writer::edge::start_inference(io.clone(), &proxy, port_env("SHADOW_COPY_INFERENCE_PORT", 8323)?).await?;
+    println!("copy: inference relay at http://127.0.0.1:{inference}/v1 (in front of the stand-in)");
+    let service = format!("http://127.0.0.1:{}", port_env("PORT", 8321)?);
+    let gateway = writer::edge::start_gateway(io.clone(), &keys, &proxy, &service, port_env("SHADOW_COPY_GATEWAY_PORT", 8324)?).await?;
+    println!("copy: public gateway at http://127.0.0.1:{gateway} for Host {} (keys in stand-in/keys.json)", writer::edge::GATEWAY_HOST);
     let shadow = watch::Shadow::new(sources::Install::new(root.clone()), "(a copy: not compared)".into(), root.join("logs/parity.jsonl"));
     let assets = std::env::var_os("STATIC_DIR")
         .map(PathBuf::from)

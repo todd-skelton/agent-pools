@@ -71,6 +71,11 @@ impl FileIo {
         let _ = self.append("logs/pool-events.jsonl", kind, details);
     }
 
+    /// One line in another of the copy's event logs (`logs/inference-events.jsonl`, ...).
+    pub fn log_to(&self, rel: &str, kind: &str, details: Value) {
+        let _ = self.append(rel, kind, details);
+    }
+
     /// `createEventLog(file)(type, details)`: rotate past 5 MiB, then append one line.
     fn append(&self, rel: &str, kind: &str, details: Value) -> Result<(), Failure> {
         let file = self.path(rel);

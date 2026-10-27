@@ -5,6 +5,7 @@
 
 pub mod copy;
 pub mod desktop;
+pub mod edge;
 pub mod fake_proxy;
 pub mod health;
 pub mod io;

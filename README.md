@@ -163,7 +163,15 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
 - the value report (`writer::report`): `writeValueReport` two minutes after the start, then every
   `reportIntervalMinutes` (60), writing `state/usage-value.json` and `state/session-usage.json`
   from the copy's ledger, samples, state and forecast. Not ported: `state/routing-attempts.json`
-  (the join with the orchestrator's dispatch log, outside the install); the copied file stays.
+  (the join with the orchestrator's dispatch log, outside the install); the copied file stays;
+- the inference relay on `http://127.0.0.1:8323/v1` (`SHADOW_COPY_INFERENCE_PORT`; Agent Pools'
+  8319) and the public gateway on `127.0.0.1:8324` for `Host: pool-copy.localhost`
+  (`SHADOW_COPY_GATEWAY_PORT`; Agent Pools' 8330 behind the tunnel), both `writer::edge` in front
+  of the stand-in, which answers inference with a canned reply in each provider's shape (streamed
+  when asked; the WebSocket for `/v1/responses` too) and queues each answer for the ledger. Every
+  key is made up for the run and written to the copy's `stand-in/` (`keys.json` has the sign-in
+  the relay accepts and the registered machine `copy-test`'s key). The desktop's
+  `~/.codex/auth.json`, `state/secrets.json` and `state/remote-clients.json` are never read.
 
 Measured on 2026-10-27: a POST at 13:11:12.40Z started a cycle at 13:11:12.58Z; cycles saved the
 copy's pool state and forecast, and appended usage samples only for windows whose use changed.

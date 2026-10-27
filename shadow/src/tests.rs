@@ -305,7 +305,7 @@ async fn send_json(app: corten::axum::Router, method: &str, path: &str, origin: 
 async fn a_copy_answers_the_services_api_through_the_stand_in() {
     let t = snapshot("copy-api", false);
     let key = "test-key".to_string();
-    let proxy = crate::writer::fake_proxy::start(t.dir.clone(), key.clone()).await.unwrap();
+    let proxy = crate::writer::fake_proxy::start(t.dir.clone(), key.clone(), None).await.unwrap();
     let io = std::sync::Arc::new(crate::writer::io::FileIo::new(t.dir.clone(), proxy, key));
     let copy = std::sync::Arc::new(crate::writer::Copy::new(io));
     let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
@@ -363,7 +363,7 @@ async fn a_copy_answers_the_services_api_through_the_stand_in() {
 async fn a_copy_drains_the_stand_ins_queue_into_its_ledger_and_reports_value_from_it() {
     let t = snapshot("copy-ledger", false);
     let key = "test-key".to_string();
-    let proxy = crate::writer::fake_proxy::start(t.dir.clone(), key.clone()).await.unwrap();
+    let proxy = crate::writer::fake_proxy::start(t.dir.clone(), key.clone(), None).await.unwrap();
     let io = std::sync::Arc::new(crate::writer::io::FileIo::new(t.dir.clone(), proxy, key));
     let copy = std::sync::Arc::new(crate::writer::Copy::new(io));
     let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
@@ -407,6 +407,86 @@ async fn a_copy_drains_the_stand_ins_queue_into_its_ledger_and_reports_value_fro
     for f in [file, t.dir.join("state/session-usage.json"), t.dir.join("logs/fake-proxy.jsonl")] {
         std::fs::remove_file(f).unwrap();
     }
+}
+
+/// The copy's inference relay and public gateway in front of the stand-in: Codex's sign-in over
+/// HTTP and over a WebSocket, a registered machine's key at the gateway, wrong keys refused, and
+/// every answered request in the ledger with the client that sent it.
+#[tokio::test]
+async fn the_copys_relay_and_gateway_answer_through_the_stand_in_into_the_ledger() {
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::tungstenite::{Message, client::IntoClientRequest};
+    let t = snapshot("copy-edge", false);
+    let keys = crate::writer::edge::Keys::new();
+    keys.write(&t.dir).unwrap();
+    let key = "test-key".to_string();
+    let proxy = crate::writer::fake_proxy::start(t.dir.clone(), key.clone(), Some(keys.client_key.clone())).await.unwrap();
+    let io = std::sync::Arc::new(crate::writer::io::FileIo::new(t.dir.clone(), proxy.clone(), key));
+    let copy = crate::writer::Copy::new(io.clone());
+    let relay = crate::writer::edge::start_inference(io.clone(), &proxy, 0).await.unwrap();
+    let gateway = crate::writer::edge::start_gateway(io.clone(), &keys, &proxy, "http://127.0.0.1:9", 0).await.unwrap();
+    let http = reqwest::Client::builder().no_proxy().build().unwrap();
+    let body = r#"{"model":"gpt-6.1-sol","stream":true,"input":[{"role":"user","content":"hi"}]}"#;
+
+    let post = |port: u16, path: &str, auth: (&str, String)| {
+        let mut r = http.post(format!("http://127.0.0.1:{port}{path}")).header("content-type", "application/json").header(auth.0, auth.1);
+        if port == gateway {
+            r = r.header("host", crate::writer::edge::GATEWAY_HOST).header("user-agent", "claude-cli/2.1.300 (external)");
+        }
+        r
+    };
+    let res = post(relay, "/v1/responses", ("authorization", format!("Bearer {}", keys.desktop_token))).body(body).send().await.unwrap();
+    assert_eq!(res.status(), 200);
+    let text = res.text().await.unwrap();
+    assert!(text.contains("event: response.completed") && text.contains("stand-in: no model was called"), "{text}");
+    let res = post(relay, "/v1/responses", ("authorization", "Bearer nope".into())).body(body).send().await.unwrap();
+    assert_eq!(res.status(), 401);
+    // The stand-in takes only the pool's key, which the relay swapped in.
+    let direct = http.post(format!("{proxy}/v1/responses")).header("authorization", format!("Bearer {}", keys.desktop_token)).body(body).send().await.unwrap();
+    assert_eq!(direct.status(), 401);
+
+    let mut req = format!("ws://127.0.0.1:{relay}/v1/responses").into_client_request().unwrap();
+    req.headers_mut().insert("authorization", format!("Bearer {}", keys.desktop_token).parse().unwrap());
+    let (mut ws, _) = tokio_tungstenite::connect_async(req).await.unwrap();
+    ws.send(Message::text(r#"{"type":"response.create","model":"gpt-6-luna","input":[]}"#)).await.unwrap();
+    let mut kinds = Vec::new();
+    while kinds.len() < 3 {
+        let Some(Ok(Message::Text(frame))) = ws.next().await else { panic!("the socket closed after {kinds:?}") };
+        kinds.push(serde_json::from_str::<Value>(&frame).unwrap()["type"].as_str().unwrap().to_string());
+    }
+    assert_eq!(kinds, ["response.created", "response.output_text.delta", "response.completed"]);
+    drop(ws);
+
+    let messages = r#"{"model":"claude-opus-5-5","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#;
+    let res = post(gateway, "/v1/messages", ("x-api-key", keys.machine_key.clone())).body(messages).send().await.unwrap();
+    assert_eq!(res.status(), 200);
+    let answer: Value = serde_json::from_str(&res.text().await.unwrap()).unwrap();
+    assert_eq!((&answer["type"], &answer["model"]), (&Value::from("message"), &Value::from("claude-opus-5-5")));
+    let res = post(gateway, "/v1/messages", ("x-api-key", keys.client_key.clone())).body(messages).send().await.unwrap();
+    assert_eq!(res.status(), 401, "the pool's own key is not a machine's");
+
+    // Three answers queued, besides the stand-in's own first made-up request.
+    let stats = copy.ledger.drain(&*copy.io, now_ms).await;
+    assert_eq!(stats["lastError"], Value::Null, "{stats}");
+    let day: String = pool_core::js::iso(now_ms()).chars().take(10).collect();
+    let file = t.dir.join(format!("logs/usage-ledger/raw-{day}.jsonl"));
+    let rows: Vec<Value> = std::fs::read_to_string(&file).unwrap().lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+    let served: Vec<(String, String, String)> = rows
+        .iter()
+        .filter(|r| r["client"] != "stand-in")
+        .map(|r| (r["client"].as_str().unwrap().into(), r["prov"].as_str().unwrap().into(), r["model"].as_str().unwrap().into()))
+        .collect();
+    let s = |a: &str, b: &str, c: &str| (a.to_string(), b.to_string(), c.to_string());
+    assert_eq!(served, [s("codex_cli_rs", "codex", "gpt-6.1-sol"), s("codex_cli_rs", "codex", "gpt-6-luna"), s("claude-cli", "claude", "claude-opus-5-5")]);
+    assert!(rows.iter().filter(|r| r["client"] != "stand-in").all(|r| r["acct"].is_string()), "each on a known account");
+
+    for f in [file, t.dir.join("logs/fake-proxy.jsonl"), t.dir.join("logs/inference-events.jsonl"), t.dir.join("logs/public-gateway-events.jsonl")] {
+        let _ = std::fs::remove_file(f);
+    }
+    for f in ["codex-auth.json", "pool-keys.json", "keys.json"] {
+        std::fs::remove_file(t.dir.join("stand-in").join(f)).unwrap();
+    }
+    std::fs::remove_dir(t.dir.join("stand-in")).unwrap();
 }
 
 #[tokio::test]
