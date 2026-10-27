@@ -114,7 +114,7 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 [[package]]
 name = "corten"
 version = "0.1.0"
-source = "git+https://github.com/todd-skelton/corten?rev=cf8ac0f989ef5cd1c0589cf6803698837d68418d#cf8ac0f989ef5cd1c0589cf6803698837d68418d"
+source = "git+https://github.com/todd-skelton/corten?rev=15dc546#15dc54613f8c5a16c24164ef6b24b98fa7e7e855"
 dependencies = [
  "axum",
  "corten-macros",
@@ -135,7 +135,7 @@ dependencies = [
 [[package]]
 name = "corten-macros"
 version = "0.1.0"
-source = "git+https://github.com/todd-skelton/corten?rev=cf8ac0f989ef5cd1c0589cf6803698837d68418d#cf8ac0f989ef5cd1c0589cf6803698837d68418d"
+source = "git+https://github.com/todd-skelton/corten?rev=15dc546#15dc54613f8c5a16c24164ef6b24b98fa7e7e855"
 
 [[package]]
 name = "cpufeatures"

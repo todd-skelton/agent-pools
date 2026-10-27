@@ -9,9 +9,9 @@ description = "Agent Pools' dashboard and /api/summary on Corten, read-only besi
 
 [dependencies]
 pool-core = { path = "../pool-core" }
-# main after "Answer only localhost, IP addresses and listed host names" (corten#124) and
-# "App::task" (corten#127).
-corten = { git = "https://github.com/todd-skelton/corten", rev = "cf8ac0f989ef5cd1c0589cf6803698837d68418d", features = ["json"] }
+# main after "corten::serve_on serves an app on listeners of its own" (corten#137, for corten#115)
+# and "An area or an API sets its own deadline" (corten#135, for corten#114).
+corten = { git = "https://github.com/todd-skelton/corten", rev = "15dc546", features = ["json"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }

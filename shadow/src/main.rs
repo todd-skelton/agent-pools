@@ -56,11 +56,6 @@ fn main() -> std::io::Result<()> {
         }
         _ => {}
     }
-    if std::env::var_os("PORT").is_none() {
-        // corten::serve takes its port from PORT only (corten#115: no listener of the app's own).
-        // SAFETY: the process has one thread here; the runtime is built after.
-        unsafe { std::env::set_var("PORT", "8320") };
-    }
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
@@ -85,12 +80,14 @@ async fn serve() -> std::io::Result<()> {
     let assets = std::env::var_os("STATIC_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"));
-    corten::serve(app::app(
-        shadow,
-        assets,
-        secs("SHADOW_WATCH_SECS", 5),
-        secs("SHADOW_SUMMARY_SECS", 60),
-    ))
+    // 8320 unless PORT says otherwise; the loopback pair, the drain and graceful shutdown are
+    // serve's (corten#115).
+    let listeners = corten::listeners(8320).await?;
+    println!("shadow: listening on http://localhost:{}", listeners[0].local_addr()?.port());
+    corten::serve_on(
+        listeners,
+        app::app(shadow, assets, secs("SHADOW_WATCH_SECS", 5), secs("SHADOW_SUMMARY_SECS", 60)),
+    )
     .await
 }
 
