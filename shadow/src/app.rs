@@ -18,6 +18,11 @@ use crate::dash::{accounts, live, overview, policy, usage};
 use crate::parity::{self, Kind, Outcome};
 use crate::watch::{Shared, now_ms};
 
+/// How often the live service's memory (`/api/status`) is read for the dashboard.
+const MEMORY_EVERY: std::time::Duration = std::time::Duration::from_secs(5);
+/// How often the dashboard's files' modification times are looked at.
+const SAVES_EVERY: std::time::Duration = std::time::Duration::from_millis(250);
+
 /// The app: its routes and the two tasks that keep the parity checks running.
 pub fn app(
     shadow: Shared,
@@ -25,7 +30,7 @@ pub fn app(
     watch_every: std::time::Duration,
     summary_every: std::time::Duration,
 ) -> App {
-    let (w, s, st) = (shadow.clone(), shadow.clone(), shadow.clone());
+    let (w, s, st, n) = (shadow.clone(), shadow.clone(), shadow.clone(), shadow.clone());
     App::new(url::router(shadow))
         .assets(assets)
         // The dashboard sizes meters, bars and timeline marks from data (corten#139: no way to write one without style attributes).
@@ -37,7 +42,10 @@ pub fn app(
             crate::watch::compare_summary(s, summary_every, signal)
         })
         .task("compare-status", move |signal| {
-            crate::watch::compare_status(st, summary_every, signal)
+            crate::watch::compare_status(st, MEMORY_EVERY, summary_every, signal)
+        })
+        .task("notice-saves", move |signal| {
+            crate::watch::notice_saves(n, SAVES_EVERY, signal)
         })
 }
 

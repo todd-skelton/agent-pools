@@ -234,6 +234,41 @@ async fn a_tab_is_kept_current_over_live() {
 }
 
 #[tokio::test]
+async fn a_save_reaches_an_open_tab_at_once() {
+    let t = snapshot("realtime", false);
+    let shadow = Shadow::new(t.install(), "http://127.0.0.1:9".into(), t.dir.join("parity.jsonl"));
+    let app = crate::app::app(
+        shadow.clone(),
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"),
+        Duration::from_secs(5),
+        Duration::from_secs(60),
+    )
+    .router();
+    let (_, page) = get(app.clone(), "/policy").await;
+    let at = page.find("since=\"").unwrap() + 7;
+    let since = page[at..at + 16].to_string();
+    let res = app
+        .oneshot(Request::builder().uri("/live?tab=policy").header("host", "localhost").header("last-event-id", since.as_str()).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let mut body = res.into_body();
+    // The stream reads its inputs and finds the page current: nothing is sent.
+    assert!(tokio::time::timeout(Duration::from_millis(1500), body.frame()).await.is_err());
+    // The pool's automation switch is turned off and saved: the open tab says so at once.
+    let path = t.dir.join("state/pool-state.json");
+    let mut pool: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(pool["resetAutomation"], Value::Bool(true));
+    pool["resetAutomation"] = Value::Bool(false);
+    std::fs::write(&path, serde_json::to_string(&pool).unwrap()).unwrap();
+    let started = std::time::Instant::now();
+    shadow.changed_inputs();
+    let frame = tokio::time::timeout(Duration::from_secs(5), body.frame()).await.unwrap().unwrap().unwrap();
+    let event = String::from_utf8(frame.into_data().unwrap().to_vec()).unwrap();
+    assert!(event.contains("resetAutomation is false in state/pool-state.json"), "{event}");
+    assert!(started.elapsed() < Duration::from_secs(1), "sent in {:?}", started.elapsed());
+}
+
+#[tokio::test]
 async fn no_pool_state_is_unavailable() {
     let t = snapshot("missing", false);
     std::fs::remove_file(t.dir.join("state/pool-state.json")).unwrap();

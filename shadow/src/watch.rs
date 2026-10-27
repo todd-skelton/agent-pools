@@ -72,6 +72,9 @@ pub struct Inner {
 
 pub struct Shadow {
     pub install: Install,
+    /// Bumped whenever what the dashboard is drawn from changes (a state file is saved, the live
+    /// service's memory moves): open pages redraw on it.
+    pub changes: tokio::sync::watch::Sender<u64>,
     pub live_url: String,
     pub log: PathBuf,
     pub started_at: f64,
@@ -99,6 +102,7 @@ impl Shadow {
             .expect("an HTTP client with no TLS and no proxy builds");
         Arc::new(Shadow {
             install,
+            changes: tokio::sync::watch::Sender::new(0),
             live_url,
             log,
             started_at: now_ms(),
@@ -143,6 +147,11 @@ impl Shadow {
         }
         inner.recent.push_front(check);
         inner.recent.truncate(RECENT);
+    }
+
+    /// Tells open pages their inputs changed.
+    pub fn changed_inputs(&self) {
+        self.changes.send_modify(|v| *v = v.wrapping_add(1));
     }
 
     pub fn live_memory(&self) -> pool_core::status::Live {
@@ -355,16 +364,15 @@ pub async fn watch(shadow: Shared, every: Duration, signal: Signal) {
     }
 }
 
-/// Asks the live service for `/api/status` every `every` and checks it.
-pub async fn compare_status(shadow: Shared, every: Duration, signal: Signal) {
-    let mut tick = tokio::time::interval(every);
+/// Asks the live service for `/api/status` every `memory_every`, keeping what only it knows
+/// (`processes`, `holds`, `usageLedger`) for the dashboard, and checks the answer against the
+/// files every `check_every`.
+pub async fn compare_status(shadow: Shared, memory_every: Duration, check_every: Duration, signal: Signal) {
+    let mut tick = tokio::time::interval(memory_every);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    // Offset from the summary check, so the two do not read the files at the same moment.
-    tokio::select! {
-        _ = tokio::time::sleep(every / 2) => {}
-        _ = signal.aborted() => return,
-    }
     let url = format!("{}/api/status", shadow.live_url.trim_end_matches('/'));
+    // Offset from the summary check, so the two do not read the files at the same moment.
+    let mut next_check = tokio::time::Instant::now() + check_every / 2;
     loop {
         tokio::select! {
             _ = tick.tick() => {}
@@ -382,11 +390,25 @@ pub async fn compare_status(shadow: Shared, every: Duration, signal: Signal) {
                 continue;
             }
         };
-        shadow.lock().live_memory = pool_core::status::Live {
+        let memory = pool_core::status::Live {
             processes: live.get("processes").cloned(),
             holds: live.get("holds").cloned(),
             usage_ledger: live.get("usageLedger").cloned(),
         };
+        let moved = {
+            let mut inner = shadow.lock();
+            let old = &inner.live_memory;
+            let moved = old.processes != memory.processes || old.holds != memory.holds || old.usage_ledger != memory.usage_ledger;
+            inner.live_memory = memory;
+            moved
+        };
+        if moved {
+            shadow.changed_inputs();
+        }
+        if tokio::time::Instant::now() < next_check {
+            continue;
+        }
+        next_check = tokio::time::Instant::now() + check_every;
         let s = shadow.clone();
         let check = tokio::task::spawn_blocking(move || {
             parity::check_status(&live, &s.install, at, now_ms())
@@ -395,6 +417,28 @@ pub async fn compare_status(shadow: Shared, every: Duration, signal: Signal) {
         match check {
             Ok(check) => shadow.record(check),
             Err(e) => eprintln!("shadow: status check failed: {e}"),
+        }
+    }
+}
+
+/// The files the dashboard is drawn from.
+const INPUTS: [&str; 3] = ["state/pool-state.json", "state/capacity-forecast.json", "state/usage-value.json"];
+
+/// Looks at the dashboard's files' modification times every `every` (metadata only) and tells
+/// open pages when one was saved.
+pub async fn notice_saves(shadow: Shared, every: Duration, signal: Signal) {
+    let mut tick = tokio::time::interval(every);
+    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let mut seen: [Option<SystemTime>; 3] = [None; 3];
+    loop {
+        tokio::select! {
+            _ = tick.tick() => {}
+            _ = signal.aborted() => return,
+        }
+        let now: [Option<SystemTime>; 3] = INPUTS.map(|rel| shadow.install.modified(rel));
+        if now != seen {
+            seen = now;
+            shadow.changed_inputs();
         }
     }
 }

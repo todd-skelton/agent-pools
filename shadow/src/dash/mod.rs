@@ -8,7 +8,7 @@
 //! | `GET /accounts?filter=&open=` | Accounts: a table per provider; `open` expands a row |
 //! | `GET /usage` | Usage & value |
 //! | `GET /policy` | Automation |
-//! | `GET /live?tab=&filter=&open=` | the open tab drawn again every 15 s, for its `<corten-live>` |
+//! | `GET /live?tab=&filter=&open=` | the open tab, sent again whenever it changes, for its `<corten-live>` |
 
 pub mod fmt;
 pub mod model;
@@ -164,12 +164,60 @@ fn fragment(body: &str, header: &Header) -> String {
 }
 
 /// A short hash of a fragment: the stream's cursor, so a page (or a reconnect) that already shows
-/// it is sent nothing until it changes.
+/// it is sent nothing until it changes. Numbers in style attributes count to one decimal: the
+/// timeline's marks are placed from `now` to the millisecond, so they move a little each second,
+/// and 0.1% of fourteen days is twenty minutes, under a pixel.
 fn cursor(fragment: &str) -> String {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
-    fragment.hash(&mut h);
+    let mut rest = fragment;
+    while let Some(at) = rest.find(" style=\"") {
+        let (before, after) = rest.split_at(at + 8);
+        before.hash(&mut h);
+        let end = after.find('"').unwrap_or(after.len());
+        coarse(&after[..end]).hash(&mut h);
+        rest = &after[end..];
+    }
+    rest.hash(&mut h);
     format!("{:016x}", h.finish())
+}
+
+/// A style value with each decimal number rounded to one place.
+fn coarse(style: &str) -> String {
+    let mut out = String::with_capacity(style.len());
+    let mut chars = style.char_indices().peekable();
+    while let Some((i, c)) = chars.next() {
+        if c.is_ascii_digit() {
+            let mut end = i + 1;
+            while let Some(&(j, d)) = chars.peek() {
+                if !(d.is_ascii_digit() || d == '.' || d == 'e' || d == '-' && style[..j].ends_with('e')) {
+                    break;
+                }
+                end = j + d.len_utf8();
+                chars.next();
+            }
+            match style[i..end].parse::<f64>() {
+                Ok(x) => out.push_str(&format!("{x:.1}")),
+                Err(_) => out.push_str(&style[i..end]),
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+#[test]
+fn a_mark_that_moves_under_a_tenth_of_a_percent_is_the_same_fragment() {
+    let a = r#"<span class="mk reset" style="left:42.123456%" title="Weekly reset Mon">x</span>"#;
+    let b = r#"<span class="mk reset" style="left:42.131%" title="Weekly reset Mon">x</span>"#;
+    let c = r#"<span class="mk reset" style="left:42.2%" title="Weekly reset Mon">x</span>"#;
+    let d = r#"<span class="mk reset" style="left:42.123456%" title="Weekly reset Tue">x</span>"#;
+    assert_eq!(cursor(a), cursor(b));
+    assert_ne!(cursor(a), cursor(c));
+    assert_ne!(cursor(a), cursor(d));
+    assert_eq!(coarse("left:calc(12.34% + 6px);width:1e-7%"), "left:calc(12.3% + 6.0px);width:0.0%");
 }
 
 #[derive(serde::Deserialize, Default)]
@@ -207,27 +255,58 @@ pub async fn policy(req: Req, State(shadow): State<Shared>) -> HtmlResult {
     page(req, shadow, Tab::Policy, DashQuery::default()).await
 }
 
-/// How often an open tab is drawn again: the live page polls its status every 15 s.
-const REDRAW: std::time::Duration = std::time::Duration::from_secs(15);
-
-/// `GET /live?tab=&filter=&open=`: the tab drawn again every 15 s, sent when it changed (the
-/// countdowns change it at least each minute). Read only, like the pages.
+/// `GET /live?tab=&filter=&open=`: the tab, sent again whenever it changes. The files and the
+/// live service's memory are read again when the shadow notices a change (a save, within a
+/// quarter second); in between, the tab is drawn again from them each second, so countdowns and
+/// "ago" times move. A redraw that comes out the same is not sent. Read only, like the pages.
 pub async fn live(State(shadow): State<Shared>, Query(q): Query<DashQuery>, LiveSince(since): LiveSince) -> LiveResponse {
     let tab = Tab::parse(q.tab.as_deref());
-    let mut tick = tokio::time::interval(REDRAW);
-    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    corten::live(futures_util::stream::unfold((shadow, q, since, tick), move |(shadow, q, mut last, mut tick)| async move {
+    let changes = shadow.changes.subscribe();
+    let state = Stream { shadow, q, last: since, changes, data: None };
+    corten::live(futures_util::stream::unfold(state, move |mut st| async move {
         loop {
-            tick.tick().await;
-            let Ok(d) = load(&shadow).await else { continue };
-            let (body, header) = draw(&d, tab, q.filter.as_deref(), q.open.as_deref());
+            // `changed()` marks the change seen as it returns, so it is noted here.
+            let mut reread = st.data.is_none();
+            if st.data.is_some() {
+                let next_second = 1000.0 - now_ms() % 1000.0;
+                tokio::select! {
+                    r = st.changes.changed() => match r {
+                        Ok(()) => reread = true,
+                        Err(_) => return None,
+                    },
+                    _ = tokio::time::sleep(std::time::Duration::from_millis(next_second as u64 + 1)) => {}
+                }
+            }
+            if reread {
+                st.changes.borrow_and_update();
+                match load(&st.shadow).await {
+                    Ok(d) => st.data = Some(d),
+                    Err(_) if st.data.is_some() => {}
+                    Err(_) => {
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                        continue;
+                    }
+                }
+            }
+            let Some(d) = st.data.as_mut() else { continue };
+            d.now = now_ms();
+            let (body, header) = draw(d, tab, st.q.filter.as_deref(), st.q.open.as_deref());
             let html = fragment(&body, &header);
             let c = cursor(&html);
-            if last.as_deref() == Some(c.as_str()) {
+            if st.last.as_deref() == Some(c.as_str()) {
                 continue;
             }
-            last = Some(c.clone());
-            return Some((corten::Fragment::new(html).cursor(c), (shadow, q, last, tick)));
+            st.last = Some(c.clone());
+            return Some((corten::Fragment::new(html).cursor(c), st));
         }
     }))
+}
+
+/// One open tab's stream: what it last sent and the inputs it draws from.
+struct Stream {
+    shadow: Shared,
+    q: DashQuery,
+    last: Option<String>,
+    changes: tokio::sync::watch::Receiver<u64>,
+    data: Option<Data>,
 }
