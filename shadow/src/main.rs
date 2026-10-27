@@ -139,7 +139,7 @@ async fn run_copy() -> std::io::Result<()> {
     let proxy = writer::fake_proxy::start(root.clone(), key.clone(), Some(keys.client_key.clone())).await?;
     println!("copy: writing {} only; stand-in proxy at {proxy}", root.display());
     let io = std::sync::Arc::new(writer::io::FileIo::new(root.clone(), proxy.clone(), key));
-    let relay = writer::desktop::start(io.clone(), &format!("{proxy}/backend-api"), port_env("SHADOW_COPY_RELAY_PORT", 8322)?).await?;
+    let relay = writer::desktop::start(io.clone(), &format!("{proxy}/backend-api"), port_env("SHADOW_COPY_RELAY_PORT", 8322)?, writer::desktop::RETRY).await?;
     println!("copy: desktop relay at http://127.0.0.1:{relay}/backend-api (in front of the stand-in)");
     let inference = writer::edge::start_inference(io.clone(), &proxy, port_env("SHADOW_COPY_INFERENCE_PORT", 8323)?).await?;
     println!("copy: inference relay at http://127.0.0.1:{inference}/v1 (in front of the stand-in)");

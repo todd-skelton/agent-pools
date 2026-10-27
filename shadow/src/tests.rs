@@ -489,6 +489,46 @@ async fn the_copys_relay_and_gateway_answer_through_the_stand_in_into_the_ledger
     std::fs::remove_dir(t.dir.join("stand-in")).unwrap();
 }
 
+/// The desktop relay's port taken by something else (pool-service.mjs `listenDesktopRelay`): said
+/// once (an event and a toast), tried again until it frees up, then served and said so.
+#[tokio::test]
+async fn a_busy_desktop_relay_port_is_said_once_and_retried_until_it_frees() {
+    let t = snapshot("relay-busy", false);
+    let key = "test-key".to_string();
+    let proxy = crate::writer::fake_proxy::start(t.dir.clone(), key.clone(), None).await.unwrap();
+    let io = std::sync::Arc::new(crate::writer::io::FileIo::new(t.dir.clone(), proxy.clone(), key));
+    let holder = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let port = holder.local_addr().unwrap().port();
+    let started = crate::writer::desktop::start(io, &format!("{proxy}/backend-api"), port, Duration::from_millis(100)).await.unwrap();
+    assert_eq!(started, port);
+    tokio::time::sleep(Duration::from_millis(450)).await;
+    let events = || std::fs::read_to_string(t.dir.join("logs/pool-events.jsonl")).unwrap_or_default();
+    let count = |kind: &str, text: &str| text.lines().filter(|l| l.contains(&format!("\"type\":\"{kind}\""))).count();
+    let before = events();
+    assert_eq!(count("desktop-relay-error", &before), 1, "said once while busy: {before}");
+    assert_eq!(count("desktop-relay-listening", &before), 0);
+    let toasts = std::fs::read_to_string(t.dir.join("logs/toasts.jsonl")).unwrap();
+    assert!(toasts.contains("desktop relay port busy"), "{toasts}");
+
+    drop(holder);
+    let http = reqwest::Client::builder().no_proxy().build().unwrap();
+    let mut answered = None;
+    for _ in 0..40 {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        if let Ok(r) = http.get(format!("http://127.0.0.1:{port}/backend-api/wham/usage")).send().await {
+            answered = Some(r.status());
+            break;
+        }
+    }
+    assert_eq!(answered, Some(StatusCode::OK), "the relay serves once the port is free");
+    let after = events();
+    assert_eq!((count("desktop-relay-error", &after), count("desktop-relay-listening", &after)), (1, 1), "{after}");
+
+    for f in ["logs/pool-events.jsonl", "logs/toasts.jsonl", "logs/fake-proxy.jsonl"] {
+        let _ = std::fs::remove_file(t.dir.join(f));
+    }
+}
+
 #[tokio::test]
 async fn the_read_only_shadow_serves_documents_but_no_writes() {
     let t = snapshot("ro-api", false);

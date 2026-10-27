@@ -25,16 +25,69 @@ fn accounts(io: &FileIo, now: f64) -> Result<Vec<Value>, String> {
     Ok(js::values(state.get("accounts")).into_iter().map(|a| summary::current_account(a, now)).collect())
 }
 
-/// Serves the relay on `127.0.0.1:<port>` (and `[::1]` when the system has it, as the desktop
-/// relay listens on both), in front of `upstream` (the stand-in's `/backend-api`). Returns the
-/// port it got.
-pub async fn start(io: Arc<FileIo>, upstream: &str, port: u16) -> std::io::Result<u16> {
-    let v4 = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
-    let port = v4.local_addr()?.port();
-    let mut listeners = vec![v4];
-    if let Ok(v6) = tokio::net::TcpListener::bind(("::1", port)).await {
-        listeners.push(v6);
+/// How long a busy port waits before the relay tries it again (pool-service.mjs: 30 s).
+pub const RETRY: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Serves the relay on `127.0.0.1:<port>` and `[::1]:<port>`, as the desktop relay listens on
+/// both, in front of `upstream` (the stand-in's `/backend-api`). Returns the port. As
+/// pool-service.mjs's `listenDesktopRelay`: an address whose port is taken is said once
+/// (`desktop-relay-error` and a toast) and tried again every `retry` until it binds
+/// (`desktop-relay-listening`); `[::1]` on a system without IPv6 is said once and left. Port 0
+/// (tests) binds `127.0.0.1` at once and serves that only.
+pub async fn start(io: Arc<FileIo>, upstream: &str, port: u16, retry: std::time::Duration) -> std::io::Result<u16> {
+    // No TLS pair is copied, as pool-service.mjs says when state/certs has none.
+    io.log_event("desktop-relay-tls-missing", serde_json::json!({ "certDir": "state/certs", "origin": format!("http://127.0.0.1:{port}") }));
+    let app = |port: u16| -> std::io::Result<corten::App<pools_gateway::backend::Hosts>> { relay_app(io.clone(), upstream, port) };
+    if port == 0 {
+        let v4 = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await?;
+        let port = v4.local_addr()?.port();
+        let app = app(port)?;
+        tokio::spawn(async move {
+            if let Err(e) = corten::serve_on(vec![v4], app).await {
+                eprintln!("copy: the desktop relay stopped: {e}");
+            }
+        });
+        return Ok(port);
     }
+    for host in ["127.0.0.1", "::1"] {
+        let (io, app) = (io.clone(), app(port)?);
+        tokio::spawn(async move {
+            let mut down = false;
+            loop {
+                match tokio::net::TcpListener::bind((host, port)).await {
+                    Ok(listener) => {
+                        if down {
+                            io.log_event("desktop-relay-listening", serde_json::json!({ "host": host, "port": port, "tls": false }));
+                        }
+                        println!("copy: desktop relay listening on {host}:{port}");
+                        if let Err(e) = corten::serve_on(vec![listener], app).await {
+                            eprintln!("copy: the desktop relay on {host} stopped: {e}");
+                        }
+                        return;
+                    }
+                    Err(e) if host == "::1" && matches!(e.raw_os_error(), Some(10049 | 10047 | 99 | 97)) => {
+                        // WSAEADDRNOTAVAIL / WSAEAFNOSUPPORT (EADDRNOTAVAIL / EAFNOSUPPORT on Unix).
+                        io.log_event("desktop-relay-ipv6-unavailable", serde_json::json!({ "code": e.raw_os_error(), "message": e.to_string() }));
+                        return;
+                    }
+                    Err(e) => {
+                        if !down {
+                            down = true;
+                            io.log_event("desktop-relay-error", serde_json::json!({ "host": host, "code": e.raw_os_error(), "message": e.to_string() }));
+                            let body = format!("Port {port} on {host} is taken ({e}). Codex desktop usage and Remote Control will fail or slow down until it is free; retrying every 30 s.");
+                            let _ = pool_core::refresh::Io::toast(&*io, "Agent Pools: desktop relay port busy", &body).await;
+                        }
+                        tokio::time::sleep(retry).await;
+                    }
+                }
+            }
+        });
+    }
+    Ok(port)
+}
+
+/// The relay's app for `port`, with the usage overlay over the copy's accounts.
+fn relay_app(io: Arc<FileIo>, upstream: &str, port: u16) -> std::io::Result<corten::App<pools_gateway::backend::Hosts>> {
     let mut config = pools_gateway::backend::Config::new(upstream);
     let (rewrite_io, event_io) = (io.clone(), io);
     config.rewrite_usage = Some(Arc::new(move |usage: Value| {
@@ -44,13 +97,7 @@ pub async fn start(io: Arc<FileIo>, upstream: &str, port: u16) -> std::io::Resul
         Ok(pool_usage::pool_usage(&usage, &accounts, mode, now, true)?.unwrap_or(usage))
     }));
     config.observe = Arc::new(move |kind: &str, details: Value| event_io.log_event(kind, details));
-    let app = pools_gateway::backend::app(config, port).map_err(std::io::Error::other)?;
-    tokio::spawn(async move {
-        if let Err(e) = corten::serve_on(listeners, app).await {
-            eprintln!("copy: the desktop relay stopped: {e}");
-        }
-    });
-    Ok(port)
+    pools_gateway::backend::app(config, port).map_err(std::io::Error::other)
 }
 
 #[cfg(test)]

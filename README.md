@@ -150,8 +150,10 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   Pools' is 8000): `gateway::backend` in front of the stand-in's `/backend-api`, never chatgpt.com,
   with `/wham/usage` rewritten by `pool_core::pool_usage` over the copy's saved accounts
   (`poolUsageMode` from the copy's install.json, else `capped`; make-copy does not copy that key).
-  Plain HTTP, since the live install's `state/certs` is not copied. Overlay errors go to the
-  copy's `logs/pool-events.jsonl`;
+  Plain HTTP, since the live install's `state/certs` is not copied (logged as
+  `desktop-relay-tls-missing`, as Agent Pools does). A port that is taken is said once (event and
+  toast) and tried again every 30 s until it frees, as `listenDesktopRelay` does. Overlay errors go
+  to the copy's `logs/pool-events.jsonl`;
 - the usage ledger (usage-ledger.mjs's drain, `writer::ledger`): the stand-in's `usage-queue`
   popped in batches of 1,000 every `drainIntervalSeconds` (10) while the proxy answers, rows
   (`pool_core::ledger`) appended to `logs/usage-ledger/raw-YYYY-MM-DD.jsonl` by UTC day, rows
@@ -172,6 +174,17 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   key is made up for the run and written to the copy's `stand-in/` (`keys.json` has the sign-in
   the relay accepts and the registered machine `copy-test`'s key). The desktop's
   `~/.codex/auth.json`, `state/secrets.json` and `state/remote-clients.json` are never read.
+
+Not ported from pool-service.mjs, and why:
+
+1. `POST /api/shutdown` (the guardian's graceful stop) and `closing` (503 for writes while
+   stopping): a Corten app cannot start its own graceful shutdown
+   ([corten#174 An app cannot begin its own graceful shutdown](https://github.com/todd-skelton/corten/issues/174)).
+   The copy stops on Ctrl-C (tasks told, the ledger's last drain, requests finished).
+2. Starting, adopting and restarting the proxy child (`child`, `adopt`, `planTakeover`) and
+   `processes` on `/api/status`: the copy's proxy is the in-process stand-in. This is the live
+   install's process management; it belongs to cutover.
+3. `state/routing-attempts.json` (the value report's join with the orchestrator's dispatch log).
 
 Measured on 2026-10-27: a POST at 13:11:12.40Z started a cycle at 13:11:12.58Z; cycles saved the
 copy's pool state and forecast, and appended usage samples only for windows whose use changed.
