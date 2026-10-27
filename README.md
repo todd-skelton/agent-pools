@@ -168,8 +168,15 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   with quota headers from its drifting windows;
 - the value report (`writer::report`): `writeValueReport` two minutes after the start, then every
   `reportIntervalMinutes` (60), writing `state/usage-value.json` and `state/session-usage.json`
-  from the copy's ledger, samples, state and forecast. Not ported: `state/routing-attempts.json`
-  (the join with the orchestrator's dispatch log, outside the install); the copied file stays;
+  from the copy's ledger, samples, state and forecast, and `state/routing-attempts.json`
+  (`writer::attempts`, `buildRoutingAttempts`: each dispatch in the orchestrator's
+  `dispatch-log.jsonl` joined to the session its transcript started). make-copy does not carry
+  install.json's `orchestratorRoot`, so the copy writes Agent Pools' "no orchestratorRoot" report
+  unless one is added to the copy's install.json. Held to Agent Pools' own function over a fixture
+  orchestrator (`node golden/routing-attempts.mjs`: 4 cases, 11 attempts), and to the live file:
+  `pools-shadow check-attempts` rebuilds the live `state/routing-attempts.json` from the live
+  `state/session-usage.json` and the orchestrator's log, reading only (measured 2026-10-27: 5,481
+  attempts, the same document);
 - the guardian's stop: `POST /api/shutdown` with the run's management key as a Bearer
   (`managementKey` in `stand-in/keys.json`; anything else is 403 `Unauthorized`) answers 202,
   logs `supervisor-stopping`, sets `closing` on `/api/health`, and begins Corten's graceful
@@ -192,7 +199,6 @@ Not ported from pool-service.mjs, and why:
 1. Starting, adopting and restarting the proxy child (`child`, `adopt`, `planTakeover`) and
    `processes` on `/api/status`: the copy's proxy is the in-process stand-in. This is the live
    install's process management; it belongs to cutover.
-2. `state/routing-attempts.json` (the value report's join with the orchestrator's dispatch log).
 
 Measured on 2026-10-27: a POST at 13:11:12.40Z started a cycle at 13:11:12.58Z; cycles saved the
 copy's pool state and forecast, and appended usage samples only for windows whose use changed.

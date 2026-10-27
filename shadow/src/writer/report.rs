@@ -1,13 +1,11 @@
 //! pool-service.mjs's value report schedule on the copy: `writeValueReport` (usage-value.mjs) two
 //! minutes after the start, then every `reportIntervalMinutes` after the last one ends. Agent
 //! Pools runs it as a child process so parsing weeks of rows never blocks its event loop; here it
-//! is a blocking task. It writes `state/usage-value.json` and `state/session-usage.json`
-//! atomically (one retry after 250 ms, for a reader holding the file on Windows), and logs
-//! `usage-value-problem` when the problem changes.
-//!
-//! Not ported: `state/routing-attempts.json`, the join with the orchestrator's dispatch log
-//! (`orchestratorRoot`, outside the install, which a copy does not carry). The copied file is
-//! left as it is.
+//! is a blocking task. It writes `state/session-usage.json`, `state/routing-attempts.json` (the
+//! join with the orchestrator's dispatch log, [`super::attempts`], from install.json's
+//! `orchestratorRoot`) and `state/usage-value.json` atomically, in that order (one retry after
+//! 250 ms, for a reader holding the file on Windows), and logs `usage-value-problem` when the
+//! problem changes.
 
 use std::path::Path;
 use std::time::Duration;
@@ -38,7 +36,10 @@ pub fn write_value_report(root: &Path, now: f64) -> Result<f64, String> {
         ledger_rows: None,
     };
     let reports = reports_at(&inp, now);
+    let orchestrator = install.json("state/install.json").and_then(|i| i.get("orchestratorRoot").and_then(Value::as_str).map(str::to_string));
+    let attempts = super::attempts::build(&reports.session_usage, orchestrator.as_deref())?;
     write_atomic(&root.join("state/session-usage.json"), &reports.session_usage)?;
+    write_atomic(&root.join("state/routing-attempts.json"), &attempts)?;
     write_atomic(&root.join("state/usage-value.json"), &reports.value_report)?;
     Ok(js::finite(reports.value_report.pointer("/coverage/ledgerRows")).unwrap_or(0.0))
 }

@@ -1,0 +1,69 @@
+{
+  "format": "session-usage/v1",
+  "generatedAt": "2026-10-20T12:00:00.000Z",
+  "from": "2026-10-06T12:00:00.000Z",
+  "costBasis": "list",
+  "unattributedRequests": 0,
+  "sessions": [
+    {
+      "sid": "s-root",
+      "psid": null,
+      "rootSid": "s-root",
+      "provider": "codex",
+      "firstAt": "2026-10-19T10:00:00.000Z",
+      "lastAt": "2026-10-19T11:30:00.000Z",
+      "apiEquivalentUsd": 0.1,
+      "quotaUnits": 0.25
+    },
+    {
+      "sid": "s-child",
+      "psid": "s-root",
+      "rootSid": "s-root",
+      "provider": "codex",
+      "firstAt": "2026-10-19T09:15:00.000Z",
+      "lastAt": "2026-10-19T12:00:00.000Z",
+      "apiEquivalentUsd": 0.2,
+      "quotaUnits": 0.125
+    },
+    {
+      "sid": "s-other",
+      "psid": null,
+      "rootSid": "s-root",
+      "provider": "claude",
+      "firstAt": "2026-10-18T00:00:00.000Z",
+      "lastAt": "2026-10-18T00:30:00.000Z",
+      "apiEquivalentUsd": 1.5,
+      "quotaUnits": null
+    },
+    {
+      "sid": "s-unknown",
+      "psid": null,
+      "rootSid": "s-unknown",
+      "provider": "claude",
+      "firstAt": "2026-10-17T08:00:00.000Z",
+      "lastAt": "2026-10-17T09:00:00.000Z",
+      "apiEquivalentUsd": 0.7,
+      "quotaUnits": 2
+    },
+    {
+      "sid": "s-unknown-2",
+      "psid": "s-unknown",
+      "rootSid": "s-unknown",
+      "provider": "claude",
+      "firstAt": "2026-10-17T08:30:00.000Z",
+      "lastAt": "2026-10-17T10:00:00.000Z",
+      "apiEquivalentUsd": 0.3,
+      "quotaUnits": null
+    },
+    {
+      "sid": "s-bad-time",
+      "psid": null,
+      "rootSid": "s-bad-time",
+      "provider": "codex",
+      "firstAt": "not a date",
+      "lastAt": "2026-10-16T10:00:00.000Z",
+      "apiEquivalentUsd": 0.05,
+      "quotaUnits": 1
+    }
+  ]
+}

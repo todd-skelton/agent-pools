@@ -1,0 +1,168 @@
+[
+  {
+    "name": "no-root",
+    "root": null,
+    "output": {
+      "format": "routing-attempts/v1",
+      "generatedAt": "2026-10-20T12:00:00.000Z",
+      "orchestratorRoot": null,
+      "attempts": [],
+      "note": "state/install.json has no orchestratorRoot; dispatch join is disabled."
+    }
+  },
+  {
+    "name": "empty-root",
+    "root": "",
+    "output": {
+      "format": "routing-attempts/v1",
+      "generatedAt": "2026-10-20T12:00:00.000Z",
+      "orchestratorRoot": null,
+      "attempts": [],
+      "note": "state/install.json has no orchestratorRoot; dispatch join is disabled."
+    }
+  },
+  {
+    "name": "fixture",
+    "root": "orchestrator",
+    "output": {
+      "format": "routing-attempts/v1",
+      "generatedAt": "2026-10-20T12:00:00.000Z",
+      "orchestratorRoot": "<dir>\\orchestrator",
+      "attempts": [
+        {
+          "label": "a-r1",
+          "row": "8",
+          "model": "gpt-6.1-sol",
+          "effort": "high",
+          "rootSid": "s-root",
+          "at": "2026-10-19T10:05:00.000Z",
+          "quotaUnits": 0.375,
+          "apiEquivalentUsd": 0.30000000000000004,
+          "hours": 2.75
+        },
+        {
+          "label": "a-r1-again",
+          "row": null,
+          "model": null,
+          "effort": null,
+          "rootSid": "s-root",
+          "at": "2026-10-19T10:06:00.000Z",
+          "quotaUnits": 0.375,
+          "apiEquivalentUsd": 0.30000000000000004,
+          "hours": 2.75
+        },
+        {
+          "label": 12,
+          "row": 3,
+          "model": null,
+          "effort": "low",
+          "rootSid": "s-root",
+          "at": "2026-10-19T10:07:00.000Z",
+          "quotaUnits": 0.375,
+          "apiEquivalentUsd": 0.30000000000000004,
+          "hours": 2.75
+        },
+        {
+          "label": "c-other",
+          "row": null,
+          "model": null,
+          "effort": null,
+          "rootSid": "s-root",
+          "at": "2026-10-18T00:10:00.000Z",
+          "quotaUnits": null,
+          "apiEquivalentUsd": 1.5,
+          "hours": 0.5
+        },
+        {
+          "label": "c-unknown",
+          "row": {
+            "n": 1
+          },
+          "model": null,
+          "effort": null,
+          "rootSid": "s-unknown",
+          "at": "2026-10-17T13:45:00.000Z",
+          "quotaUnits": null,
+          "apiEquivalentUsd": 1,
+          "hours": 2
+        },
+        {
+          "label": "bad-time",
+          "row": null,
+          "model": null,
+          "effort": null,
+          "rootSid": "s-bad-time",
+          "at": "2026-10-16T09:00:00.000Z",
+          "quotaUnits": 1,
+          "apiEquivalentUsd": 0.05,
+          "hours": null
+        },
+        {
+          "label": "absolute",
+          "row": null,
+          "model": null,
+          "effort": null,
+          "rootSid": "s-root",
+          "at": "2026-10-19T10:08:00.000Z",
+          "quotaUnits": 0.375,
+          "apiEquivalentUsd": 0.30000000000000004,
+          "hours": 2.75
+        },
+        {
+          "label": "at-from",
+          "row": null,
+          "model": null,
+          "effort": null,
+          "rootSid": "s-root",
+          "at": "2026-10-06T12:00:00.000Z",
+          "quotaUnits": 0.375,
+          "apiEquivalentUsd": 0.30000000000000004,
+          "hours": 2.75
+        },
+        {
+          "label": "at-generated",
+          "row": null,
+          "model": null,
+          "effort": null,
+          "rootSid": "s-root",
+          "at": "2026-10-20T12:00:00.000Z",
+          "quotaUnits": 0.375,
+          "apiEquivalentUsd": 0.30000000000000004,
+          "hours": 2.75
+        },
+        {
+          "label": "no-model-or-effort",
+          "row": null,
+          "model": null,
+          "effort": null,
+          "rootSid": "s-root",
+          "at": "2026-10-19T10:09:00.000Z",
+          "quotaUnits": 0.375,
+          "apiEquivalentUsd": 0.30000000000000004,
+          "hours": 2.75
+        },
+        {
+          "label": "after-junk",
+          "row": null,
+          "model": null,
+          "effort": null,
+          "rootSid": "s-root",
+          "at": "2026-10-19T10:10:00.000Z",
+          "quotaUnits": 0.375,
+          "apiEquivalentUsd": 0.30000000000000004,
+          "hours": 2.75
+        }
+      ]
+    }
+  },
+  {
+    "name": "no-dispatch-log",
+    "root": "transcripts",
+    "output": {
+      "format": "routing-attempts/v1",
+      "generatedAt": "2026-10-20T12:00:00.000Z",
+      "orchestratorRoot": "<dir>\\transcripts",
+      "attempts": []
+    }
+  }
+]

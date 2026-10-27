@@ -3,6 +3,7 @@
 //! capacity publisher ([`publisher`]), the desktop relay ([`desktop`]), and a stand-in proxy
 //! ([`fake_proxy`]) so no request reaches a provider. [`copy::guard`] refuses the live install.
 
+pub mod attempts;
 pub mod copy;
 pub mod desktop;
 pub mod edge;

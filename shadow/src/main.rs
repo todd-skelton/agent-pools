@@ -48,6 +48,7 @@ fn secs(key: &str, default: u64) -> Duration {
 fn main() -> std::io::Result<()> {
     match std::env::args().nth(1).as_deref() {
         Some("check-value") => return check_value_once(),
+        Some("check-attempts") => return check_attempts_once(),
         Some("render-dash") => return render_dash(),
         Some("make-copy") => return make_copy(),
         Some("run-copy") => {
@@ -192,6 +193,30 @@ fn check_value_once() -> std::io::Result<()> {
         "{}",
         serde_json::to_string_pretty(&check).unwrap_or_default()
     );
+    Ok(())
+}
+
+/// `pools-shadow check-attempts`: rebuilds the live `state/routing-attempts.json` from the live
+/// `state/session-usage.json` (written with it) and install.json's `orchestratorRoot`, and says
+/// whether it is the same document. Reads only; dispatches logged since are outside the window.
+fn check_attempts_once() -> std::io::Result<()> {
+    let install = sources::Install::new(env_or("AGENT_POOLS_ROOT", LIVE_ROOT));
+    let read = |rel: &str| -> std::io::Result<serde_json::Value> {
+        let text = std::fs::read_to_string(install.root().join(rel))?;
+        serde_json::from_str(text.strip_prefix('\u{feff}').unwrap_or(&text)).map_err(|e| std::io::Error::other(format!("{rel}: {e}")))
+    };
+    let (live, sessions, config) = (read("state/routing-attempts.json")?, read("state/session-usage.json")?, read("state/install.json")?);
+    let root = config.get("orchestratorRoot").and_then(serde_json::Value::as_str);
+    let port = writer::attempts::build(&sessions, root).map_err(std::io::Error::other)?;
+    let (a, b) = (pool_core::js::stringify(&port), pool_core::js::stringify(&live));
+    let count = |v: &serde_json::Value| v.get("attempts").and_then(serde_json::Value::as_array).map_or(0, Vec::len);
+    println!("live {} attempts, port {} attempts, same document: {}", count(&live), count(&port), a == b);
+    if a != b {
+        let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+        let at = a.iter().zip(&b).position(|(x, y)| x != y).unwrap_or(a.len().min(b.len()));
+        let around = |s: &[char]| s[at.saturating_sub(120).min(s.len())..(at + 120).min(s.len())].iter().collect::<String>();
+        println!("port: {}\nlive: {}", around(&a), around(&b));
+    }
     Ok(())
 }
 
