@@ -36,6 +36,7 @@ target\release\pools-shadow.exe   # http://localhost:8320 (PORT), settings in sh
 | Route | |
 |---|---|
 | `/`, `/accounts`, `/usage`, `/policy` | the live dashboard's four tabs (overview, accounts, usage & value, automation), drawn on the server |
+| `/live?tab=&filter=&open=` | the open tab, sent again when it changes (server-sent events for `<corten-live>`) |
 | `/summary` | `/api/summary` as a page |
 | `/api/status` | `/api/status` from the files (`processes`, `holds`, `usageLedger` are `null`: the live service's memory) |
 | `/parity`, `/api/parity` | the parity checks: counts per kind, the last difference, the recent checks |
@@ -64,7 +65,11 @@ those have not changed what the report shows.
 (`/api/status`), `V` (`/api/value`) and `NOW` (names kept, so the two read side by side),
 `fmt.rs` its en-US formatting in US Central time with daylight saving (`SHADOW_UTC_STANDARD_HOURS`,
 default -6), and `views.rs` its markup as `html!`. The tabs are routes and the account filter
-and open row are query parameters, so every view is a link and there is no script. The pages
+and open row are query parameters, so every view is a link and there is no script of the app's
+own. Each tab's body sits in a `<corten-live>` on `/live?tab=`, which draws the tab again every
+15 s (the live page polls its status that often) and sends it, with the header's count and
+freshness, when it changed; its cursor is a hash of the fragment, so the page and a reconnect
+get nothing until something does. The pages
 use the shadow's `/api/status`, with the live service's memory keys taken from its last
 `/api/status` answer, and `state/usage-value.json`. Sign-in and refresh change the pool, so
 they are shown disabled.

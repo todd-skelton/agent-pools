@@ -14,7 +14,7 @@ use corten::prelude::*;
 use pool_core::js;
 use serde_json::{Value, json};
 
-use crate::dash::{accounts, overview, policy, usage};
+use crate::dash::{accounts, live, overview, policy, usage};
 use crate::parity::{self, Kind, Outcome};
 use crate::watch::{Shared, now_ms};
 
@@ -57,6 +57,13 @@ pub mod url {
 
     #[route("/policy", get = policy)]
     pub struct Policy;
+
+    #[route("/live", get = live)]
+    pub struct Live<'a> {
+        pub tab: Option<&'a str>,
+        pub filter: Option<&'a str>,
+        pub open: Option<&'a str>,
+    }
 
     #[route("/summary", get = summary_page)]
     pub struct SummaryPage;

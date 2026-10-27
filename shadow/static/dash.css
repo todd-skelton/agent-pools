@@ -287,3 +287,5 @@ dd.bad-t { color: var(--bad); }
 :target { scroll-margin-top: 72px; }
 tr.row:target td { background: var(--panel2); }
 .chip-after { margin-left: 4px; }
+.tab-count[hidden] { display: none; }
+corten-live { display: block; }

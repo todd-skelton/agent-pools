@@ -202,6 +202,38 @@ async fn pages_render() {
 }
 
 #[tokio::test]
+async fn a_tab_is_kept_current_over_live() {
+    let t = snapshot("live", false);
+    // The page names its stream and the cursor it was drawn at.
+    let (status, page) = get(router(&t), "/usage").await;
+    assert_eq!(status, StatusCode::OK);
+    let at = page.find("<corten-live src=\"/live?tab=usage\" since=\"").expect("the body is live");
+    let since = &page[at..].split('"').nth(3).unwrap().to_string();
+    assert_eq!(since.len(), 16);
+    // Without a cursor the stream draws the tab at once: the body and the header's two parts.
+    let res = router(&t)
+        .oneshot(Request::builder().uri("/live?tab=usage").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let mut body = res.into_body();
+    let frame = tokio::time::timeout(Duration::from_secs(10), body.frame()).await.unwrap().unwrap().unwrap();
+    let event = String::from_utf8(frame.into_data().unwrap().to_vec()).unwrap();
+    assert!(event.starts_with("event: patch\n"), "{event}");
+    for id in ["id=\"dash-body\"", "id=\"att-count\"", "id=\"fresh\"", "By model"] {
+        assert!(event.contains(id), "the fragment has {id}");
+    }
+    // At the page's cursor nothing is sent while the tab is unchanged.
+    let res = router(&t)
+        .oneshot(Request::builder().uri("/live?tab=usage").header("last-event-id", since.as_str()).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let mut body = res.into_body();
+    let quiet = tokio::time::timeout(Duration::from_millis(1500), body.frame()).await;
+    assert!(quiet.is_err(), "nothing until the tab changes");
+}
+
+#[tokio::test]
 async fn no_pool_state_is_unavailable() {
     let t = snapshot("missing", false);
     std::fs::remove_file(t.dir.join("state/pool-state.json")).unwrap();

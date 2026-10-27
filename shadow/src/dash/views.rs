@@ -18,6 +18,18 @@ pub struct AcctId<'a>(pub &'a str);
 #[derive(Id)]
 pub struct TlAnchorId;
 
+/// The tab's body, which `/live` replaces.
+#[derive(Id)]
+pub struct DashBodyId;
+
+/// The header's count of items needing attention.
+#[derive(Id)]
+pub struct AttCountId;
+
+/// The header's freshness line.
+#[derive(Id)]
+pub struct FreshId;
+
 /// The configuration card on the automation page.
 #[derive(Id)]
 pub struct ConfigId;
@@ -77,14 +89,14 @@ pub fn Dash<'a>(req: &'a Req, title: &'a str, view: View, header: &'a Header, ch
                         <nav class="tabs">
                             <a href={url::Overview} data-nav aria-current={(view == View::Overview).then_some("page")}>
                                 "Overview "
-                                if header.count > 0 { <span class="tab-count">{header.count}</span> }
+                                {count(header.count)}
                             </a>
                             <a href={url::Accounts { filter: None, open: None }} data-nav aria-current={(view == View::Accounts).then_some("page")}>"Accounts"</a>
                             <a href={url::Usage} data-nav aria-current={(view == View::Usage).then_some("page")}>"Usage & value"</a>
                             <a href={url::Policy} data-nav aria-current={(view == View::Policy).then_some("page")}>"Automation"</a>
                         </nav>
                         <div class="bar-right">
-                            <div class={if header.bad { "fresh bad" } else { "fresh" }}><span class="pulse"></span><span class="t">{&header.fresh}</span></div>
+                            {fresh(header)}
                             <a class="btn ghost" href={url::Parity} data-nav>"Parity"</a>
                             <button type="button" class="btn" disabled title={READ_ONLY}>"Refresh"</button>
                             <button type="button" class="btn primary" disabled title={READ_ONLY}>"Add account"</button>
@@ -95,6 +107,20 @@ pub fn Dash<'a>(req: &'a Req, title: &'a str, view: View, header: &'a Header, ch
             </body>
         </html>
     }
+}
+
+/// The tab's body, by id, so a live fragment replaces it.
+pub fn body(html: &str) -> impl Render + '_ {
+    html! { <div id={DashBodyId}>{raw(html)}</div> }
+}
+
+/// The header's count: hidden at none, as the live page leaves it empty.
+pub fn count(n: usize) -> impl Render {
+    html! { <span id={AttCountId} class="tab-count" hidden={n == 0}>{n}</span> }
+}
+
+pub fn fresh(h: &Header) -> impl Render + '_ {
+    html! { <div id={FreshId} class={if h.bad { "fresh bad" } else { "fresh" }}><span class="pulse"></span><span class="t">{&h.fresh}</span></div> }
 }
 
 /// An action: a link where it goes somewhere on these pages, a disabled button where it would

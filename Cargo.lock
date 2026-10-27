@@ -622,6 +622,7 @@ version = "0.1.0"
 dependencies = [
  "corten",
  "flate2",
+ "futures-util",
  "http-body-util",
  "pool-core",
  "reqwest",

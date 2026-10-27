@@ -12,6 +12,8 @@ pool-core = { path = "../pool-core" }
 # main after "corten::serve_on serves an app on listeners of its own" (corten#137, for corten#115)
 # and "An area or an API sets its own deadline" (corten#135, for corten#114).
 corten = { git = "https://github.com/todd-skelton/corten", rev = "15dc546", features = ["json"] }
+# The dashboard's live stream (corten::live takes a Stream).
+futures-util = { version = "0.3", default-features = false }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }

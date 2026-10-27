@@ -8,6 +8,7 @@
 //! | `GET /accounts?filter=&open=` | Accounts: a table per provider; `open` expands a row |
 //! | `GET /usage` | Usage & value |
 //! | `GET /policy` | Automation |
+//! | `GET /live?tab=&filter=&open=` | the open tab drawn again every 15 s, for its `<corten-live>` |
 
 pub mod fmt;
 pub mod model;
@@ -17,6 +18,9 @@ use corten::axum::http::StatusCode;
 use corten::prelude::*;
 use serde_json::Value;
 
+use corten::{LiveResponse, LiveSince};
+
+use crate::app::url;
 use crate::watch::{Shared, now_ms};
 use model::{Ctx, Filter, View};
 use views::{Dash, Header};
@@ -77,71 +81,153 @@ pub fn fragments(d: &Data, filter: Option<&str>, open: Option<&str>) -> serde_js
     out
 }
 
-fn header(c: &Ctx<'_>, items: &[model::Item]) -> Header {
+/// A tab of the dashboard, as `/live?tab=` names it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tab {
+    Overview,
+    Accounts,
+    Usage,
+    Policy,
+}
+
+impl Tab {
+    fn parse(s: Option<&str>) -> Tab {
+        match s {
+            Some("accounts") => Tab::Accounts,
+            Some("usage") => Tab::Usage,
+            Some("policy") => Tab::Policy,
+            _ => Tab::Overview,
+        }
+    }
+
+    fn key(self) -> &'static str {
+        match self {
+            Tab::Overview => "overview",
+            Tab::Accounts => "accounts",
+            Tab::Usage => "usage",
+            Tab::Policy => "policy",
+        }
+    }
+
+    fn view(self) -> View {
+        match self {
+            Tab::Overview => View::Overview,
+            Tab::Accounts => View::Accounts,
+            Tab::Usage => View::Usage,
+            Tab::Policy => View::Policy,
+        }
+    }
+
+    fn title(self) -> &'static str {
+        match self {
+            Tab::Overview => "Agent pools (shadow)",
+            Tab::Accounts => "Accounts · Agent pools (shadow)",
+            Tab::Usage => "Usage & value · Agent pools (shadow)",
+            Tab::Policy => "Automation · Agent pools (shadow)",
+        }
+    }
+}
+
+/// A tab drawn from `d`: its body (in `#dash-body`) and the header's count and freshness.
+pub fn draw(d: &Data, tab: Tab, filter: Option<&str>, open: Option<&str>) -> (String, Header) {
+    let c = d.ctx();
+    let items = c.attention_items();
     let (fresh, bad) = c.freshness();
-    Header { count: c.attention_count(items), fresh, bad }
+    let header = Header { count: c.attention_count(&items), fresh, bad };
+    let body = match tab {
+        Tab::Overview => {
+            let healthy = c.healthy();
+            let cards = ["claude", "codex"].map(|p| c.provider_card(p));
+            let tl = c.timeline();
+            html! {
+                <div class="grid">
+                    <div class="card span-12">{views::attention(&items, &healthy, |p| c.pname(p))}</div>
+                    for card in &cards { <div class="card span-6">{views::provider(card)}</div> }
+                    <div class="card span-12">{views::timeline(&tl)}</div>
+                </div>
+            }
+            .to_html()
+        }
+        Tab::Accounts => views::accounts(&c.accounts_view(Filter::parse(filter), open)).to_html(),
+        Tab::Usage => views::usage(&c.usage()).to_html(),
+        Tab::Policy => views::policy(&c.policy()).to_html(),
+    };
+    (body, header)
+}
+
+/// The fragment `/live` sends: the body and the header's two live parts, each by id.
+fn fragment(body: &str, header: &Header) -> String {
+    let mut out = views::body(body).to_html();
+    out.push_str(&views::count(header.count).to_html());
+    out.push_str(&views::fresh(header).to_html());
+    out
+}
+
+/// A short hash of a fragment: the stream's cursor, so a page (or a reconnect) that already shows
+/// it is sent nothing until it changes.
+fn cursor(fragment: &str) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    fragment.hash(&mut h);
+    format!("{:016x}", h.finish())
+}
+
+#[derive(serde::Deserialize, Default)]
+pub struct DashQuery {
+    filter: Option<String>,
+    open: Option<String>,
+    tab: Option<String>,
+}
+
+async fn page(req: Req, shadow: Shared, tab: Tab, q: DashQuery) -> HtmlResult {
+    let d = load(&shadow).await?;
+    let (body, header) = draw(&d, tab, q.filter.as_deref(), q.open.as_deref());
+    let since = cursor(&fragment(&body, &header));
+    let src = url::Live { tab: Some(tab.key()), filter: q.filter.as_deref(), open: q.open.as_deref() };
+    req.page(html! {
+        <Dash req={&req} title={tab.title()} view={tab.view()} header={&header}>
+            <corten-live src={src} since={&since}>{views::body(&body)}</corten-live>
+        </Dash>
+    })
 }
 
 pub async fn overview(req: Req, State(shadow): State<Shared>) -> HtmlResult {
-    let d = load(&shadow).await?;
-    let c = d.ctx();
-    let items = c.attention_items();
-    let header = header(&c, &items);
-    let healthy = c.healthy();
-    let cards = ["claude", "codex"].map(|p| c.provider_card(p));
-    let tl = c.timeline();
-    req.page(html! {
-        <Dash req={&req} title="Agent pools (shadow)" view={View::Overview} header={&header}>
-            <div class="grid">
-                <div class="card span-12">{views::attention(&items, &healthy, |p| c.pname(p))}</div>
-                for card in &cards { <div class="card span-6">{views::provider(card)}</div> }
-                <div class="card span-12">{views::timeline(&tl)}</div>
-            </div>
-        </Dash>
-    })
+    page(req, shadow, Tab::Overview, DashQuery::default()).await
 }
 
-#[derive(serde::Deserialize)]
-pub struct AccountsQuery {
-    filter: Option<String>,
-    open: Option<String>,
-}
-
-pub async fn accounts(req: Req, State(shadow): State<Shared>, Query(q): Query<AccountsQuery>) -> HtmlResult {
-    let d = load(&shadow).await?;
-    let c = d.ctx();
-    let items = c.attention_items();
-    let header = header(&c, &items);
-    let view = c.accounts_view(Filter::parse(q.filter.as_deref()), q.open.as_deref());
-    req.page(html! {
-        <Dash req={&req} title="Accounts · Agent pools (shadow)" view={View::Accounts} header={&header}>
-            {views::accounts(&view)}
-        </Dash>
-    })
+pub async fn accounts(req: Req, State(shadow): State<Shared>, Query(q): Query<DashQuery>) -> HtmlResult {
+    page(req, shadow, Tab::Accounts, q).await
 }
 
 pub async fn usage(req: Req, State(shadow): State<Shared>) -> HtmlResult {
-    let d = load(&shadow).await?;
-    let c = d.ctx();
-    let items = c.attention_items();
-    let header = header(&c, &items);
-    let view = c.usage();
-    req.page(html! {
-        <Dash req={&req} title="Usage & value · Agent pools (shadow)" view={View::Usage} header={&header}>
-            {views::usage(&view)}
-        </Dash>
-    })
+    page(req, shadow, Tab::Usage, DashQuery::default()).await
 }
 
 pub async fn policy(req: Req, State(shadow): State<Shared>) -> HtmlResult {
-    let d = load(&shadow).await?;
-    let c = d.ctx();
-    let items = c.attention_items();
-    let header = header(&c, &items);
-    let view = c.policy();
-    req.page(html! {
-        <Dash req={&req} title="Automation · Agent pools (shadow)" view={View::Policy} header={&header}>
-            {views::policy(&view)}
-        </Dash>
-    })
+    page(req, shadow, Tab::Policy, DashQuery::default()).await
+}
+
+/// How often an open tab is drawn again: the live page polls its status every 15 s.
+const REDRAW: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// `GET /live?tab=&filter=&open=`: the tab drawn again every 15 s, sent when it changed (the
+/// countdowns change it at least each minute). Read only, like the pages.
+pub async fn live(State(shadow): State<Shared>, Query(q): Query<DashQuery>, LiveSince(since): LiveSince) -> LiveResponse {
+    let tab = Tab::parse(q.tab.as_deref());
+    let mut tick = tokio::time::interval(REDRAW);
+    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    corten::live(futures_util::stream::unfold((shadow, q, since, tick), move |(shadow, q, mut last, mut tick)| async move {
+        loop {
+            tick.tick().await;
+            let Ok(d) = load(&shadow).await else { continue };
+            let (body, header) = draw(&d, tab, q.filter.as_deref(), q.open.as_deref());
+            let html = fragment(&body, &header);
+            let c = cursor(&html);
+            if last.as_deref() == Some(c.as_str()) {
+                continue;
+            }
+            last = Some(c.clone());
+            return Some((corten::Fragment::new(html).cursor(c), (shadow, q, last, tick)));
+        }
+    }))
 }
