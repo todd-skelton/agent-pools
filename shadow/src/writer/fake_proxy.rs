@@ -138,6 +138,10 @@ impl Fake {
             "routing": { "status": "ready", "quota_blocked": false, "generation": "1", "checked_at": js::iso(crate::watch::now_ms()),
                 "models": a.get("routingModels").filter(|m| m.as_object().is_some_and(|m| !m.is_empty())).cloned().unwrap_or(json!({ "default": { "status": "ready" } })) },
         });
+        // The proxy's read of the account's own model list: live, as many models as it routes.
+        let models = a.get("routingModels").and_then(Value::as_object).map_or(1, |m| m.len().max(1));
+        let at = js::iso(self.started);
+        f["live_models"] = json!({ "source": "live", "fetched_at": at, "checked_at": at, "models": models });
         if provider == "codex" {
             f["id_token"] = json!({ "chatgpt_account_id": a.get("accountId").cloned().unwrap_or(json!(format!("acct-{id}"))) });
         }
@@ -344,8 +348,9 @@ impl Fake {
             .collect();
         json!({
             "limits": limits,
+            // No grant left: not offered, as Anthropic answers an account with none (`no_grant`).
             "cedar_ember": {
-                "eligible": true, "ineligible_reason": null, "at_limit": false, "grants": grants,
+                "eligible": count > 0.0, "ineligible_reason": if count > 0.0 { Value::Null } else { json!("no_grant") }, "at_limit": false, "grants": grants,
                 "next_grant_id": credits.first().and_then(|c| c.get("id")), "cooldown_until": null,
             },
         })
