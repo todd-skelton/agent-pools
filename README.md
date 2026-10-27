@@ -139,6 +139,13 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   served at `/api/ladders` (503 before there are any, as the live service answers);
 - the dashboard, where Refresh is a form posting to `/refresh` (Corten's cross-site check
   applies: a cross-site POST gets 403). The read-only shadow keeps it disabled and answers 404.
+- the proxy watch (pool-service.mjs `checkProxy`, every 10 s): the stand-in's health, its outage
+  hold counters (`holds` on `/api/status`, `holdSince` saved with the state, start and clear
+  logged and toasted), and the first refresh when the proxy was not up at start;
+- the service's API: `GET /api/health`, `/api/capacity`, `/api/value`, and `POST /api/refresh`,
+  `/api/login`, `/api/callback` behind pool-service.mjs's same-origin JSON check (8 KiB), the sign-in
+  calls answered by the stand-in, which signs nothing in. The read-only shadow serves the
+  documents and answers 404 for the rest;
 - the desktop relay on `http://127.0.0.1:8322/backend-api` (`SHADOW_COPY_RELAY_PORT`; Agent
   Pools' is 8000): `gateway::backend` in front of the stand-in's `/backend-api`, never chatgpt.com,
   with `/wham/usage` rewritten by `pool_core::pool_usage` over the copy's saved accounts
@@ -166,15 +173,15 @@ install's own inputs (398 rungs; not committed, since its inputs are not scrubbe
 
 ### The public gateway
 
-`gateway/` (`pools-gateway`, a library for now) is public-gateway.mjs on Corten (`34e383c`, with
+`gateway/` (`pools-gateway`, a library for now) is public-gateway.mjs on Corten (`af0019f`, with
 [corten#162 Upgrade and Relay](https://github.com/todd-skelton/corten/pull/162)). Inference routes
 take a machine key and relay the pool's answer as it streams, sent with the pool's key. The
 dashboard routes take a session cookie signed as Agent Pools signs it (the same secret keeps
 today's cookies valid; a test holds the token to Agent Pools' bytes). Everything else is closed.
 `cargo test -p pools-gateway` runs Agent Pools' 12 gateway tests over real sockets, plus four of
 the port's own: the session token, a client that leaves a stream (the upstream request ends
-with it), one that holds Corten's own failures under `/v1` to the gateway's shape, and one that
-records a relayed page's CSP.
+with it), one that holds Corten's own failures under `/v1` to the gateway's shape, and one that holds a
+relayed page to its own CSP.
 
 Where it differs, by design or because of Corten:
 
@@ -189,9 +196,13 @@ Where it differs, by design or because of Corten:
    with Corten's statuses: a wrong method is 405 where Agent Pools answers 404. Outside `/v1` they
    are the pages' (the HTML error page). Machine keys are still checked in the handlers; with
    `Api::errors` they can move into an `Identify`, not done yet.
-4. A relayed dashboard page gets Corten's CSP in place of its own, which blocks its scripts:
-   [corten#164 A Relay loses the upstream's Content-Security-Policy, so a relayed page's own scripts are blocked](https://github.com/todd-skelton/corten/issues/164).
-   Until that is fixed, the dashboard does not work through the gateway; the JSON routes do.
+4. A relayed page keeps its own Content-Security-Policy
+   ([corten#172](https://github.com/todd-skelton/corten/pull/172), for
+   [corten#164 A Relay loses the upstream's Content-Security-Policy](https://github.com/todd-skelton/corten/issues/164)).
+   With `AP_GATEWAY_LIVE=http://127.0.0.1:8318`, a test signs in to the gateway and reads the live
+   service's own dashboard through it (GETs only): the page's 102,700 bytes and its own policy
+   arrive unchanged, and `/api/status` lists 7 accounts (measured 2026-10-27). Not loaded in a
+   browser: the gateway answers only its public hostname.
 
 ### The inference relay
 

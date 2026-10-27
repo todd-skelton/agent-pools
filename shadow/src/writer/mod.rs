@@ -6,6 +6,7 @@
 pub mod copy;
 pub mod desktop;
 pub mod fake_proxy;
+pub mod health;
 pub mod io;
 pub mod publisher;
 
@@ -18,6 +19,13 @@ use pool_core::js;
 use pool_core::refresh::{Options, Outcome, Refresh, account::invalidate, migrate_state};
 use serde_json::{Value, json};
 use tokio::sync::Notify;
+
+/// The write side of a copy, as its routes and tasks reach it.
+pub struct Copy {
+    pub io: Arc<io::FileIo>,
+    pub health: Arc<health::Health>,
+    pub trigger: Arc<Trigger>,
+}
 
 /// A manual refresh request (`POST /refresh`). While a cycle runs, a request joins it, as
 /// refresh-loop.mjs returns the running check.
@@ -85,6 +93,7 @@ pub trait Check {
 /// `pool_core::refresh` over the copy's files and the stand-in proxy.
 struct Cycle<F> {
     io: Arc<io::FileIo>,
+    health: Arc<health::Health>,
     state: Value,
     refresh: Refresh,
     changed: F,
@@ -92,6 +101,8 @@ struct Cycle<F> {
 
 impl<F: Fn() + Send> Check for Cycle<F> {
     async fn check(&mut self) -> Outcome {
+        // The proxy watch's holdSince, as the one state object pool-service.mjs shares holds it.
+        self.health.apply(&mut self.state);
         let outcome = self.refresh.refresh(&mut self.state, &*self.io).await;
         (self.changed)();
         println!(
@@ -107,13 +118,16 @@ impl<F: Fn() + Send> Check for Cycle<F> {
 /// The write side's refresh: the saved state, a first cycle as soon as the proxy answers
 /// (pool-service.mjs's `bootstrapped`: saved status is unverified after a start), then
 /// [`run_loop`]. `changed` is called after each cycle.
-pub async fn run(io: Arc<io::FileIo>, trigger: Arc<Trigger>, delays: Delays, options: Options, changed: impl Fn() + Send, signal: corten::Signal) {
-    let state = load_state(&io.root);
+pub async fn run(copy: Arc<Copy>, delays: Delays, options: Options, changed: impl Fn() + Send, signal: corten::Signal) {
+    let state = load_state(&copy.io.root);
     let refresh = Refresh::new(options, &state);
     // checkProxy: healthy when `auth-files` answers with a `files` list.
-    let healthy = io.call("auth-files", None, None).await.is_ok_and(|v| v.get("files").is_some_and(Value::is_array));
-    let mut cycle = Cycle { io, state, refresh, changed };
-    run_loop(&trigger, delays, healthy, &mut cycle, &signal).await;
+    let healthy = copy.io.call("auth-files", None, None).await.is_ok_and(|v| v.get("files").is_some_and(Value::is_array));
+    // The proxy watch starts the first cycle instead when the proxy is not up yet.
+    let bootstrap = healthy && !copy.health.bootstrapped.swap(true, Ordering::SeqCst);
+    let trigger = copy.trigger.clone();
+    let mut cycle = Cycle { io: copy.io.clone(), health: copy.health.clone(), state, refresh, changed };
+    run_loop(&trigger, delays, bootstrap, &mut cycle, &signal).await;
 }
 
 /// refresh-loop.mjs: the next cycle `delays.every` after the last one ends (at once when

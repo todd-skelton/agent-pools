@@ -7,7 +7,9 @@
 //! | `GET /summary` | `/api/summary` as a page: per provider cost, credits, forecast and scenarios; per account plan, windows and value |
 //! | `GET /parity` | the parity checks: counts per kind, the last difference, the recent checks |
 //! | `GET /api/summary` | `agent-pools-summary/v1`, as `JSON.stringify` writes it |
+//! | `GET /api/status`, `/api/capacity`, `/api/ladders`, `/api/value` | the service's documents, from the files |
 //! | `GET /api/parity` | the parity counts and recent checks as JSON |
+//! | `GET /api/health`, `POST /api/refresh`, `/api/login`, `/api/callback` | on a copy only (`run-copy`): the write side, through the stand-in proxy; 404 on the read-only shadow |
 
 use corten::axum::http::StatusCode;
 use corten::prelude::*;
@@ -28,12 +30,14 @@ const SAVES_EVERY: std::time::Duration = std::time::Duration::from_millis(250);
 pub fn app_copy(
     shadow: Shared,
     assets: std::path::PathBuf,
-    io: std::sync::Arc<crate::writer::io::FileIo>,
+    copy: std::sync::Arc<crate::writer::Copy>,
     delays: crate::writer::Delays,
     options: pool_core::refresh::Options,
 ) -> App {
-    let trigger = shadow.writer.get_or_init(Default::default).clone();
+    let _ = shadow.writer.set(copy.trigger.clone());
+    let _ = shadow.copy.set(copy.clone());
     let (n, w) = (shadow.clone(), shadow.clone());
+    let watch = copy.clone();
     App::new(url::router(shadow))
         .assets(assets)
         .policy(corten::security::Policy::new().allow_style_attributes())
@@ -42,7 +46,10 @@ pub fn app_copy(
             crate::watch::notice_saves(n, SAVES_EVERY, signal)
         })
         .task("refresh", move |signal| {
-            crate::writer::run(io, trigger, delays, options, move || w.changed_inputs(), signal)
+            crate::writer::run(copy, delays, options, move || w.changed_inputs(), signal)
+        })
+        .task("check-proxy", move |signal| {
+            crate::writer::health::run(watch.io.clone(), watch.health.clone(), watch.trigger.clone(), crate::writer::health::EVERY, signal)
         })
 }
 
@@ -116,6 +123,162 @@ pub mod url {
 
     #[route("/api/parity", get = parity_json)]
     pub struct ParityJson;
+
+    #[route("/api/capacity", get = capacity_json)]
+    pub struct Capacity;
+
+    #[route("/api/value", get = value_json)]
+    pub struct ValueJson;
+
+    #[route("/api/health", get = health_json)]
+    pub struct Health;
+
+    #[route("/api/refresh", post = api_refresh)]
+    pub struct ApiRefresh;
+
+    #[route("/api/login", post = api_login)]
+    pub struct ApiLogin;
+
+    #[route("/api/callback", post = api_callback)]
+    pub struct ApiCallback;
+}
+
+/// pool-service.mjs `send(res, status, data)`.
+fn send(status: StatusCode, data: Value) -> JsonStatus {
+    JsonStatus(status, JsJson(data))
+}
+
+fn error(status: StatusCode, message: &str) -> JsonStatus {
+    send(status, json!({ "error": message }))
+}
+
+/// `/api/capacity`: the forecast as last published (`capacity.current()`), or 503.
+async fn capacity_json(State(shadow): State<Shared>) -> JsonStatus {
+    let s = shadow.clone();
+    let doc = tokio::task::spawn_blocking(move || s.install.json("state/capacity-forecast.json"))
+        .await
+        .ok()
+        .flatten()
+        .filter(|d| d.get("format").and_then(Value::as_str) == Some(pool_core::forecast::FORECAST_FORMAT));
+    match doc {
+        Some(doc) => send(StatusCode::OK, doc),
+        None => error(StatusCode::SERVICE_UNAVAILABLE, "No capacity forecast yet"),
+    }
+}
+
+/// `/api/value`: `state/usage-value.json` as written, or 503.
+async fn value_json(State(shadow): State<Shared>) -> RawJson {
+    let path = shadow.install.root().join("state/usage-value.json");
+    match tokio::fs::read(path).await {
+        Ok(bytes) => RawJson(StatusCode::OK, bytes),
+        Err(_) => RawJson(StatusCode::SERVICE_UNAVAILABLE, br#"{"error":"No usage value report yet"}"#.to_vec()),
+    }
+}
+
+/// A JSON body passed on as its bytes.
+pub struct RawJson(StatusCode, Vec<u8>);
+
+impl corten::axum::response::IntoResponse for RawJson {
+    fn into_response(self) -> corten::axum::response::Response {
+        let mut res = corten::axum::response::Response::new(corten::axum::body::Body::from(self.1));
+        *res.status_mut() = self.0;
+        res.headers_mut().insert(corten::axum::http::header::CONTENT_TYPE, corten::axum::http::HeaderValue::from_static("application/json"));
+        res
+    }
+}
+
+impl corten::answer::Answer for RawJson {
+    const FORMAT: corten::answer::Format = corten::answer::Format::Json;
+    type Inputs = corten::answer::AnyInputs;
+}
+
+fn copy_of(shadow: &Shared) -> Result<std::sync::Arc<crate::writer::Copy>, JsonStatus> {
+    shadow.copy.get().cloned().ok_or_else(|| error(StatusCode::NOT_FOUND, "Not found"))
+}
+
+/// `/api/health` on a copy: the service, its process, and whether the stand-in proxy answers.
+async fn health_json(State(shadow): State<Shared>) -> JsonStatus {
+    match copy_of(&shadow) {
+        Ok(copy) => send(StatusCode::OK, json!({ "service": "agent-pools", "pid": std::process::id(), "proxyHealthy": copy.health.healthy(), "closing": false })),
+        Err(e) => e,
+    }
+}
+
+/// The checks pool-service.mjs puts before every write: from this origin, as JSON, at most
+/// 8 KiB, parsed (`{}` when empty). Its own origin is `http://<the Host it was asked for>`.
+fn json_input(headers: &corten::axum::http::HeaderMap, body: &[u8]) -> Result<Value, JsonStatus> {
+    let header = |name: corten::axum::http::HeaderName| headers.get(name).and_then(|v| v.to_str().ok());
+    let own = header(corten::axum::http::header::HOST).map(|h| format!("http://{h}"));
+    let same_origin = own.is_some() && header(corten::axum::http::header::ORIGIN) == own.as_deref();
+    if !same_origin || !header(corten::axum::http::header::CONTENT_TYPE).is_some_and(|t| t.starts_with("application/json")) {
+        return Err(error(StatusCode::FORBIDDEN, "Same-origin JSON required"));
+    }
+    if body.len() > 8192 {
+        return Err(error(StatusCode::INTERNAL_SERVER_ERROR, "Request too large"));
+    }
+    if body.iter().all(u8::is_ascii_whitespace) {
+        return Ok(json!({}));
+    }
+    serde_json::from_slice(body).map_err(|e| error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))
+}
+
+/// `POST /api/refresh`: the stand-in's live model lists re-read (ignored when refused) and a
+/// refresh cycle started; 202 at once.
+async fn api_refresh(State(shadow): State<Shared>, headers: corten::axum::http::HeaderMap, body: corten::axum::body::Bytes) -> JsonStatus {
+    let copy = match copy_of(&shadow) {
+        Ok(c) => c,
+        Err(e) => return e,
+    };
+    if let Err(e) = json_input(&headers, &body) {
+        return e;
+    }
+    let io = copy.io.clone();
+    tokio::spawn(async move {
+        let _ = io.call("live-models/refresh", Some(json!({})), None).await;
+    });
+    copy.trigger.request();
+    send(StatusCode::ACCEPTED, json!({ "ok": true }))
+}
+
+/// `POST /api/login` `{ provider }`: the stand-in's sign-in address for that provider.
+async fn api_login(State(shadow): State<Shared>, headers: corten::axum::http::HeaderMap, body: corten::axum::body::Bytes) -> JsonStatus {
+    let copy = match copy_of(&shadow) {
+        Ok(c) => c,
+        Err(e) => return e,
+    };
+    let input = match json_input(&headers, &body) {
+        Ok(i) => i,
+        Err(e) => return e,
+    };
+    let Some(adapter) = input.get("provider").and_then(Value::as_str).and_then(pool_core::providers::provider) else {
+        return error(StatusCode::INTERNAL_SERVER_ERROR, "Unknown provider");
+    };
+    match copy.io.call(&format!("{}-auth-url?is_webui=true", adapter.login_id), None, None).await {
+        Ok(result) => send(StatusCode::OK, result),
+        Err(e) => error(StatusCode::INTERNAL_SERVER_ERROR, &e.message),
+    }
+}
+
+/// `POST /api/callback` `{ provider (a loginId), redirect_url, ... }`: passed to the stand-in's
+/// `oauth-callback`, which signs nothing in.
+async fn api_callback(State(shadow): State<Shared>, headers: corten::axum::http::HeaderMap, body: corten::axum::body::Bytes) -> JsonStatus {
+    let copy = match copy_of(&shadow) {
+        Ok(c) => c,
+        Err(e) => return e,
+    };
+    let input = match json_input(&headers, &body) {
+        Ok(i) => i,
+        Err(e) => return e,
+    };
+    let login = input.get("provider").and_then(Value::as_str);
+    let known = login.is_some_and(|l| pool_core::providers::PROVIDERS.iter().any(|p| p.login_id == l));
+    if !known || !input.get("redirect_url").is_some_and(Value::is_string) {
+        return error(StatusCode::INTERNAL_SERVER_ERROR, "Invalid callback");
+    }
+    match copy.io.call("oauth-callback", Some(input), None).await {
+        Ok(result) => send(StatusCode::OK, result),
+        Err(e) => error(StatusCode::INTERNAL_SERVER_ERROR, &e.message),
+    }
 }
 
 /// A JSON document written as `JSON.stringify` writes it (key order, number format), so the
@@ -183,11 +346,12 @@ async fn summary_json(State(shadow): State<Shared>) -> JsonResult<JsJson> {
 }
 
 /// `/api/status` from the files. `processes`, `holds` and `usageLedger` are the live service's
-/// memory, so they are `null` here.
+/// memory, so they are `null` here; on a copy, `holds` is its proxy watch's last reading.
 async fn status_json(State(shadow): State<Shared>) -> JsonResult<JsJson> {
     let s = shadow.clone();
+    let live = pool_core::status::Live { holds: shadow.copy.get().and_then(|c| c.health.holds()), ..Default::default() };
     let doc = tokio::task::spawn_blocking(move || {
-        parity::status_now(&s.install, &Default::default(), now_ms())
+        parity::status_now(&s.install, &live, now_ms())
     })
     .await?;
     let doc = doc.ok_or_else(|| {

@@ -287,3 +287,89 @@ async fn a_rebound_host_is_refused() {
     let res = router(&t).oneshot(req).await.unwrap();
     assert_eq!(res.status(), StatusCode::MISDIRECTED_REQUEST);
 }
+
+async fn send_json(app: corten::axum::Router, method: &str, path: &str, origin: Option<&str>, body: &str) -> (StatusCode, Value) {
+    let mut req = Request::builder().method(method).uri(path).header("host", "localhost").header("content-type", "application/json");
+    if let Some(o) = origin {
+        req = req.header("origin", o);
+    }
+    let res = app.oneshot(req.body(Body::from(body.to_string())).unwrap()).await.unwrap();
+    let status = res.status();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+}
+
+/// The copy's own API (pool-service.mjs's): health and holds from its proxy watch, and the
+/// writes (refresh, login, callback) through the stand-in proxy, behind the same-origin JSON check.
+#[tokio::test]
+async fn a_copy_answers_the_services_api_through_the_stand_in() {
+    let t = snapshot("copy-api", false);
+    let key = "test-key".to_string();
+    let proxy = crate::writer::fake_proxy::start(t.dir.clone(), key.clone()).await.unwrap();
+    let io = std::sync::Arc::new(crate::writer::io::FileIo::new(t.dir.clone(), proxy, key));
+    let health = std::sync::Arc::new(crate::writer::health::Health::new(&crate::writer::load_state(&t.dir)));
+    let copy = std::sync::Arc::new(crate::writer::Copy { io, health, trigger: Default::default() });
+    let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
+    let app = crate::app::app_copy(
+        shadow,
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"),
+        copy.clone(),
+        Default::default(),
+        Default::default(),
+    )
+    .router();
+
+    let (status, body) = get(app.clone(), "/api/health").await;
+    assert_eq!(status, StatusCode::OK);
+    let doc: Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(doc["service"], "agent-pools");
+    assert_eq!(doc["proxyHealthy"], false, "not checked yet");
+    crate::writer::health::check(&copy.io, &copy.health, &copy.trigger).await;
+    let (_, body) = get(app.clone(), "/api/health").await;
+    assert_eq!(serde_json::from_str::<Value>(&body).unwrap()["proxyHealthy"], true);
+    let (_, body) = get(app.clone(), "/api/status").await;
+    let holds = &serde_json::from_str::<Value>(&body).unwrap()["holds"];
+    assert_eq!((&holds["enabled"], &holds["active"], &holds["turns"]), (&Value::Bool(true), &Value::from(0), &Value::from(0)));
+
+    let origin = Some("http://localhost");
+    let (status, body) = send_json(app.clone(), "POST", "/api/refresh", None, "{}").await;
+    assert_eq!((status, body), (StatusCode::FORBIDDEN, serde_json::json!({ "error": "Same-origin JSON required" })));
+    let (status, body) = send_json(app.clone(), "POST", "/api/refresh", origin, "").await;
+    assert_eq!((status, body), (StatusCode::ACCEPTED, serde_json::json!({ "ok": true })));
+
+    let (status, body) = send_json(app.clone(), "POST", "/api/login", origin, r#"{"provider":"codex"}"#).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["url"], "https://example.invalid/stand-in-sign-in");
+    let (status, body) = send_json(app.clone(), "POST", "/api/login", origin, r#"{"provider":"nope"}"#).await;
+    assert_eq!((status, body), (StatusCode::INTERNAL_SERVER_ERROR, serde_json::json!({ "error": "Unknown provider" })));
+
+    let (status, body) = send_json(app.clone(), "POST", "/api/callback", origin, r#"{"provider":"anthropic","redirect_url":"http://localhost/cb?code=x"}"#).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["status"], "ok");
+    let (status, body) = send_json(app.clone(), "POST", "/api/callback", origin, r#"{"provider":"claude","redirect_url":"x"}"#).await;
+    assert_eq!((status, body), (StatusCode::INTERNAL_SERVER_ERROR, serde_json::json!({ "error": "Invalid callback" })), "a provider id is not a loginId");
+    let (status, _) = send_json(app.clone(), "POST", "/api/login", origin, &format!(r#"{{"provider":"{}"}}"#, "x".repeat(9000))).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR, "over 8 KiB");
+
+    // The stand-in saw the sign-in calls; nothing else was written outside the temp install.
+    let log = std::fs::read_to_string(t.dir.join("logs/fake-proxy.jsonl")).unwrap();
+    assert!(log.contains("codex-auth-url") && log.contains("oauth-callback"));
+    std::fs::remove_file(t.dir.join("logs/fake-proxy.jsonl")).unwrap();
+}
+
+#[tokio::test]
+async fn the_read_only_shadow_serves_documents_but_no_writes() {
+    let t = snapshot("ro-api", false);
+    let app = router(&t);
+    let (status, body) = get(app.clone(), "/api/capacity").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(serde_json::from_str::<Value>(&body).unwrap()["format"], "capacity-forecast/v1");
+    let (status, body) = get(app.clone(), "/api/value").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, std::fs::read_to_string(t.dir.join("state/usage-value.json")).unwrap(), "the file's own bytes");
+    let (status, _) = get(app.clone(), "/api/health").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = send_json(app.clone(), "POST", "/api/login", Some("http://localhost"), r#"{"provider":"codex"}"#).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+

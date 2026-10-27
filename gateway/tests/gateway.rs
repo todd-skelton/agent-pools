@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use corten::axum::{self, Router, body::Body, extract::Request, http::StatusCode, response::Response};
+use corten::axum::{self, Router, body::Body, extract::Request, response::Response};
 use pools_gateway::{Client, Config, app, sha256};
 use serde_json::Value;
 
@@ -444,7 +444,7 @@ async fn failures_corten_answers_itself() {
     }
 }
 
-/// A relayed page keeps its own Content-Security-Policy, or Corten's replaces it: recorded.
+/// A relayed page keeps its own Content-Security-Policy (corten#164, fixed by corten#172).
 #[tokio::test]
 async fn a_relayed_page_and_its_csp() {
     let page: Handler = Arc::new(|_| {
@@ -459,6 +459,64 @@ async fn a_relayed_page_and_its_csp() {
     let r = f.call("GET", "/", &[("cookie", &cookie)], None).await;
     assert_eq!(r.status, 200, "{}", r.body);
     let csp: Vec<_> = r.headers.get_all("content-security-policy").iter().map(|v| v.to_str().unwrap().to_string()).collect();
-    println!("relayed page CSP: {csp:?}");
-    assert_eq!(StatusCode::OK.as_u16(), r.status);
+    // corten#172: the upstream's own policy, in place of the app's, so the page's scripts run.
+    assert_eq!(csp, ["default-src 'self'; script-src 'nonce-upstream'"]);
+    // The app's other security headers still apply.
+    assert_eq!(r.headers.get("x-content-type-options").map(|v| v.to_str().unwrap()), Some("nosniff"));
 }
+
+/// The live service's own dashboard through the gateway, when \`AP_GATEWAY_LIVE\` names the
+/// service (\`http://127.0.0.1:8318\`): GETs only (\`/\` and \`/api/status\`), never a write. The page
+/// arrives with its bytes and its own Content-Security-Policy, so its scripts run as they do on
+/// the service itself.
+#[tokio::test]
+async fn the_live_dashboard_through_the_gateway_when_asked() {
+    let Ok(service) = std::env::var("AP_GATEWAY_LIVE") else {
+        eprintln!("AP_GATEWAY_LIVE not set; skipped");
+        return;
+    };
+    let pool = upstream(sse_pool()).await;
+    let mut config = Config::new(HOST, &pool.url, &service);
+    config.clients = Arc::new(|| vec![Client { name: "work-pc".into(), key_sha256: sha256(MACHINE_KEY) }]);
+    config.session_secret = Arc::new(|| Ok("s".repeat(40)));
+    let app = app(config).expect("a valid config");
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move { corten::serve_on(vec![listener], app).await.unwrap() });
+    let http = reqwest::Client::builder().redirect(reqwest::redirect::Policy::none()).no_proxy().build().unwrap();
+    let ask = |path: &str, cookie: Option<&str>| {
+        let mut h = reqwest::header::HeaderMap::new();
+        h.insert("host", HOST.parse().unwrap());
+        if let Some(c) = cookie {
+            h.insert("cookie", c.parse().unwrap());
+        }
+        http.get(format!("http://127.0.0.1:{port}{path}")).headers(h)
+    };
+    let login = http
+        .post(format!("http://127.0.0.1:{port}/login"))
+        .header("host", HOST)
+        .header("origin", ORIGIN)
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(format!("key={MACHINE_KEY}"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(login.status(), 303);
+    let cookie = login.headers()["set-cookie"].to_str().unwrap().split(';').next().unwrap().to_string();
+
+    let direct = http.get(format!("{service}/")).send().await.unwrap();
+    let direct_csp = direct.headers()["content-security-policy"].to_str().unwrap().to_string();
+    let direct_body = direct.text().await.unwrap();
+    let page = ask("/", Some(&cookie)).send().await.unwrap();
+    assert_eq!(page.status(), 200);
+    let csp: Vec<String> = page.headers().get_all("content-security-policy").iter().map(|v| v.to_str().unwrap().to_string()).collect();
+    assert_eq!(csp, std::slice::from_ref(&direct_csp), "the service's own policy");
+    let body = page.text().await.unwrap();
+    assert_eq!(body, direct_body, "the page as the service sends it");
+    let status = ask("/api/status", Some(&cookie)).send().await.unwrap();
+    assert_eq!(status.status(), 200);
+    let doc: Value = serde_json::from_str(&status.text().await.unwrap()).unwrap();
+    assert!(doc["accounts"].as_array().is_some_and(|a| !a.is_empty()));
+    println!("live dashboard through the gateway: {} bytes, CSP {direct_csp:?}, {} accounts in /api/status", body.len(), doc["accounts"].as_array().unwrap().len());
+}
+

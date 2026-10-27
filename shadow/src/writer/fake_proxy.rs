@@ -53,6 +53,7 @@ pub async fn start(root: PathBuf, key: String) -> std::io::Result<String> {
         .route("/v0/management/recover-quota", post(recover_quota))
         .route("/v0/management/client-versions", get(client_versions))
         .route("/v0/management/oauth-callback", post(oauth_callback))
+        .route("/v0/management/outage-holds", get(outage_holds))
         .route("/v0/management/{endpoint}", get(other_get).post(other_post))
         .route("/backend-api/wham/usage", get(desktop_usage))
         .route("/backend-api/{*rest}", axum::routing::any(desktop_other))
@@ -315,4 +316,12 @@ async fn desktop_usage(State(f): State<Shared>, headers: HeaderMap) -> Result<Ax
 async fn desktop_other(State(f): State<Shared>, Path(rest): Path<String>) -> (StatusCode, AxumJson<Value>) {
     f.log("backend-api", &json!({ "path": rest }));
     (StatusCode::NOT_FOUND, AxumJson(json!({ "detail": "not served by the stand-in" })))
+}
+
+/// The proxy's provider outage hold counters: nothing is ever held by the stand-in.
+async fn outage_holds(State(f): State<Shared>, headers: HeaderMap) -> Result<AxumJson<Value>, StatusCode> {
+    if !f.allowed(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    Ok(AxumJson(json!({ "enabled": true, "active": 0, "turns": 0 })))
 }
