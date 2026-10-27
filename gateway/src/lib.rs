@@ -21,9 +21,10 @@
 //!    sets both.
 //! 2. A request for a name that is not the gateway's gets Corten's 421 before routing, where
 //!    Agent Pools answers 404 (`localhost` and IP addresses, which Corten answers, get the 404).
-//! 3. Failures Corten answers itself (an unknown URL, a wrong method, a cross-site write) use
-//!    Corten's JSON shape `{"error":{"status","message"}}`, not the Anthropic-style shape the
-//!    gateway's own failures use.
+//! 3. Failures Corten answers itself under `/v1` (an unknown URL, a wrong method, a cross-site
+//!    write) use the gateway's Anthropic-style shape (`Api::errors`, corten#163), with Corten's
+//!    statuses: a wrong method is 405 where Agent Pools answers 404. Outside `/v1` they are the
+//!    pages' (the HTML error page), and an unlisted host is Corten's 421 in plain text.
 //! 4. `Referrer-Policy` is Corten's `strict-origin-when-cross-origin`, which, like Agent Pools'
 //!    `same-origin`, keeps the real `Origin` on the sign-in form's POST.
 
@@ -156,7 +157,31 @@ pub fn app(config: Config) -> Result<App<Headers>, String> {
         // Streams run for many minutes; a model may think long before its first byte.
         .deadline(None)
         .middleware(Headers { hostname: config.hostname.clone() })
-        .api(move |routes| v1::api(routes, gw).deadline(None)))
+        .api(move |routes| v1::api(routes, gw).deadline(None).errors(anthropic_error)))
+}
+
+/// The failures Corten answers itself under `/v1` (an unknown URL, a wrong method, a cross-site
+/// write, a rejected input), in the Anthropic-style shape the gateway's own failures use, so a
+/// CLI reads its `error.message` (corten#163).
+pub struct AnthropicError(Value);
+
+impl corten::json::ToJson for AnthropicError {
+    fn write_json(&self, out: &mut Vec<u8>) {
+        out.extend_from_slice(self.0.to_string().as_bytes());
+    }
+}
+
+fn anthropic_error(status: StatusCode, message: &str) -> AnthropicError {
+    let kind = match status.as_u16() {
+        401 => "authentication_error",
+        403 => "permission_error",
+        404 => "not_found_error",
+        413 | 415 => "error",
+        429 => "rate_limit_error",
+        400..=499 => "invalid_request_error",
+        _ => "api_error",
+    };
+    AnthropicError(json!({ "type": "error", "error": { "type": kind, "message": message } }))
 }
 
 /// Only the public hostname is served (Corten also answers `localhost` and IP addresses, which

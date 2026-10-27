@@ -423,9 +423,24 @@ async fn failures_corten_answers_itself() {
         ("POST", "/v1/messages", vec![("x-api-key", MACHINE_KEY), ("origin", "https://evil.test")], Some("{}")),
         ("GET", "/nope", vec![], None),
     ];
-    for (method, path, headers, body) in cases {
+    // Under /v1 (corten#163, Api::errors): the gateway's own shape, with Corten's statuses.
+    let shaped = |status: u16, kind: &str| (status, Some(kind.to_string()));
+    let want = [
+        shaped(405, "invalid_request_error"),
+        shaped(404, "not_found_error"),
+        (404, None),
+        shaped(403, "permission_error"),
+        (404, None),
+    ];
+    for ((method, path, headers, body), (status, kind)) in cases.into_iter().zip(want) {
         let r = f.call(method, path, &headers, body).await;
-        println!("corten-made: {method} {path} -> {} {} {}", r.status, r.headers.get("content-type").map_or("-", |v| v.to_str().unwrap()), r.body.chars().take(120).collect::<String>());
+        assert_eq!(r.status, status, "{method} {path}: {}", r.body);
+        if let Some(kind) = kind {
+            let v: serde_json::Value = serde_json::from_str(&r.body).unwrap_or_else(|_| panic!("{method} {path}: {}", r.body));
+            assert_eq!(v["type"], "error", "{method} {path}: {}", r.body);
+            assert_eq!(v["error"]["type"], kind.as_str(), "{method} {path}: {}", r.body);
+            assert!(v["error"]["message"].as_str().is_some_and(|m| !m.is_empty()), "{method} {path}: {}", r.body);
+        }
     }
 }
 

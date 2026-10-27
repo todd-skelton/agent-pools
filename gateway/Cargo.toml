@@ -10,7 +10,7 @@ description = "Agent Pools' public gateway (public-gateway.mjs), inference relay
 [dependencies]
 pool-core = { path = "../pool-core" }
 # main with Upgrade, Switch and Relay (corten#162, for corten#117).
-corten = { git = "https://github.com/todd-skelton/corten", rev = "97d9afe", features = ["json"] }
+corten = { git = "https://github.com/todd-skelton/corten", rev = "34e383c", features = ["json"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "net"] }
 futures-util = { version = "0.3", default-features = false }
 # The pool and the service, over plain HTTP on loopback, bodies streamed both ways; the backend

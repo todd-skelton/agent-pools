@@ -166,14 +166,15 @@ install's own inputs (398 rungs; not committed, since its inputs are not scrubbe
 
 ### The public gateway
 
-`gateway/` (`pools-gateway`, a library for now) is public-gateway.mjs on Corten (`97d9afe`, with
+`gateway/` (`pools-gateway`, a library for now) is public-gateway.mjs on Corten (`34e383c`, with
 [corten#162 Upgrade and Relay](https://github.com/todd-skelton/corten/pull/162)). Inference routes
 take a machine key and relay the pool's answer as it streams, sent with the pool's key. The
 dashboard routes take a session cookie signed as Agent Pools signs it (the same secret keeps
 today's cookies valid; a test holds the token to Agent Pools' bytes). Everything else is closed.
 `cargo test -p pools-gateway` runs Agent Pools' 12 gateway tests over real sockets, plus four of
 the port's own: the session token, a client that leaves a stream (the upstream request ends
-with it), and two that record what Corten answers itself.
+with it), one that holds Corten's own failures under `/v1` to the gateway's shape, and one that
+records a relayed page's CSP.
 
 Where it differs, by design or because of Corten:
 
@@ -181,10 +182,13 @@ Where it differs, by design or because of Corten:
    tunnel on loopback), where Agent Pools reads `CF-Connecting-IP`. cloudflared sets both.
 2. A name that is not the gateway's gets Corten's 421 before routing (Agent Pools: 404).
    `localhost` and IP addresses, which Corten answers, get the 404.
-3. Failures Corten answers itself (unknown URL, wrong method, cross-site write) use Corten's
-   shape, and machine keys are checked in the handlers rather than a `Caller`, so that a
-   refusal keeps Anthropic's shape:
-   [corten#163 An API cannot shape the failures Corten answers itself (404, 405, cross-site 403, Caller 401), so a gateway that must answer in Anthropic's error shape checks keys outside Caller](https://github.com/todd-skelton/corten/issues/163).
+3. Failures Corten answers itself under `/v1` (unknown URL, wrong method, cross-site write) are
+   written in the gateway's Anthropic-style shape by `Api::errors`
+   ([corten#171](https://github.com/todd-skelton/corten/pull/171), for
+   [corten#163 An API cannot shape the failures Corten answers itself](https://github.com/todd-skelton/corten/issues/163)),
+   with Corten's statuses: a wrong method is 405 where Agent Pools answers 404. Outside `/v1` they
+   are the pages' (the HTML error page). Machine keys are still checked in the handlers; with
+   `Api::errors` they can move into an `Identify`, not done yet.
 4. A relayed dashboard page gets Corten's CSP in place of its own, which blocks its scripts:
    [corten#164 A Relay loses the upstream's Content-Security-Policy, so a relayed page's own scripts are blocked](https://github.com/todd-skelton/corten/issues/164).
    Until that is fixed, the dashboard does not work through the gateway; the JSON routes do.
