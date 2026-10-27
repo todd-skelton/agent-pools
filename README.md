@@ -21,7 +21,9 @@ Plan:
    notifications.mjs, projection.mjs and both adapters) takes its I/O through a trait and matches
    Agent Pools' own cycle on 42 scripted scenarios (61 cycles): every result, proxy call, event,
    sample, toast, save, hook call and final state (`node golden/refresh-traces.mjs`, then
-   `cargo test -p pool-core --test refresh`). The gateway waits on corten#117.
+   `cargo test -p pool-core --test refresh`). `pools-shadow run-copy` runs that cycle, the
+   capacity publisher and a manual refresh on a copied state directory (below). The gateway
+   waits on [corten#117 A route cannot be a WebSocket or pass an upstream response through, so such routes are added outside Corten's checks](https://github.com/todd-skelton/corten/issues/117).
 5. Cutover: only with Todd's go-ahead.
 
 ## The shadow
@@ -111,6 +113,32 @@ the sign-in drawer).
 An unaligned check (the live service read its inputs at another moment than the files show) is
 counted apart and never as a match. The shadow's tests (`cargo test --release -p pools-shadow`)
 run each check over an install laid out from the golden inputs and require a match.
+
+### Writes on a copy
+
+`shadow/src/writer/` is the write side, run only on a copy of the install's state:
+
+```powershell
+target\release\pools-shadow.exe make-copy shadow-state\copy   # reads the live install only
+target\release\pools-shadow.exe run-copy shadow-state\copy    # http://localhost:8321
+```
+
+`make-copy` copies the state documents, the four `install.json` keys and the usage-sample logs,
+and writes stand-in Claude auth files that hold only a fake organization id. `run-copy` refuses
+the live install and any directory with `state/secrets.json` (`writer::copy::guard`), starts a
+stand-in proxy on a free loopback port (answers from the copy's accounts, refuses every credit
+claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
+
+- the refresh loop: `pool-core::refresh` every 120 s, 30 s after a degraded or follow-up cycle
+  (`SHADOW_COPY_REFRESH_SECS` overrides the normal delay), saving `pool-state.json`, events and
+  usage samples into the copy;
+- the capacity publisher after each save (forecast rebuild and atomic publish; routing ladders
+  are not ported yet);
+- the dashboard, where Refresh is a form posting to `/refresh` (Corten's cross-site check
+  applies: a cross-site POST gets 403). The read-only shadow keeps it disabled and answers 404.
+
+Measured on 2026-10-27: a POST at 13:11:12.40Z started a cycle at 13:11:12.58Z; cycles saved the
+copy's pool state and forecast, and appended usage samples only for windows whose use changed.
 
 ## Golden outputs
 

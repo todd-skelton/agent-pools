@@ -13,7 +13,9 @@ pool-core = { path = "../pool-core" }
 corten = { git = "https://github.com/todd-skelton/corten", rev = "4a94783", features = ["json"] }
 # The dashboard's live stream (corten::live takes a Stream).
 futures-util = { version = "0.3", default-features = false }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "net"] }
+# A Claude claim's request id on the copy's write side.
+uuid = { version = "1", features = ["v4"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
 # The live service's /api/summary, over plain HTTP on loopback (no TLS stack).

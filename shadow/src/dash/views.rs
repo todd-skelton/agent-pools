@@ -69,9 +69,10 @@ fn pct(x: f64) -> f64 {
 
 const READ_ONLY: &str = "Done on the live dashboard (port 8318): the shadow only reads";
 
-/// The document around every dashboard page: the top bar with its tabs and freshness.
+/// The document around every dashboard page: the top bar with its tabs and freshness. On a copy
+/// (`run-copy`, `writable`) Refresh posts to `/refresh`; the read-only shadow shows it disabled.
 #[component]
-pub fn Dash<'a>(req: &'a Req, title: &'a str, view: View, header: &'a Header, children: impl Render) -> impl Document {
+pub fn Dash<'a>(req: &'a Req, title: &'a str, view: View, header: &'a Header, writable: bool, children: impl Render) -> impl Document {
     html! {
         <!DOCTYPE html>
         <html lang="en">
@@ -98,7 +99,11 @@ pub fn Dash<'a>(req: &'a Req, title: &'a str, view: View, header: &'a Header, ch
                         <div class="bar-right">
                             {fresh(header)}
                             <a class="btn ghost" href={url::Parity} data-nav>"Parity"</a>
-                            <button type="button" class="btn" disabled title={READ_ONLY}>"Refresh"</button>
+                            if writable {
+                                <form class="inline" method="post" action={url::RefreshNow}><button type="submit" class="btn" title="Run a refresh cycle on this copy now">"Refresh"</button></form>
+                            } else {
+                                <button type="button" class="btn" disabled title={READ_ONLY}>"Refresh"</button>
+                            }
                             <button type="button" class="btn primary" disabled title={READ_ONLY}>"Add account"</button>
                         </div>
                     </div>

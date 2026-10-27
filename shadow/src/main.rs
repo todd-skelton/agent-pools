@@ -23,6 +23,7 @@ mod testing;
 #[cfg(test)]
 mod tests;
 mod watch;
+mod writer;
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -48,6 +49,13 @@ fn main() -> std::io::Result<()> {
     match std::env::args().nth(1).as_deref() {
         Some("check-value") => return check_value_once(),
         Some("render-dash") => return render_dash(),
+        Some("make-copy") => return make_copy(),
+        Some("run-copy") => {
+            return tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()?
+                .block_on(run_copy());
+        }
         Some("check-status") => {
             return tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -89,6 +97,43 @@ async fn serve() -> std::io::Result<()> {
         app::app(shadow, assets, secs("SHADOW_WATCH_SECS", 5), secs("SHADOW_SUMMARY_SECS", 60)),
     )
     .await
+}
+
+const LIVE_ROOT: &str = r"D:\Users\ToddS\AgentPools";
+
+/// `pools-shadow make-copy <dest>`: copies what the write side reads from the live install
+/// (state documents, the four install.json settings, the usage samples) into `dest`. Reads the
+/// live install only; refuses a `dest` that is or overlaps it.
+fn make_copy() -> std::io::Result<()> {
+    let dest = std::env::args().nth(2).ok_or_else(|| std::io::Error::other("usage: pools-shadow make-copy <dest>"))?;
+    let live = sources::Install::new(env_or("AGENT_POOLS_ROOT", LIVE_ROOT));
+    for p in writer::copy::make_copy(&live, std::path::Path::new(&dest))? {
+        println!("{}", p.display());
+    }
+    Ok(())
+}
+
+/// `pools-shadow run-copy <root>`: the dashboard and the write side on a copy made by
+/// `make-copy`, with a stand-in proxy on loopback. Refuses the live install. Settings:
+/// `SHADOW_COPY_REFRESH_SECS` (120) and `SHADOW_COPY_DEGRADED_SECS` (30), `PORT` (8321).
+async fn run_copy() -> std::io::Result<()> {
+    let root = std::env::args().nth(2).ok_or_else(|| std::io::Error::other("usage: pools-shadow run-copy <root>"))?;
+    let live = env_or("AGENT_POOLS_ROOT", LIVE_ROOT);
+    let root = writer::copy::guard(std::path::Path::new(&root), std::path::Path::new(&live)).map_err(|e| std::io::Error::other(e.0))?;
+    // A key for this run only, known to the stand-in and the writer; never written down.
+    let key = uuid::Uuid::new_v4().to_string();
+    let proxy = writer::fake_proxy::start(root.clone(), key.clone()).await?;
+    println!("copy: writing {} only; stand-in proxy at {proxy}", root.display());
+    let io = std::sync::Arc::new(writer::io::FileIo::new(root.clone(), proxy, key));
+    let shadow = watch::Shadow::new(sources::Install::new(root.clone()), "(a copy: not compared)".into(), root.join("logs/parity.jsonl"));
+    let assets = std::env::var_os("STATIC_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"));
+    let delays = writer::Delays { every: secs("SHADOW_COPY_REFRESH_SECS", 120), degraded: secs("SHADOW_COPY_DEGRADED_SECS", 30), budget: 3 };
+    let options = pool_core::refresh::Options { read_plans: true, ..Default::default() };
+    let listeners = corten::listeners(8321).await?;
+    println!("copy: listening on http://localhost:{}", listeners[0].local_addr()?.port());
+    corten::serve_on(listeners, app::app_copy(shadow, assets, io, delays, options)).await
 }
 
 /// `pools-shadow check-value`: rebuilds the live `state/usage-value.json` once at its

@@ -233,7 +233,7 @@ async fn page(req: Req, shadow: Shared, tab: Tab, q: DashQuery) -> HtmlResult {
     let since = cursor(&fragment(&body, &header));
     let src = url::Live { tab: Some(tab.key()), filter: q.filter.as_deref(), open: q.open.as_deref() };
     req.page(html! {
-        <Dash req={&req} title={tab.title()} view={tab.view()} header={&header}>
+        <Dash req={&req} title={tab.title()} view={tab.view()} header={&header} writable={shadow.writer.get().is_some()}>
             <corten-live src={src} since={&since}>{views::body(&body)}</corten-live>
         </Dash>
     })

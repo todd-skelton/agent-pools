@@ -31,6 +31,7 @@ nav.tabs a:hover { color: var(--text); }
 nav.tabs a[aria-current="page"] { color: var(--text); border-bottom-color: var(--text); }
 .tab-count { font-size: 11px; padding: 1px 6px; border-radius: 9px; background: var(--badbg); color: var(--bad); font-weight: 650; }
 .bar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.bar-right form.inline { display: contents; }
 .fresh { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--mut); white-space: nowrap; }
 .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--okbg); }
 .btn { border: 1px solid var(--line2); background: var(--raise); border-radius: 8px; padding: 7px 12px; font-weight: 550; font-size: 13px; white-space: nowrap; }

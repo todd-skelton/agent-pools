@@ -79,6 +79,8 @@ pub struct Shadow {
     pub log: PathBuf,
     pub started_at: f64,
     pub inner: Mutex<Inner>,
+    /// The write side's refresh trigger, set only when the shadow runs on a copy (`run-copy`).
+    pub writer: std::sync::OnceLock<Arc<crate::writer::Trigger>>,
     http: reqwest::Client,
 }
 
@@ -107,6 +109,7 @@ impl Shadow {
             log,
             started_at: now_ms(),
             inner: Mutex::new(Inner::default()),
+            writer: std::sync::OnceLock::new(),
             http,
         })
     }

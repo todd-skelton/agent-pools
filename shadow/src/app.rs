@@ -23,6 +23,29 @@ const MEMORY_EVERY: std::time::Duration = std::time::Duration::from_secs(5);
 /// How often the dashboard's files' modification times are looked at.
 const SAVES_EVERY: std::time::Duration = std::time::Duration::from_millis(250);
 
+/// The app on a copy of the install (`pools-shadow run-copy`): the same pages over the copy's
+/// files, and the write side's refresh loop in place of the parity checks.
+pub fn app_copy(
+    shadow: Shared,
+    assets: std::path::PathBuf,
+    io: std::sync::Arc<crate::writer::io::FileIo>,
+    delays: crate::writer::Delays,
+    options: pool_core::refresh::Options,
+) -> App {
+    let trigger = shadow.writer.get_or_init(Default::default).clone();
+    let (n, w) = (shadow.clone(), shadow.clone());
+    App::new(url::router(shadow))
+        .assets(assets)
+        .policy(corten::security::Policy::new().allow_style_attributes())
+        .shutdown_grace(std::time::Duration::from_secs(20))
+        .task("notice-saves", move |signal| {
+            crate::watch::notice_saves(n, SAVES_EVERY, signal)
+        })
+        .task("refresh", move |signal| {
+            crate::writer::run(io, trigger, delays, options, move || w.changed_inputs(), signal)
+        })
+}
+
 /// The app: its routes and the two tasks that keep the parity checks running.
 pub fn app(
     shadow: Shared,
@@ -79,6 +102,9 @@ pub mod url {
     #[route("/parity", get = parity_page)]
     pub struct Parity;
 
+    #[route("/refresh", post = refresh_now)]
+    pub struct RefreshNow;
+
     #[route("/api/summary", get = summary_json)]
     pub struct Summary;
 
@@ -107,6 +133,16 @@ async fn build_summary(shadow: &Shared) -> corten::Result<Value> {
         corten::Error::new("state/pool-state.json did not read")
             .with_status(StatusCode::SERVICE_UNAVAILABLE)
     })
+}
+
+/// `POST /refresh`: a refresh cycle now, on a copy (`run-copy`); the read-only shadow has no
+/// write side and answers 404.
+async fn refresh_now(req: Req, State(shadow): State<Shared>) -> HtmlResult {
+    let Some(trigger) = shadow.writer.get() else {
+        return Err(corten::Error::new("This shadow only reads; refresh on the live dashboard").with_status(StatusCode::NOT_FOUND));
+    };
+    trigger.request();
+    req.redirect(&url::Overview)
 }
 
 async fn summary_json(State(shadow): State<Shared>) -> JsonResult<JsJson> {

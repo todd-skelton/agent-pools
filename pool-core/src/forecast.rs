@@ -2295,3 +2295,75 @@ pub fn build_forecast(
         "providers": out,
     })
 }
+
+/// The provider's block of a fresh, known forecast (`lapsingHolders`, `drainFirstOf` and
+/// `refillDemandOf` read only those): `None` when unknown, stale or past `staleAfter`.
+fn fresh_provider<'a>(forecast: Option<&'a Value>, provider: &str, now: f64) -> Option<&'a Value> {
+    let p = js::get(js::get(forecast, "providers"), provider).filter(|p| js::truthy(Some(p)))?;
+    let state_unknown = js::get(Some(p), "state").and_then(Value::as_str) == Some("unknown");
+    let fresh = js::date_parse_value(js::get(forecast, "staleAfter")) > now;
+    (!state_unknown && !js::truthy(js::get(Some(p), "stale")) && fresh).then_some(p)
+}
+
+/// `lapsingHolders(forecast, provider, now)`: the credit planner's holders, who may redeem
+/// before a lapse (reset-lifecycle.mjs `processReset`).
+pub fn lapsing_holders(forecast: Option<&Value>, provider: &str, now: f64) -> Option<std::collections::HashSet<String>> {
+    let p = fresh_provider(forecast, provider, now)?;
+    match js::get(js::get(Some(p), "creditPlan"), "holders") {
+        Some(Value::Array(h)) if !h.is_empty() => Some(h.iter().map(|x| js::to_string(Some(x))).collect()),
+        _ => None,
+    }
+}
+
+/// `drainFirstOf(forecast, provider, now)`: account id to credit expiry (ms) for the plan's
+/// drain-first holders whose expiry is still ahead.
+pub fn drain_first_of(forecast: Option<&Value>, provider: &str, now: f64) -> Option<std::collections::HashMap<String, f64>> {
+    let p = fresh_provider(forecast, provider, now)?;
+    let list = js::values(js::get(js::get(Some(p), "creditPlan"), "drainFirst").filter(|v| v.is_array()));
+    let mut out = std::collections::HashMap::new();
+    for d in list {
+        let id = js::get(Some(d), "accountId").and_then(Value::as_str);
+        let t = js::date_parse_value(js::get(Some(d), "until"));
+        if let Some(id) = id.filter(|_| t.is_finite() && t > now) {
+            // A Map built from entries keeps the last value for a repeated key.
+            out.insert(id.to_string(), t);
+        }
+    }
+    (!out.is_empty()).then_some(out)
+}
+
+/// `refillDemandOf(forecast, provider, now)`: `{ unitsPerHour, weights }` for refill timing.
+pub fn refill_demand_of(forecast: Option<&Value>, provider: &str, now: f64) -> Option<Value> {
+    let p = fresh_provider(forecast, provider, now)?;
+    let r = js::get(js::get(Some(p), "creditPlan"), "refill").filter(|r| js::truthy(Some(r)))?;
+    let rate = js::finite(js::get(Some(r), "unitsPerHour")).filter(|u| *u > 0.0)?;
+    let weights = js::coalesce([js::get(Some(r), "weights")]).cloned().unwrap_or(json!({}));
+    Some(json!({ "unitsPerHour": js::number_value(rate), "weights": weights }))
+}
+
+#[cfg(test)]
+mod hook_tests {
+    use super::*;
+
+    #[test]
+    fn hooks_read_only_a_fresh_known_provider() {
+        let now = 1_000_000.0;
+        let doc = json!({
+            "staleAfter": js::iso(now + 60_000.0),
+            "providers": {
+                "claude": { "state": "conserve", "creditPlan": {
+                    "holders": ["a"],
+                    "drainFirst": [{ "accountId": "a", "until": js::iso(now + 3_600_000.0) }, { "accountId": "b", "until": js::iso(now - 1.0) }, { "accountId": 5, "until": js::iso(now + 1.0) }],
+                    "refill": { "unitsPerHour": 0.02 },
+                } },
+                "codex": { "state": "unknown", "creditPlan": { "holders": ["c"] } },
+            },
+        });
+        assert_eq!(lapsing_holders(Some(&doc), "claude", now), Some(["a".to_string()].into()));
+        assert_eq!(lapsing_holders(Some(&doc), "codex", now), None);
+        assert_eq!(drain_first_of(Some(&doc), "claude", now), Some([("a".to_string(), now + 3_600_000.0)].into()));
+        assert_eq!(refill_demand_of(Some(&doc), "claude", now), Some(json!({ "unitsPerHour": 0.02, "weights": {} })));
+        assert_eq!(refill_demand_of(Some(&doc), "claude", now + 60_000.0), None, "stale at staleAfter");
+        assert_eq!(lapsing_holders(None, "claude", now), None);
+    }
+}
