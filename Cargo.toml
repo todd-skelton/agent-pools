@@ -2,10 +2,6 @@
 resolver = "2"
 members = ["pool-core", "shadow", "gateway"]
 
-# TEMPORARY: corten#177's fix (58ec842, not merged yet); replaced by its merged rev before merging to main.
-[patch."https://github.com/todd-skelton/corten"]
-corten = { path = "C:/Users/ToddS/AppData/Local/Temp/corten-58ec842/crates/corten" }
-
 [workspace.package]
 edition = "2021"
 rust-version = "1.88"
