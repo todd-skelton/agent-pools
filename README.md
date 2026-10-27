@@ -10,7 +10,7 @@ Plan:
    Rust with no web dependencies, matching the golden outputs exactly. Done: every golden
    output matches with no tolerance (`cargo test --release`, 15 tests): quota windows,
    normalized usage, routing order, `chooseReset`, both credit banks, reset policies, the
-   capacity forecast (now, 72 replayed hours, 19 variants), the usage value report and session
+   capacity forecast (now, 72 replayed hours, 22 variants, including a kept drain-first boost), the usage value report and session
    usage (deployed and short windows, plus quota increments, pricing and settings), and
    `/api/summary` (now and five other times or missing documents).
 3. A read-only shadow dashboard on Corten, compared with the live `/api/summary` over days.

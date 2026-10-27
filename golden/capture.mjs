@@ -107,6 +107,7 @@ const editClaude = (accts, fn) => accts.map((a) => (a.provider === "claude" ? fn
 const banked = (list) => ({ creditsKnown: true, creditCount: list.length, credits: list.map(([id, t]) => ({ id, expires_at: t === null ? null : isoAt(t) })) });
 const weekly = (a, used, resetAt) => ({ ...a, quotaWindows: (a.quotaWindows ?? []).map((w) => (w.id === "limit:1" ? { ...w, used, resetAt: resetAt === undefined ? w.resetAt : resetAt } : w)) });
 const staggered = (t) => (a, i) => ({ ...a, ...banked([[`syn-c${i + 1}-a`, t + (i + 1) * 30 * HOUR], [`syn-c${i + 1}-b`, t + (i + 4) * DAY]]) });
+const keepAccounts = editClaude(pool.accounts, (a, i) => ({ ...weekly(a, [5, 20, 50][i], now + 6 * DAY), ...banked([[`syn-k${i + 1}`, now + [12 * HOUR, 60 * HOUR, 5 * DAY][i]]]) }));
 const variantSpecs = [
   { name: "claude-banked", at: now, previous: "snapshot", accounts: editClaude(pool.accounts, staggered(now)) },
   { name: "claude-banked-reuse", at: now + 5 * 60000, previous: "claude-banked", accounts: editClaude(pool.accounts, staggered(now)) },
@@ -129,6 +130,11 @@ const variantSpecs = [
   { name: "settings", at: now, previous: "snapshot", capacityForecast: { horizonDays: 7, maxSteps: 2, margin: 1, spendEnterUnits: 0.1, planWindowDays: 3, mode: "shadow", weights: { "codex:pro": 2, [claudeIds[1]]: 0.5 } }, accounts: editClaude(pool.accounts, staggered(now)) },
   { name: "settings-rejected", at: now, previous: null, capacityForecast: { margin: -1, maxSteps: 2.5, weights: { a: 0 }, mode: "loud", lookbackHours: "168", halfLifeHours: null, staleHoldMinutes: 1e9 }, accounts: pool.accounts },
   { name: "settings-not-object", at: now, previous: null, capacityForecast: "active", accounts: pool.accounts },
+  // keep: a drain-first boost already in place stays while it is not worse at any pace. The
+  // same accounts two minutes on, with the boost in the previous plan and without it.
+  { name: "claude-keep-base", at: now, previous: "snapshot", accounts: keepAccounts },
+  { name: "claude-keep", at: now + 2 * 60000, previous: "claude-keep-base", previousDrainFirst: [{ accountId: claudeIds[0], until: isoAt(now + 12 * HOUR) }], accounts: keepAccounts },
+  { name: "claude-keep-none", at: now + 2 * 60000, previous: "claude-keep-base", accounts: keepAccounts },
   { name: "disabled-and-unknown", at: now, previous: "snapshot", accounts: pool.accounts.map((a, i) => (i === 0 ? { ...a, disabled: true } : i === 4 ? { ...a, status: "unknown" } : a)) },
 ];
 const variantDocs = new Map();
@@ -139,15 +145,17 @@ for (const v of variantSpecs) {
   const { config, problems } = forecastConfig(capacityInput);
   const pols = resetPolicies(inst);
   const prev = v.previous === "snapshot" ? previousForecast : v.previous ? roundTrip(variantDocs.get(v.previous)) : null;
+  // previousDrainFirst replaces the Claude plan's drainFirst in the previous document.
+  if (v.previousDrainFirst) prev.providers.claude.creditPlan.drainFirst = v.previousDrainFirst;
   const doc = await run(() => buildForecast({
     accounts: v.accounts, samples: v.samples === "none" ? [] : samplesFor(v.at).filter((s) => Date.parse(s.at) >= v.at - (config.lookbackHours + 48) * HOUR),
     config, now: v.at, previous: prev, resetPolicies: pols, resetAutomation: v.resetAutomation ?? resetAutomation,
   }));
   variantDocs.set(v.name, doc);
-  variants.push({ name: v.name, input: { now: v.at, previous: v.previous, accounts: v.accounts, install: inst, capacityForecast: capacityInput ?? null, resetAutomation: v.resetAutomation ?? resetAutomation, samples: v.samples ?? "samplesFor(now)" },
+  variants.push({ name: v.name, input: { now: v.at, previous: v.previous, previousDrainFirst: v.previousDrainFirst ?? null, accounts: v.accounts, install: inst, capacityForecast: capacityInput ?? null, resetAutomation: v.resetAutomation ?? resetAutomation, samples: v.samples ?? "samplesFor(now)" },
     result: { problems, resetPolicies: roundTrip(pols), forecast: doc } });
 }
-emit("forecast/variants.json", { function: "capacity-forecast.mjs buildForecast over edited snapshot accounts; previous names an earlier case, \"snapshot\" (inputs/capacity-forecast.json) or none", cases: variants });
+emit("forecast/variants.json", { function: "capacity-forecast.mjs buildForecast over edited snapshot accounts; previous names an earlier case, \"snapshot\" (inputs/capacity-forecast.json) or none; previousDrainFirst, when set, replaces previous.providers.claude.creditPlan.drainFirst", cases: variants });
 // --- 2. usage value report -------------------------------------------------------
 async function valueCase(usageLedger) {
   const { config, problems } = valueConfig(usageLedger);

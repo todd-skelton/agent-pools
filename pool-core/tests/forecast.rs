@@ -186,11 +186,19 @@ fn forecast_variants() {
         if let Some(d) = diff("resetPolicies", &want_policies, &policies_value) {
             panic!("{name}: {d}");
         }
-        let previous = match input["previous"].as_str() {
+        let mut previous = match input["previous"].as_str() {
             None => None,
             Some("snapshot") => s.previous.clone(),
             Some(other) => Some(docs[other].clone()),
         };
+        // A drain-first boost already in place (the planner's keep).
+        if !input["previousDrainFirst"].is_null() {
+            let prev = previous
+                .as_mut()
+                .expect("previousDrainFirst needs a previous document");
+            prev["providers"]["claude"]["creditPlan"]["drainFirst"] =
+                input["previousDrainFirst"].clone();
+        }
         let samples: Vec<Value> = if input["samples"] == json!("none") {
             Vec::new()
         } else {
