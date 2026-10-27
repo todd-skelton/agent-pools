@@ -2,6 +2,10 @@
 resolver = "2"
 members = ["pool-core", "shadow", "gateway"]
 
+# TEMPORARY: corten#174's fix (fd85fbb, not merged yet); replaced by its merged rev before committing.
+[patch."https://github.com/todd-skelton/corten"]
+corten = { path = "C:/Users/ToddS/AppData/Local/Temp/corten-fd85fbb/crates/corten" }
+
 [workspace.package]
 edition = "2021"
 rust-version = "1.88"

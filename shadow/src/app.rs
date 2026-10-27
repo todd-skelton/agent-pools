@@ -10,6 +10,7 @@
 //! | `GET /api/status`, `/api/capacity`, `/api/ladders`, `/api/value` | the service's documents, from the files |
 //! | `GET /api/parity` | the parity counts and recent checks as JSON |
 //! | `GET /api/health`, `POST /api/refresh`, `/api/login`, `/api/callback` | on a copy only (`run-copy`): the write side, through the stand-in proxy; 404 on the read-only shadow |
+//! | `POST /api/shutdown` | on a copy only: with the run's management key as a Bearer, 202 and the copy stops (`corten::shutdown`); other writes get 503 while it does |
 
 use corten::axum::http::StatusCode;
 use corten::prelude::*;
@@ -37,7 +38,7 @@ pub fn app_copy(
     let _ = shadow.writer.set(copy.trigger.clone());
     let _ = shadow.copy.set(copy.clone());
     let (n, w) = (shadow.clone(), shadow.clone());
-    let (watch, drain, d, value) = (copy.clone(), copy.clone(), shadow.clone(), copy.clone());
+    let (watch, drain, d, value, closing) = (copy.clone(), copy.clone(), shadow.clone(), copy.clone(), copy.clone());
     App::new(url::router(shadow))
         .assets(assets)
         .policy(corten::security::Policy::new().allow_style_attributes())
@@ -56,6 +57,12 @@ pub fn app_copy(
         })
         .task("value-report", move |signal| {
             crate::writer::report::run(value.io.clone(), crate::writer::report::FIRST, signal)
+        })
+        // A signal (Ctrl-C, Ctrl-Break, the console closing) stops the copy as `stop("signal")`
+        // does; Corten does not say which signal.
+        .task("closing", move |signal| async move {
+            signal.aborted().await;
+            closing.stop("signal");
         })
 }
 
@@ -147,6 +154,9 @@ pub mod url {
 
     #[route("/api/callback", post = api_callback)]
     pub struct ApiCallback;
+
+    #[route("/api/shutdown", post = api_shutdown)]
+    pub struct ApiShutdown;
 }
 
 /// pool-service.mjs `send(res, status, data)`.
@@ -205,9 +215,32 @@ fn copy_of(shadow: &Shared) -> Result<std::sync::Arc<crate::writer::Copy>, JsonS
 /// `/api/health` on a copy: the service, its process, and whether the stand-in proxy answers.
 async fn health_json(State(shadow): State<Shared>) -> JsonStatus {
     match copy_of(&shadow) {
-        Ok(copy) => send(StatusCode::OK, json!({ "service": "agent-pools", "pid": std::process::id(), "proxyHealthy": copy.health.healthy(), "closing": false })),
+        Ok(copy) => send(StatusCode::OK, json!({ "service": "agent-pools", "pid": std::process::id(), "proxyHealthy": copy.health.healthy(), "closing": copy.closing() })),
         Err(e) => e,
     }
+}
+
+/// `POST /api/shutdown` (the guardian's graceful stop): the run's management key as a Bearer, or
+/// 403; then 202, sent before the connection closes, and the copy stops.
+async fn api_shutdown(State(shadow): State<Shared>, headers: corten::axum::http::HeaderMap) -> JsonStatus {
+    let copy = match copy_of(&shadow) {
+        Ok(c) => c,
+        Err(e) => return e,
+    };
+    let presented = headers.get(corten::axum::http::header::AUTHORIZATION).and_then(|v| v.to_str().ok());
+    if presented != Some(format!("Bearer {}", copy.management_key).as_str()) {
+        return error(StatusCode::FORBIDDEN, "Unauthorized");
+    }
+    copy.stop("api-shutdown");
+    send(StatusCode::ACCEPTED, json!({ "ok": true }))
+}
+
+/// pool-service.mjs `if (closing && req.method === "POST")`: a write while the copy stops.
+fn refuse_while_closing(copy: &crate::writer::Copy) -> Result<(), JsonStatus> {
+    if copy.closing() {
+        return Err(error(StatusCode::SERVICE_UNAVAILABLE, "Service stopping"));
+    }
+    Ok(())
 }
 
 /// The checks pool-service.mjs puts before every write: from this origin, as JSON, at most
@@ -235,6 +268,9 @@ async fn api_refresh(State(shadow): State<Shared>, headers: corten::axum::http::
         Ok(c) => c,
         Err(e) => return e,
     };
+    if let Err(e) = refuse_while_closing(&copy) {
+        return e;
+    }
     if let Err(e) = json_input(&headers, &body) {
         return e;
     }
@@ -252,6 +288,9 @@ async fn api_login(State(shadow): State<Shared>, headers: corten::axum::http::He
         Ok(c) => c,
         Err(e) => return e,
     };
+    if let Err(e) = refuse_while_closing(&copy) {
+        return e;
+    }
     let input = match json_input(&headers, &body) {
         Ok(i) => i,
         Err(e) => return e,
@@ -272,6 +311,9 @@ async fn api_callback(State(shadow): State<Shared>, headers: corten::axum::http:
         Ok(c) => c,
         Err(e) => return e,
     };
+    if let Err(e) = refuse_while_closing(&copy) {
+        return e;
+    }
     let input = match json_input(&headers, &body) {
         Ok(i) => i,
         Err(e) => return e,
@@ -313,6 +355,9 @@ async fn refresh_now(req: Req, State(shadow): State<Shared>) -> HtmlResult {
     let Some(trigger) = shadow.writer.get() else {
         return Err(corten::Error::new("This shadow only reads; refresh on the live dashboard").with_status(StatusCode::NOT_FOUND));
     };
+    if shadow.copy.get().is_some_and(|c| c.closing()) {
+        return Err(corten::Error::new("Service stopping").with_status(StatusCode::SERVICE_UNAVAILABLE));
+    }
     trigger.request();
     req.redirect(&url::Overview)
 }

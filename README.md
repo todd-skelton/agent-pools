@@ -170,6 +170,14 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   `reportIntervalMinutes` (60), writing `state/usage-value.json` and `state/session-usage.json`
   from the copy's ledger, samples, state and forecast. Not ported: `state/routing-attempts.json`
   (the join with the orchestrator's dispatch log, outside the install); the copied file stays;
+- the guardian's stop: `POST /api/shutdown` with the run's management key as a Bearer
+  (`managementKey` in `stand-in/keys.json`; anything else is 403 `Unauthorized`) answers 202,
+  logs `supervisor-stopping`, sets `closing` on `/api/health`, and begins Corten's graceful
+  shutdown (`corten::shutdown`, [corten#174 An app cannot begin its own graceful shutdown](https://github.com/todd-skelton/corten/issues/174)):
+  writes get 503 `Service stopping`, the tasks are told (a cycle in progress finishes, the
+  ledger drains a last time), and every listener closes. A signal stops the copy the same way.
+  Measured on 2026-10-27: after the 202, the dashboard, desktop relay, inference relay and
+  gateway refused connections within 117, 148, 168 and 192 ms, and the process exited;
 - the inference relay on `http://127.0.0.1:8323/v1` (`SHADOW_COPY_INFERENCE_PORT`; Agent Pools'
   8319) and the public gateway on `127.0.0.1:8324` for `Host: pool-copy.localhost`
   (`SHADOW_COPY_GATEWAY_PORT`; Agent Pools' 8330 behind the tunnel), both `writer::edge` in front
@@ -181,14 +189,10 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
 
 Not ported from pool-service.mjs, and why:
 
-1. `POST /api/shutdown` (the guardian's graceful stop) and `closing` (503 for writes while
-   stopping): a Corten app cannot start its own graceful shutdown
-   ([corten#174 An app cannot begin its own graceful shutdown](https://github.com/todd-skelton/corten/issues/174)).
-   The copy stops on Ctrl-C (tasks told, the ledger's last drain, requests finished).
-2. Starting, adopting and restarting the proxy child (`child`, `adopt`, `planTakeover`) and
+1. Starting, adopting and restarting the proxy child (`child`, `adopt`, `planTakeover`) and
    `processes` on `/api/status`: the copy's proxy is the in-process stand-in. This is the live
    install's process management; it belongs to cutover.
-3. `state/routing-attempts.json` (the value report's join with the orchestrator's dispatch log).
+2. `state/routing-attempts.json` (the value report's join with the orchestrator's dispatch log).
 
 Measured on 2026-10-27: a POST at 13:11:12.40Z started a cycle at 13:11:12.58Z; cycles saved the
 copy's pool state and forecast, and appended usage samples only for windows whose use changed.

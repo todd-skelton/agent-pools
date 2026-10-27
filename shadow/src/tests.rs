@@ -587,6 +587,66 @@ async fn an_exhausted_pool_claims_a_reset_on_the_copy_and_the_refusal_backs_that
     }
 }
 
+/// pool-service.mjs's `/api/shutdown` and `closing`: only the management key stops the copy, once;
+/// from then on health says `closing` and every write is refused with 503.
+#[tokio::test]
+async fn the_management_key_stops_the_copy_once_and_writes_are_refused_while_it_stops() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let t = snapshot("copy-stop", false);
+    let key = "test-key".to_string();
+    let proxy = crate::writer::fake_proxy::start(t.dir.clone(), key.clone(), None).await.unwrap();
+    let io = std::sync::Arc::new(crate::writer::io::FileIo::new(t.dir.clone(), proxy, key));
+    let begun = std::sync::Arc::new(AtomicUsize::new(0));
+    let b = begun.clone();
+    let copy = crate::writer::Copy::new(io).with_management_key("the-key".into()).with_shutdown(move || {
+        b.fetch_add(1, Ordering::SeqCst);
+    });
+    let copy = std::sync::Arc::new(copy);
+    let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
+    let app = crate::app::app_copy(shadow, std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"), copy.clone(), Default::default(), Default::default()).router();
+    let shutdown = |auth: Option<&str>| {
+        let mut req = Request::builder().method("POST").uri("/api/shutdown").header("host", "localhost");
+        if let Some(a) = auth {
+            req = req.header("authorization", a);
+        }
+        let app = app.clone();
+        async move {
+            let res = app.oneshot(req.body(Body::empty()).unwrap()).await.unwrap();
+            let status = res.status();
+            let bytes = res.into_body().collect().await.unwrap().to_bytes();
+            (status, serde_json::from_slice::<Value>(&bytes).unwrap_or(Value::Null))
+        }
+    };
+    let closing = || async { serde_json::from_str::<Value>(&get(app.clone(), "/api/health").await.1).unwrap()["closing"].clone() };
+    assert_eq!(closing().await, false);
+
+    for auth in [None, Some("Bearer wrong"), Some("the-key")] {
+        assert_eq!(shutdown(auth).await, (StatusCode::FORBIDDEN, serde_json::json!({ "error": "Unauthorized" })), "{auth:?}");
+    }
+    assert_eq!(begun.load(Ordering::SeqCst), 0);
+    let origin = Some("http://localhost");
+    let (status, _) = send_json(app.clone(), "POST", "/api/refresh", origin, "{}").await;
+    assert_eq!(status, StatusCode::ACCEPTED, "writes go on before a stop");
+
+    assert_eq!(shutdown(Some("Bearer the-key")).await, (StatusCode::ACCEPTED, serde_json::json!({ "ok": true })));
+    assert_eq!(begun.load(Ordering::SeqCst), 1);
+    assert_eq!(closing().await, true);
+    for path in ["/api/refresh", "/api/login", "/api/callback"] {
+        let (status, body) = send_json(app.clone(), "POST", path, origin, r#"{"provider":"codex"}"#).await;
+        assert_eq!((status, body), (StatusCode::SERVICE_UNAVAILABLE, serde_json::json!({ "error": "Service stopping" })), "{path}");
+    }
+    assert_eq!(shutdown(Some("Bearer the-key")).await.0, StatusCode::ACCEPTED);
+    assert_eq!(begun.load(Ordering::SeqCst), 1, "a second request begins nothing more");
+    let events = std::fs::read_to_string(t.dir.join("logs/pool-events.jsonl")).unwrap();
+    let stops: Vec<Value> = events.lines().map(|l| serde_json::from_str::<Value>(l).unwrap()).filter(|e| e["type"] == "supervisor-stopping").collect();
+    assert_eq!(stops.len(), 1, "{events}");
+    assert_eq!((&stops[0]["reason"], &stops[0]["pid"]), (&Value::from("api-shutdown"), &Value::from(std::process::id())));
+
+    for f in ["logs/pool-events.jsonl", "logs/fake-proxy.jsonl"] {
+        let _ = std::fs::remove_file(t.dir.join(f));
+    }
+}
+
 #[tokio::test]
 async fn the_read_only_shadow_serves_documents_but_no_writes() {
     let t = snapshot("ro-api", false);

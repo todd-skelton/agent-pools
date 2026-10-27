@@ -34,12 +34,14 @@ pub struct Keys {
     /// The registered machine's key for the gateway.
     pub machine_key: String,
     pub session_secret: String,
+    /// What `POST /api/shutdown` takes as a Bearer (the guardian's `managementKey`).
+    pub management_key: String,
 }
 
 impl Keys {
     pub fn new() -> Keys {
         let k = |prefix: &str| format!("{prefix}-{}{}", uuid::Uuid::new_v4().simple(), uuid::Uuid::new_v4().simple());
-        Keys { client_key: k("pool"), desktop_token: k("desktop"), machine_key: k("machine"), session_secret: k("session") }
+        Keys { client_key: k("pool"), desktop_token: k("desktop"), machine_key: k("machine"), session_secret: k("session"), management_key: k("management") }
     }
 
     /// Writes the files the relay reads and a test client uses.
@@ -49,7 +51,7 @@ impl Keys {
         let put = |name: &str, v: Value| std::fs::write(dir.join(name), serde_json::to_string_pretty(&v).unwrap_or_default());
         put("codex-auth.json", json!({ "auth_mode": "apikey", "OPENAI_API_KEY": self.desktop_token, "note": "made up for this run of the copy" }))?;
         put("pool-keys.json", json!({ "clientKey": self.client_key }))?;
-        put("keys.json", json!({ "desktopToken": self.desktop_token, "machineKey": self.machine_key, "gatewayHost": GATEWAY_HOST, "machine": "copy-test" }))
+        put("keys.json", json!({ "desktopToken": self.desktop_token, "machineKey": self.machine_key, "gatewayHost": GATEWAY_HOST, "machine": "copy-test", "managementKey": self.management_key }))
     }
 }
 

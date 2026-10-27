@@ -29,6 +29,14 @@ pub struct Copy {
     pub health: Arc<health::Health>,
     pub trigger: Arc<Trigger>,
     pub ledger: Arc<ledger::Ledger>,
+    /// pool-service.mjs `closing`: set once the copy begins to stop; writes get 503 from then on.
+    pub closing: AtomicBool,
+    /// What `POST /api/shutdown` must present as a Bearer (pool-service.mjs `keys.managementKey`):
+    /// made up for the run.
+    pub management_key: String,
+    /// Begins the app's graceful shutdown: `corten::shutdown`, or a test's stand-in for it (the
+    /// real one stops every server in the process).
+    begin_shutdown: Box<dyn Fn() + Send + Sync>,
 }
 
 impl Copy {
@@ -37,7 +45,45 @@ impl Copy {
         let state = load_state(&io.root);
         let ledger = Arc::new(ledger::Ledger::new(io.root.clone()));
         ledger.set_accounts(&state);
-        Copy { health: Arc::new(health::Health::new(&state)), trigger: Default::default(), ledger, io }
+        Copy {
+            health: Arc::new(health::Health::new(&state)),
+            trigger: Default::default(),
+            ledger,
+            io,
+            closing: AtomicBool::new(false),
+            management_key: format!("management-{}", uuid::Uuid::new_v4().simple()),
+            begin_shutdown: Box::new(corten::shutdown),
+        }
+    }
+
+    /// The same, with `key` as the management key.
+    pub fn with_management_key(mut self, key: String) -> Copy {
+        self.management_key = key;
+        self
+    }
+
+    /// The same, with `begin` in place of `corten::shutdown`.
+    #[cfg(test)]
+    pub fn with_shutdown(mut self, begin: impl Fn() + Send + Sync + 'static) -> Copy {
+        self.begin_shutdown = Box::new(begin);
+        self
+    }
+
+    /// Whether the copy is stopping.
+    pub fn closing(&self) -> bool {
+        self.closing.load(Ordering::SeqCst)
+    }
+
+    /// pool-service.mjs `stop(reason)`: once only, `closing` set, `supervisor-stopping` logged,
+    /// then the app's graceful shutdown: the tasks are told (the refresh loop finishes a cycle in
+    /// progress, the ledger drains a last time), the listeners close (the dashboard, the desktop
+    /// relay, the inference relay and the gateway), and requests in progress finish.
+    pub fn stop(&self, reason: &str) {
+        if self.closing.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        self.io.log_event("supervisor-stopping", json!({ "pid": std::process::id(), "reason": reason }));
+        (self.begin_shutdown)();
     }
 }
 
