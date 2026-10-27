@@ -1,0 +1,2023 @@
+{
+ "format": "model-registry/v2",
+ "generatedAt": "2026-10-27T02:15:10.799Z",
+ "harnessVersions": {
+  "claude": "2.1.310",
+  "codex": "0.164.0"
+ },
+ "source": {
+  "accountLists": 7,
+  "statusCheckedAt": "2026-10-27T02:13:08.550Z"
+ },
+ "families": {
+  "astra": {
+   "provider": "codex",
+   "current": "gpt-6-astra",
+   "candidate": null,
+   "requiredEfforts": [
+    "high"
+   ],
+   "promotedAt": "2026-09-30T01:16:28.972Z",
+   "unavailableEfforts": [],
+   "historical": []
+  },
+  "sol": {
+   "provider": "codex",
+   "current": "gpt-6.1-sol",
+   "candidate": null,
+   "requiredEfforts": [
+    "medium",
+    "high",
+    "xhigh"
+   ],
+   "promotedAt": "2026-09-30T01:16:28.972Z",
+   "unavailableEfforts": [],
+   "historical": [
+    "gpt-5.6-sol",
+    "gpt-6-sol"
+   ]
+  },
+  "luna": {
+   "provider": "codex",
+   "current": "gpt-6-luna",
+   "candidate": null,
+   "requiredEfforts": [
+    "low",
+    "medium"
+   ],
+   "promotedAt": "2026-09-30T01:16:28.972Z",
+   "unavailableEfforts": [],
+   "historical": [
+    "gpt-5.6-luna"
+   ]
+  },
+  "fable": {
+   "provider": "claude",
+   "current": "claude-fable-5-1",
+   "candidate": null,
+   "requiredEfforts": [
+    "medium",
+    "high"
+   ],
+   "promotedAt": "2026-09-30T01:16:28.972Z",
+   "unavailableEfforts": [],
+   "historical": [
+    "claude-fable-5"
+   ]
+  },
+  "opus": {
+   "provider": "claude",
+   "current": "claude-opus-5-5",
+   "candidate": null,
+   "requiredEfforts": [
+    "low",
+    "medium",
+    "high"
+   ],
+   "promotedAt": "2026-09-30T01:16:28.972Z",
+   "unavailableEfforts": [],
+   "historical": [
+    "claude-opus-4-5-20251101",
+    "claude-opus-4-6",
+    "claude-opus-4-7",
+    "claude-opus-4-8",
+    "claude-opus-5"
+   ]
+  },
+  "sonnet": {
+   "provider": "claude",
+   "current": "claude-sonnet-5-5",
+   "candidate": null,
+   "requiredEfforts": [
+    "medium",
+    "high"
+   ],
+   "promotedAt": "2026-09-30T01:16:28.972Z",
+   "unavailableEfforts": [],
+   "historical": [
+    "claude-sonnet-4-5-20250929",
+    "claude-sonnet-4-6",
+    "claude-sonnet-5"
+   ]
+  },
+  "haiku": {
+   "provider": "claude",
+   "current": "claude-haiku-5-5",
+   "candidate": null,
+   "requiredEfforts": [
+    "low",
+    "medium"
+   ],
+   "promotedAt": "2026-10-07T18:50:39.741Z",
+   "unavailableEfforts": [],
+   "historical": [
+    "claude-haiku-4-5-20251001"
+   ]
+  }
+ },
+ "models": {
+  "gpt-6-astra": {
+   "family": "astra",
+   "provider": "codex",
+   "version": "6",
+   "role": "current",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [
+    "medium",
+    "high"
+   ],
+   "usableAccountsByEffort": {
+    "low": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "medium": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "high": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "xhigh": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "max": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "codex-4a53e220-user1@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-5f88762d-user3@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.249Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-decc23ae-user4@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.246Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-f81617fe-user2@example.invalid-prolite.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.253Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "gpt-6.1-sol": {
+   "family": "sol",
+   "provider": "codex",
+   "version": "6.1",
+   "role": "current",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [
+    "medium",
+    "high",
+    "xhigh"
+   ],
+   "usableAccountsByEffort": {
+    "low": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "medium": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "high": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "xhigh": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "max": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "codex-4a53e220-user1@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-5f88762d-user3@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.249Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-decc23ae-user4@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.246Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-f81617fe-user2@example.invalid-prolite.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.253Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "gpt-6-sol": {
+   "family": "sol",
+   "provider": "codex",
+   "version": "6",
+   "role": "historical",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [],
+   "usableAccountsByEffort": {
+    "low": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "medium": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "high": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "xhigh": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "max": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "codex-4a53e220-user1@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-5f88762d-user3@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.249Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-decc23ae-user4@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.246Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-f81617fe-user2@example.invalid-prolite.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.253Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "gpt-5.6-sol": {
+   "family": "sol",
+   "provider": "codex",
+   "version": "5.6",
+   "role": "historical",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [],
+   "usableAccountsByEffort": {
+    "low": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "medium": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "high": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "xhigh": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "max": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "codex-4a53e220-user1@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-5f88762d-user3@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.249Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-decc23ae-user4@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.246Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-f81617fe-user2@example.invalid-prolite.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.253Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "gpt-6-luna": {
+   "family": "luna",
+   "provider": "codex",
+   "version": "6",
+   "role": "current",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [
+    "low",
+    "medium",
+    "high"
+   ],
+   "usableAccountsByEffort": {
+    "low": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "medium": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "high": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "xhigh": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "max": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "codex-4a53e220-user1@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-5f88762d-user3@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.249Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-decc23ae-user4@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.246Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-f81617fe-user2@example.invalid-prolite.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.253Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "gpt-5.6-luna": {
+   "family": "luna",
+   "provider": "codex",
+   "version": "5.6",
+   "role": "historical",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [],
+   "usableAccountsByEffort": {
+    "low": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "medium": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "high": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "xhigh": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ],
+    "max": [
+     "codex-4a53e220-user1@example.invalid-pro.json",
+     "codex-5f88762d-user3@example.invalid-pro.json",
+     "codex-decc23ae-user4@example.invalid-pro.json",
+     "codex-f81617fe-user2@example.invalid-prolite.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "codex-4a53e220-user1@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-5f88762d-user3@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.249Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-decc23ae-user4@example.invalid-pro.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.246Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "codex-f81617fe-user2@example.invalid-prolite.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.253Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-fable-5-1": {
+   "family": "fable",
+   "provider": "claude",
+   "version": "5.1",
+   "role": "current",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [
+    "medium",
+    "high"
+   ],
+   "usableAccountsByEffort": {
+    "low": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "medium": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "high": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "xhigh": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "max": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-fable-5": {
+   "family": "fable",
+   "provider": "claude",
+   "version": "5",
+   "role": "historical",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [],
+   "usableAccountsByEffort": {
+    "low": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "medium": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "high": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "xhigh": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "max": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-opus-5-5": {
+   "family": "opus",
+   "provider": "claude",
+   "version": "5.5",
+   "role": "current",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "usableAccountsByEffort": {
+    "low": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "medium": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "high": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "xhigh": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "max": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-opus-5": {
+   "family": "opus",
+   "provider": "claude",
+   "version": "5",
+   "role": "historical",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [],
+   "usableAccountsByEffort": {
+    "low": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "medium": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "high": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "xhigh": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "max": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-opus-4-8": {
+   "family": "opus",
+   "provider": "claude",
+   "version": "4.8",
+   "role": "historical",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [],
+   "usableAccountsByEffort": {
+    "low": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "medium": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "high": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "xhigh": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "max": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-opus-4-7": {
+   "family": "opus",
+   "provider": "claude",
+   "version": "4.7",
+   "role": "historical",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [],
+   "usableAccountsByEffort": {
+    "low": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "medium": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "high": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "xhigh": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "max": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-opus-4-6": {
+   "family": "opus",
+   "provider": "claude",
+   "version": "4.6",
+   "role": "historical",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "max"
+   ],
+   "admittedEfforts": [],
+   "usableAccountsByEffort": {
+    "low": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "medium": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "high": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "max": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-opus-4-5-20251101": {
+   "family": "opus",
+   "provider": "claude",
+   "version": "4.5",
+   "role": "historical",
+   "efforts": [],
+   "admittedEfforts": [],
+   "usableAccountsByEffort": {},
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-sonnet-5-5": {
+   "family": "sonnet",
+   "provider": "claude",
+   "version": "5.5",
+   "role": "current",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [
+    "medium",
+    "high",
+    "xhigh"
+   ],
+   "usableAccountsByEffort": {
+    "low": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "medium": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "high": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "xhigh": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "max": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-sonnet-5": {
+   "family": "sonnet",
+   "provider": "claude",
+   "version": "5",
+   "role": "historical",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [],
+   "usableAccountsByEffort": {
+    "low": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "medium": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "high": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "xhigh": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "max": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-sonnet-4-6": {
+   "family": "sonnet",
+   "provider": "claude",
+   "version": "4.6",
+   "role": "historical",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "max"
+   ],
+   "admittedEfforts": [],
+   "usableAccountsByEffort": {
+    "low": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "medium": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "high": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "max": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-sonnet-4-5-20250929": {
+   "family": "sonnet",
+   "provider": "claude",
+   "version": "4.5",
+   "role": "historical",
+   "efforts": [],
+   "admittedEfforts": [],
+   "usableAccountsByEffort": {},
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-haiku-5-5": {
+   "family": "haiku",
+   "provider": "claude",
+   "version": "5.5",
+   "role": "current",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ],
+   "admittedEfforts": [
+    "low",
+    "medium",
+    "max"
+   ],
+   "usableAccountsByEffort": {
+    "low": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "medium": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "high": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "xhigh": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ],
+    "max": [
+     "claude-550c2ce1-user4@example.invalid.json",
+     "claude-b1dc4342-user3@example.invalid.json"
+    ]
+   },
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  },
+  "claude-haiku-4-5-20251001": {
+   "family": "haiku",
+   "provider": "claude",
+   "version": "4.5",
+   "role": "historical",
+   "efforts": [],
+   "admittedEfforts": [],
+   "usableAccountsByEffort": {},
+   "accounts": [
+    {
+     "account": "claude-0e602f2d-user1@example.invalid.json",
+     "efforts": [],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "exhausted",
+     "routing": "blocked",
+     "usable": false
+    },
+    {
+     "account": "claude-550c2ce1-user4@example.invalid.json",
+     "efforts": [],
+     "fetchedAt": "2026-10-27T02:00:19.241Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    },
+    {
+     "account": "claude-b1dc4342-user3@example.invalid.json",
+     "efforts": [],
+     "fetchedAt": "2026-10-27T02:00:19.242Z",
+     "stale": false,
+     "disabled": false,
+     "accountStatus": "available",
+     "routing": "ready",
+     "usable": true
+    }
+   ]
+  }
+ },
+ "notices": [],
+ "identities": {
+  "gpt-6-astra": {
+   "family": "astra",
+   "provider": "codex",
+   "version": "6",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "gpt-6.1-sol": {
+   "family": "sol",
+   "provider": "codex",
+   "version": "6.1",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "gpt-6-sol": {
+   "family": "sol",
+   "provider": "codex",
+   "version": "6",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "gpt-5.6-sol": {
+   "family": "sol",
+   "provider": "codex",
+   "version": "5.6",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "gpt-6-luna": {
+   "family": "luna",
+   "provider": "codex",
+   "version": "6",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "gpt-5.6-luna": {
+   "family": "luna",
+   "provider": "codex",
+   "version": "5.6",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-fable-5-1": {
+   "family": "fable",
+   "provider": "claude",
+   "version": "5.1",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-fable-5": {
+   "family": "fable",
+   "provider": "claude",
+   "version": "5",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-opus-5-5": {
+   "family": "opus",
+   "provider": "claude",
+   "version": "5.5",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-opus-5": {
+   "family": "opus",
+   "provider": "claude",
+   "version": "5",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-opus-4-8": {
+   "family": "opus",
+   "provider": "claude",
+   "version": "4.8",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-opus-4-7": {
+   "family": "opus",
+   "provider": "claude",
+   "version": "4.7",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-opus-4-6": {
+   "family": "opus",
+   "provider": "claude",
+   "version": "4.6",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-opus-4-5-20251101": {
+   "family": "opus",
+   "provider": "claude",
+   "version": "4.5",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-sonnet-5-5": {
+   "family": "sonnet",
+   "provider": "claude",
+   "version": "5.5",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-sonnet-5": {
+   "family": "sonnet",
+   "provider": "claude",
+   "version": "5",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-sonnet-4-6": {
+   "family": "sonnet",
+   "provider": "claude",
+   "version": "4.6",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-sonnet-4-5-20250929": {
+   "family": "sonnet",
+   "provider": "claude",
+   "version": "4.5",
+   "firstSeen": "2026-09-29T22:59:29.081Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-haiku-5-5": {
+   "family": "haiku",
+   "provider": "claude",
+   "version": "5.5",
+   "firstSeen": "2026-10-07T18:50:39.741Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  },
+  "claude-haiku-4-5-20251001": {
+   "family": "haiku",
+   "provider": "claude",
+   "version": "4.5",
+   "firstSeen": "2026-10-07T18:50:39.741Z",
+   "lastListed": "2026-10-27T02:15:10.799Z"
+  }
+ },
+ "generation": 7,
+ "authorityDigest": "f2b3d2c923541196",
+ "benchmarks": {
+  "file": "aa-20261026T131516667Z-8aecac.json",
+  "fetchedAt": "2026-10-26T13:15:16.667Z",
+  "rows": 63
+ }
+}

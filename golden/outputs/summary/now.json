@@ -1,0 +1,709 @@
+{
+ "format": "agent-pools-summary/v1",
+ "generatedAt": "2026-10-27T02:41:33.487Z",
+ "checkedAt": "2026-10-27T02:41:33.487Z",
+ "error": null,
+ "forecastGeneratedAt": "2026-10-27T02:41:33.487Z",
+ "forecastStaleAfter": "2026-10-27T02:56:33.487Z",
+ "valueGeneratedAt": "2026-10-27T02:41:33.487Z",
+ "monthlyCostUsd": 1300,
+ "notes": [
+  "Routing: the pool picks among its own accounts; forecast.state and the published balance are signals the model-routing skill and dispatch-lane.ps1 read, not limits the pool enforces.",
+  "Scenarios: naturalOnly = window resets alone; bankedCredits = banked credits spent the way the pool spends them (the headline); weeklyGrant = bankedCredits plus an assumed new credit each week, which providers do not promise.",
+  "pace: how fast to use the provider to get the most out of it. Units are weighted account-weeks per hour (x168 = account-weeks per week). Objective: total usage over the run (work done plus quota still available at the end); running short loses nothing, quota is lost only when a window resets unused or a credit lapses. maxUnits = usage when draining as fast as possible; atDemand = usage at the observed pace (lostUnits = what it leaves unused); fullUse = lowest steady pace within 1% of maxUnits (null: only as fast as possible gets there), then = the lower floor after its last credit is spent; noGap = highest pace that never runs out and what that costs; steps[k-1] = pace that uses k credits; curve = usage at a ladder of paces. Reused for up to 10 minutes (computedAt); a signal for dispatchers, not enforced.",
+  "creditPlan (refill providers): per banked credit, what automation does and whether it gets used. action: redeem-now (the account is out and redeeming now beats waiting for every account to run out), drain-first (routing sends new sessions to that account before its weekly reset order so it reaches its limit before drainBy, the credit expiry; a refill only applies at the limit), wait (acting early would not add usage). Each action is taken only when it is never worse at the low, measured and planning paces and better at one. outcome = the credit's fate at the measured pace under the plan (used, lapses, banked); planned false = too little demand evidence or automation off, nothing is acted on; needUnitsPerHour = lowest steady pace that uses it (x168 = account-weeks per week), null when none does. AgentPools applies these itself; a lapsing outcome means more work on that provider is the only remedy.",
+  "Model limits: a cap sits inside the all-models quota; a reserve adds capacity outside it. Kind and share are measured or configured, and stay unknown without evidence.",
+  "priceSource: provider = the provider's own billing data; list = public list price for the plan tier the provider reports; config = install.json usageLedger.planPrices."
+ ],
+ "providers": {
+  "codex": {
+   "name": "Codex",
+   "accounts": 4,
+   "routable": 4,
+   "monthlyCostUsd": 700,
+   "unpricedAccounts": 0,
+   "priceSources": [
+    "provider"
+   ],
+   "creditsBanked": 5,
+   "nextCreditExpiry": "2026-10-29T19:00:36.292604Z",
+   "forecast": {
+    "state": "conserve",
+    "stale": false,
+    "demandUnitsPerHour": 0.02746,
+    "remainingUnits": 2.935,
+    "nextResetAt": "2026-11-02T06:08:09.000Z",
+    "horizonHours": 336,
+    "naturalOnly": {
+     "firstShortAt": "2026-10-31T12:41:33.487Z",
+     "shortHours": 83,
+     "creditsUsed": 0,
+     "creditsLapsing": 0
+    },
+    "bankedCredits": {
+     "firstShortAt": "2026-11-07T08:41:33.487Z",
+     "shortHours": 5,
+     "creditsUsed": 3,
+     "creditsLapsing": 2
+    },
+    "weeklyGrant": {
+     "firstShortAt": null,
+     "shortHours": 0,
+     "creditsUsed": 4,
+     "creditsLapsing": 2,
+     "assumption": "one new credit every 7 days, each valid 7 days"
+    },
+    "pace": {
+     "computedAt": "2026-10-27T02:41:33.487Z",
+     "key": "5780ea000661baeb",
+     "objective": "most total usage: work done plus quota still available at the end of the run; running short loses nothing",
+     "horizonHours": 504,
+     "demandUnitsPerHour": 0.02746,
+     "naturalUnitsPerHour": 0.02083,
+     "credits": 5,
+     "maxUnits": 14.435,
+     "maxCreditsLapsing": 0,
+     "atDemand": {
+      "unitsPerHour": 0.02746,
+      "usedUnits": 13.435,
+      "lostUnits": 1,
+      "creditsUsed": 3,
+      "creditsLapsing": 2,
+      "shortHours": 47,
+      "firstShortAt": "2026-11-07T08:41:33.487Z"
+     },
+     "fullUse": {
+      "unitsPerHour": 0.04517,
+      "usedUnits": 14.435,
+      "lostUnits": 0,
+      "creditsUsed": 5,
+      "creditsLapsing": 0,
+      "shortHours": 186,
+      "firstShortAt": "2026-11-02T22:41:33.487Z"
+     },
+     "noGap": {
+      "unitsPerHour": 0.02085,
+      "usedUnits": 11.435,
+      "lostUnits": 3,
+      "creditsUsed": 1,
+      "creditsLapsing": 4,
+      "shortHours": 0,
+      "firstShortAt": null
+     },
+     "then": {
+      "from": "2026-11-02T01:41:33.487Z",
+      "unitsPerHour": 0.03088
+     },
+     "steps": [
+      {
+       "credits": 1,
+       "reachable": true,
+       "unitsPerHour": 0.01986,
+       "spentBy": "2026-11-02T05:41:33.487Z"
+      },
+      {
+       "credits": 2,
+       "reachable": true,
+       "unitsPerHour": 0.02323,
+       "spentBy": "2026-11-02T05:41:33.487Z"
+      },
+      {
+       "credits": 3,
+       "reachable": true,
+       "unitsPerHour": 0.02466,
+       "spentBy": "2026-11-06T22:41:33.487Z"
+      },
+      {
+       "credits": 4,
+       "reachable": true,
+       "unitsPerHour": 0.02852,
+       "spentBy": "2026-11-06T22:41:33.487Z"
+      },
+      {
+       "credits": 5,
+       "reachable": true,
+       "unitsPerHour": 0.04517,
+       "spentBy": "2026-11-02T00:41:33.487Z"
+      }
+     ],
+     "curve": [
+      {
+       "unitsPerHour": 0.01042,
+       "usedUnits": 7.042,
+       "lostUnits": 7.393,
+       "creditsUsed": 0,
+       "creditsLapsing": 5,
+       "shortHours": 0,
+       "firstShortAt": null
+      },
+      {
+       "unitsPerHour": 0.02083,
+       "usedUnits": 11.435,
+       "lostUnits": 3,
+       "creditsUsed": 1,
+       "creditsLapsing": 4,
+       "shortHours": 0,
+       "firstShortAt": null
+      },
+      {
+       "unitsPerHour": 0.03125,
+       "usedUnits": 13.435,
+       "lostUnits": 1,
+       "creditsUsed": 4,
+       "creditsLapsing": 1,
+       "shortHours": 80,
+       "firstShortAt": "2026-11-05T23:41:33.487Z"
+      },
+      {
+       "unitsPerHour": 0.04167,
+       "usedUnits": 13.435,
+       "lostUnits": 1,
+       "creditsUsed": 4,
+       "creditsLapsing": 1,
+       "shortHours": 182,
+       "firstShortAt": "2026-11-02T12:41:33.487Z"
+      },
+      {
+       "unitsPerHour": 0.0625,
+       "usedUnits": 14.435,
+       "lostUnits": 0,
+       "creditsUsed": 5,
+       "creditsLapsing": 0,
+       "shortHours": 274,
+       "firstShortAt": "2026-11-01T00:41:33.487Z"
+      },
+      {
+       "unitsPerHour": 0.10417,
+       "usedUnits": 14.435,
+       "lostUnits": 0,
+       "creditsUsed": 5,
+       "creditsLapsing": 0,
+       "shortHours": 367,
+       "firstShortAt": "2026-10-30T01:41:33.487Z"
+      },
+      {
+       "unitsPerHour": 0.20833,
+       "usedUnits": 14.435,
+       "lostUnits": 0,
+       "creditsUsed": 5,
+       "creditsLapsing": 0,
+       "shortHours": 437,
+       "firstShortAt": "2026-10-28T13:41:33.487Z"
+      }
+     ]
+    },
+    "creditPlan": null,
+    "modelLimits": []
+   },
+   "value": {
+    "apiEquivalentUsd": 4160.16,
+    "windowDays": 5
+   }
+  },
+  "claude": {
+   "name": "Claude",
+   "accounts": 3,
+   "routable": 1,
+   "monthlyCostUsd": 600,
+   "unpricedAccounts": 0,
+   "priceSources": [
+    "list"
+   ],
+   "creditsBanked": 0,
+   "nextCreditExpiry": null,
+   "forecast": {
+    "state": "conserve",
+    "stale": false,
+    "demandUnitsPerHour": 0.03006,
+    "remainingUnits": 0.88,
+    "nextResetAt": "2026-10-28T12:59:59.697Z",
+    "horizonHours": 336,
+    "naturalOnly": {
+     "firstShortAt": "2026-10-28T07:41:33.487Z",
+     "shortHours": 127,
+     "creditsUsed": 0,
+     "creditsLapsing": 0
+    },
+    "bankedCredits": {
+     "firstShortAt": "2026-10-28T07:41:33.487Z",
+     "shortHours": 127,
+     "creditsUsed": 0,
+     "creditsLapsing": 0
+    },
+    "weeklyGrant": {
+     "firstShortAt": "2026-10-28T07:41:33.487Z",
+     "shortHours": 93,
+     "creditsUsed": 1,
+     "creditsLapsing": 0,
+     "assumption": "one new credit every 7 days, each valid 7 days"
+    },
+    "pace": {
+     "computedAt": "2026-10-27T02:41:33.487Z",
+     "key": "e783e8f58f88967f",
+     "objective": "most total usage: work done plus quota still available at the end of the run; running short loses nothing",
+     "horizonHours": 504,
+     "demandUnitsPerHour": 0.03006,
+     "naturalUnitsPerHour": 0.01786,
+     "credits": 0,
+     "maxUnits": 9.88,
+     "maxCreditsLapsing": 0,
+     "atDemand": {
+      "unitsPerHour": 0.03006,
+      "usedUnits": 9.88,
+      "lostUnits": 0,
+      "creditsUsed": 0,
+      "creditsLapsing": 0,
+      "shortHours": 196,
+      "firstShortAt": "2026-10-28T07:41:33.487Z"
+     },
+     "fullUse": {
+      "unitsPerHour": 0.01465,
+      "usedUnits": 9.782,
+      "lostUnits": 0.098,
+      "creditsUsed": 0,
+      "creditsLapsing": 0,
+      "shortHours": 0,
+      "firstShortAt": null
+     },
+     "noGap": {
+      "unitsPerHour": 0.01565,
+      "usedUnits": 9.88,
+      "lostUnits": 0,
+      "creditsUsed": 0,
+      "creditsLapsing": 0,
+      "shortHours": 0,
+      "firstShortAt": null
+     },
+     "then": null,
+     "steps": [],
+     "curve": [
+      {
+       "unitsPerHour": 0.00893,
+       "usedUnits": 7.134,
+       "lostUnits": 2.746,
+       "creditsUsed": 0,
+       "creditsLapsing": 0,
+       "shortHours": 0,
+       "firstShortAt": null
+      },
+      {
+       "unitsPerHour": 0.01786,
+       "usedUnits": 9.88,
+       "lostUnits": 0,
+       "creditsUsed": 0,
+       "creditsLapsing": 0,
+       "shortHours": 15,
+       "firstShortAt": "2026-10-31T11:41:33.487Z"
+      },
+      {
+       "unitsPerHour": 0.02679,
+       "usedUnits": 9.88,
+       "lostUnits": 0,
+       "creditsUsed": 0,
+       "creditsLapsing": 0,
+       "shortHours": 165,
+       "firstShortAt": "2026-10-28T10:41:33.487Z"
+      },
+      {
+       "unitsPerHour": 0.03571,
+       "usedUnits": 9.88,
+       "lostUnits": 0,
+       "creditsUsed": 0,
+       "creditsLapsing": 0,
+       "shortHours": 236,
+       "firstShortAt": "2026-10-28T02:41:33.487Z"
+      },
+      {
+       "unitsPerHour": 0.05357,
+       "usedUnits": 9.88,
+       "lostUnits": 0,
+       "creditsUsed": 0,
+       "creditsLapsing": 0,
+       "shortHours": 323,
+       "firstShortAt": "2026-10-27T18:41:33.487Z"
+      },
+      {
+       "unitsPerHour": 0.08929,
+       "usedUnits": 9.88,
+       "lostUnits": 0,
+       "creditsUsed": 0,
+       "creditsLapsing": 0,
+       "shortHours": 396,
+       "firstShortAt": "2026-10-27T11:41:33.487Z"
+      },
+      {
+       "unitsPerHour": 0.17857,
+       "usedUnits": 9.88,
+       "lostUnits": 0,
+       "creditsUsed": 0,
+       "creditsLapsing": 0,
+       "shortHours": 455,
+       "firstShortAt": "2026-10-27T06:41:33.487Z"
+      }
+     ]
+    },
+    "creditPlan": {
+     "planned": true,
+     "redeemNow": [],
+     "drainFirst": [],
+     "credits": []
+    },
+    "modelLimits": [
+     {
+      "scope": "Fable",
+      "state": "spend",
+      "firstShortAt": null,
+      "window": "limit:2",
+      "kind": "cap",
+      "shareOfCommon": 0.1776,
+      "shareBasis": "model",
+      "source": "measured",
+      "models": [
+       "claude-fable-5",
+       "claude-fable-5-1"
+      ],
+      "accounts": [
+       {
+        "id": "claude-0e602f2d-user1@example.invalid.json",
+        "used": 8,
+        "resetAt": "2026-10-28T12:59:59.698Z"
+       },
+       {
+        "id": "claude-550c2ce1-user4@example.invalid.json",
+        "used": 0,
+        "resetAt": "2026-11-01T09:00:00.000Z"
+       },
+       {
+        "id": "claude-b1dc4342-user3@example.invalid.json",
+        "used": 5,
+        "resetAt": "2026-11-01T01:59:59.816Z"
+       }
+      ]
+     }
+    ]
+   },
+   "value": {
+    "apiEquivalentUsd": 6698.82,
+    "windowDays": 5
+   }
+  }
+ },
+ "accounts": [
+  {
+   "id": "claude-0e602f2d-user1@example.invalid.json",
+   "provider": "claude",
+   "email": "user1@example.invalid",
+   "routable": false,
+   "status": "exhausted",
+   "usageUpdatedAt": "2026-10-27T02:41:31.621Z",
+   "plan": {
+    "plan": "max_20x",
+    "label": "Claude Max 20x",
+    "status": "active",
+    "renewsAt": null,
+    "readAt": "2026-10-26T23:52:56.142Z"
+   },
+   "priceUsdPerMonth": 200,
+   "priceSource": "list",
+   "windows": [
+    {
+     "id": "limit:0",
+     "scope": "All models",
+     "label": "5-hour",
+     "usedPercent": 0,
+     "resetAt": null,
+     "limitsAllModels": true
+    },
+    {
+     "id": "limit:1",
+     "scope": "All models",
+     "label": "Weekly",
+     "usedPercent": 100,
+     "resetAt": "2026-10-28T12:59:59.697Z",
+     "limitsAllModels": true
+    },
+    {
+     "id": "limit:2",
+     "scope": "Fable",
+     "label": "Weekly",
+     "usedPercent": 8,
+     "resetAt": "2026-10-28T12:59:59.698Z",
+     "limitsAllModels": false
+    }
+   ],
+   "credits": {
+    "known": true,
+    "count": 0,
+    "expiries": []
+   },
+   "value": {
+    "apiEquivalentUsd": 2106.51,
+    "valueMultiple": 63.9,
+    "requests": 25209
+   }
+  },
+  {
+   "id": "claude-550c2ce1-user4@example.invalid.json",
+   "provider": "claude",
+   "email": "user4@example.invalid",
+   "routable": true,
+   "status": "available",
+   "usageUpdatedAt": "2026-10-27T02:41:31.653Z",
+   "plan": {
+    "plan": "max_20x",
+    "label": "Claude Max 20x",
+    "status": "active",
+    "renewsAt": null,
+    "readAt": "2026-10-26T19:36:47.579Z"
+   },
+   "priceUsdPerMonth": 200,
+   "priceSource": "list",
+   "windows": [
+    {
+     "id": "limit:0",
+     "scope": "All models",
+     "label": "5-hour",
+     "usedPercent": 47,
+     "resetAt": "2026-10-27T04:20:00.738Z",
+     "limitsAllModels": true
+    },
+    {
+     "id": "limit:1",
+     "scope": "All models",
+     "label": "Weekly",
+     "usedPercent": 13,
+     "resetAt": "2026-11-01T09:00:00.738Z",
+     "limitsAllModels": true
+    },
+    {
+     "id": "limit:2",
+     "scope": "Fable",
+     "label": "Weekly",
+     "usedPercent": 0,
+     "resetAt": "2026-11-01T09:00:00.000Z",
+     "limitsAllModels": false
+    }
+   ],
+   "credits": {
+    "known": true,
+    "count": 0,
+    "expiries": []
+   },
+   "value": {
+    "apiEquivalentUsd": 2127.84,
+    "valueMultiple": 64.54,
+    "requests": 22253
+   }
+  },
+  {
+   "id": "claude-b1dc4342-user3@example.invalid.json",
+   "provider": "claude",
+   "email": "user3@example.invalid",
+   "routable": false,
+   "status": "exhausted",
+   "usageUpdatedAt": "2026-10-27T02:41:31.751Z",
+   "plan": {
+    "plan": "max_20x",
+    "label": "Claude Max 20x",
+    "status": "active",
+    "renewsAt": null,
+    "readAt": "2026-10-26T23:52:56.348Z"
+   },
+   "priceUsdPerMonth": 200,
+   "priceSource": "list",
+   "windows": [
+    {
+     "id": "limit:0",
+     "scope": "All models",
+     "label": "5-hour",
+     "usedPercent": 100,
+     "resetAt": "2026-10-27T02:50:00.816Z",
+     "limitsAllModels": true
+    },
+    {
+     "id": "limit:1",
+     "scope": "All models",
+     "label": "Weekly",
+     "usedPercent": 99,
+     "resetAt": "2026-11-01T02:00:00.816Z",
+     "limitsAllModels": true
+    },
+    {
+     "id": "limit:2",
+     "scope": "Fable",
+     "label": "Weekly",
+     "usedPercent": 5,
+     "resetAt": "2026-11-01T01:59:59.816Z",
+     "limitsAllModels": false
+    }
+   ],
+   "credits": {
+    "known": true,
+    "count": 0,
+    "expiries": []
+   },
+   "value": {
+    "apiEquivalentUsd": 2464.47,
+    "valueMultiple": 74.76,
+    "requests": 29225
+   }
+  },
+  {
+   "id": "codex-4a53e220-user1@example.invalid-pro.json",
+   "provider": "codex",
+   "email": "user1@example.invalid",
+   "routable": true,
+   "status": "available",
+   "usageUpdatedAt": "2026-10-27T02:41:31.806Z",
+   "plan": {
+    "plan": "pro",
+    "label": "ChatGPT Pro 200",
+    "status": "active",
+    "renewsAt": "2026-11-04T18:18:41Z",
+    "readAt": "2026-10-26T23:52:57.790Z"
+   },
+   "priceUsdPerMonth": 200,
+   "priceSource": "provider",
+   "windows": [
+    {
+     "id": "codex:primary_window",
+     "scope": "Codex",
+     "label": "Weekly",
+     "usedPercent": 3,
+     "resetAt": "2026-11-02T06:08:24.000Z",
+     "limitsAllModels": true
+    }
+   ],
+   "credits": {
+    "known": true,
+    "count": 1,
+    "expiries": [
+     "2026-11-06T23:18:20.490391Z"
+    ]
+   },
+   "value": {
+    "apiEquivalentUsd": 1323.15,
+    "valueMultiple": 40.14,
+    "requests": 58678
+   }
+  },
+  {
+   "id": "codex-5f88762d-user3@example.invalid-pro.json",
+   "provider": "codex",
+   "email": "user3@example.invalid",
+   "routable": true,
+   "status": "available",
+   "usageUpdatedAt": "2026-10-27T02:41:31.828Z",
+   "plan": {
+    "plan": "pro",
+    "label": "ChatGPT Pro 200",
+    "status": "active",
+    "renewsAt": "2026-11-24T01:04:51Z",
+    "readAt": "2026-10-26T23:52:57.311Z"
+   },
+   "priceUsdPerMonth": 200,
+   "priceSource": "provider",
+   "windows": [
+    {
+     "id": "codex:primary_window",
+     "scope": "Codex",
+     "label": "Weekly",
+     "usedPercent": 30,
+     "resetAt": "2026-11-02T06:08:09.000Z",
+     "limitsAllModels": true
+    }
+   ],
+   "credits": {
+    "known": true,
+    "count": 1,
+    "expiries": [
+     "2026-11-06T23:28:59.954978Z"
+    ]
+   },
+   "value": {
+    "apiEquivalentUsd": 908,
+    "valueMultiple": 27.54,
+    "requests": 39435
+   }
+  },
+  {
+   "id": "codex-decc23ae-user4@example.invalid-pro.json",
+   "provider": "codex",
+   "email": "user4@example.invalid",
+   "routable": true,
+   "status": "available",
+   "usageUpdatedAt": "2026-10-27T02:41:31.778Z",
+   "plan": {
+    "plan": "pro",
+    "label": "ChatGPT Pro 200",
+    "status": "active",
+    "renewsAt": "2026-11-18T19:12:55Z",
+    "readAt": "2026-10-26T23:52:57.311Z"
+   },
+   "priceUsdPerMonth": 200,
+   "priceSource": "provider",
+   "windows": [
+    {
+     "id": "codex:primary_window",
+     "scope": "Codex",
+     "label": "Weekly",
+     "usedPercent": 19,
+     "resetAt": "2026-11-02T06:08:13.000Z",
+     "limitsAllModels": true
+    }
+   ],
+   "credits": {
+    "known": true,
+    "count": 2,
+    "expiries": [
+     "2026-10-29T19:00:36.292604Z",
+     "2026-11-06T23:30:53.621214Z"
+    ]
+   },
+   "value": {
+    "apiEquivalentUsd": 1527.42,
+    "valueMultiple": 46.33,
+    "requests": 62325
+   }
+  },
+  {
+   "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+   "provider": "codex",
+   "email": "user2@example.invalid",
+   "routable": true,
+   "status": "available",
+   "usageUpdatedAt": "2026-10-27T02:41:31.933Z",
+   "plan": {
+    "plan": "prolite",
+    "label": "ChatGPT Pro 100",
+    "status": "active",
+    "renewsAt": "2026-11-20T16:28:32Z",
+    "readAt": "2026-10-26T23:52:57.556Z"
+   },
+   "priceUsdPerMonth": 100,
+   "priceSource": "provider",
+   "windows": [
+    {
+     "id": "codex:primary_window",
+     "scope": "Codex",
+     "label": "Weekly",
+     "usedPercent": 9,
+     "resetAt": "2026-11-02T06:22:19.000Z",
+     "limitsAllModels": true
+    }
+   ],
+   "credits": {
+    "known": true,
+    "count": 1,
+    "expiries": [
+     "2026-11-06T23:39:11.687310Z"
+    ]
+   },
+   "value": {
+    "apiEquivalentUsd": 401.59,
+    "valueMultiple": 24.36,
+    "requests": 13113
+   }
+  }
+ ]
+}

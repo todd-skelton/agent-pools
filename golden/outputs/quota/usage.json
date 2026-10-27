@@ -1,0 +1,3422 @@
+{
+ "function": "quota-windows.mjs quotaWindows(provider, data) and routing.mjs normalizeUsage(provider, data, now)",
+ "cases": [
+  {
+   "name": "codex fixture available @2026-10-27T02:41:33.487Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "user_id": "user-fixture0001",
+     "account_id": "00000000-0000-4000-8000-000000000001",
+     "email": "fixture@example.invalid",
+     "plan_type": "pro",
+     "rate_limit": {
+      "allowed": true,
+      "limit_reached": false,
+      "primary_window": {
+       "used_percent": 22,
+       "limit_window_seconds": 604800,
+       "reset_after_seconds": 520552,
+       "reset_at": 1790780689
+      },
+      "secondary_window": null
+     },
+     "code_review_rate_limit": null,
+     "additional_rate_limits": null,
+     "model_usage": {
+      "gpt-6-astra": {
+       "available": true,
+       "available_at": null,
+       "credits_would_enable": false
+      }
+     },
+     "credits": {
+      "has_credits": false,
+      "unlimited": false,
+      "overage_limit_reached": false,
+      "balance": "0",
+      "approx_local_messages": [
+       0,
+       0
+      ],
+      "approx_cloud_messages": [
+       0,
+       0
+      ]
+     },
+     "spend_control": {
+      "reached": false,
+      "individual_limit": null
+     },
+     "rate_limit_reached_type": null,
+     "promo": null,
+     "rate_limit_reset_credits": {
+      "available_count": 0,
+      "applicable_available_count": 0
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 22,
+      "resetAt": 1790780689000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "available",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 22,
+       "resetAt": 1790780689000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 22,
+       "resetAt": 1790780689000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "remaining": 78,
+     "nextReset": null,
+     "rankReset": 1790780689000,
+     "rankRemaining": 78
+    }
+   }
+  },
+  {
+   "name": "codex fixture available @2026-09-24T12:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "user_id": "user-fixture0001",
+     "account_id": "00000000-0000-4000-8000-000000000001",
+     "email": "fixture@example.invalid",
+     "plan_type": "pro",
+     "rate_limit": {
+      "allowed": true,
+      "limit_reached": false,
+      "primary_window": {
+       "used_percent": 22,
+       "limit_window_seconds": 604800,
+       "reset_after_seconds": 520552,
+       "reset_at": 1790780689
+      },
+      "secondary_window": null
+     },
+     "code_review_rate_limit": null,
+     "additional_rate_limits": null,
+     "model_usage": {
+      "gpt-6-astra": {
+       "available": true,
+       "available_at": null,
+       "credits_would_enable": false
+      }
+     },
+     "credits": {
+      "has_credits": false,
+      "unlimited": false,
+      "overage_limit_reached": false,
+      "balance": "0",
+      "approx_local_messages": [
+       0,
+       0
+      ],
+      "approx_cloud_messages": [
+       0,
+       0
+      ]
+     },
+     "spend_control": {
+      "reached": false,
+      "individual_limit": null
+     },
+     "rate_limit_reached_type": null,
+     "promo": null,
+     "rate_limit_reset_credits": {
+      "available_count": 0,
+      "applicable_available_count": 0
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 22,
+      "resetAt": 1790780689000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "available",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 22,
+       "resetAt": 1790780689000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 22,
+       "resetAt": 1790780689000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "remaining": 78,
+     "nextReset": 1790780689000,
+     "rankReset": 1790780689000,
+     "rankRemaining": 78
+    }
+   }
+  },
+  {
+   "name": "codex fixture available @2026-10-30T14:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "user_id": "user-fixture0001",
+     "account_id": "00000000-0000-4000-8000-000000000001",
+     "email": "fixture@example.invalid",
+     "plan_type": "pro",
+     "rate_limit": {
+      "allowed": true,
+      "limit_reached": false,
+      "primary_window": {
+       "used_percent": 22,
+       "limit_window_seconds": 604800,
+       "reset_after_seconds": 520552,
+       "reset_at": 1790780689
+      },
+      "secondary_window": null
+     },
+     "code_review_rate_limit": null,
+     "additional_rate_limits": null,
+     "model_usage": {
+      "gpt-6-astra": {
+       "available": true,
+       "available_at": null,
+       "credits_would_enable": false
+      }
+     },
+     "credits": {
+      "has_credits": false,
+      "unlimited": false,
+      "overage_limit_reached": false,
+      "balance": "0",
+      "approx_local_messages": [
+       0,
+       0
+      ],
+      "approx_cloud_messages": [
+       0,
+       0
+      ]
+     },
+     "spend_control": {
+      "reached": false,
+      "individual_limit": null
+     },
+     "rate_limit_reached_type": null,
+     "promo": null,
+     "rate_limit_reset_credits": {
+      "available_count": 0,
+      "applicable_available_count": 0
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 22,
+      "resetAt": 1790780689000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "available",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 22,
+       "resetAt": 1790780689000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 22,
+       "resetAt": 1790780689000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "remaining": 78,
+     "nextReset": null,
+     "rankReset": 1790780689000,
+     "rankRemaining": 78
+    }
+   }
+  },
+  {
+   "name": "codex fixture exhausted @2026-10-27T02:41:33.487Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "user_id": "user-fixture0001",
+     "account_id": "00000000-0000-4000-8000-000000000001",
+     "email": "fixture@example.invalid",
+     "plan_type": "pro",
+     "rate_limit": {
+      "allowed": false,
+      "limit_reached": true,
+      "primary_window": {
+       "used_percent": 100,
+       "limit_window_seconds": 604800,
+       "reset_after_seconds": 13619,
+       "reset_at": 1790273819
+      },
+      "secondary_window": null
+     },
+     "code_review_rate_limit": null,
+     "additional_rate_limits": null,
+     "model_usage": {
+      "gpt-6-astra": {
+       "available": false,
+       "available_at": "2026-09-24T18:16:59.563437Z",
+       "credits_would_enable": true
+      }
+     },
+     "credits": {
+      "has_credits": false,
+      "unlimited": false,
+      "overage_limit_reached": false,
+      "balance": "0",
+      "approx_local_messages": [
+       0,
+       0
+      ],
+      "approx_cloud_messages": [
+       0,
+       0
+      ]
+     },
+     "spend_control": {
+      "reached": false,
+      "individual_limit": null
+     },
+     "rate_limit_reached_type": {
+      "type": "rate_limit_reached",
+      "details": "default"
+     },
+     "rate_limit_upsell": {
+      "banner_type": "pro_rate_limit_reached",
+      "title": "Fixture reset",
+      "description": "Synthetic description for a recorded payload",
+      "ctas": [
+       {
+        "action": "add_credits",
+        "label": "Fixture launch grant"
+       },
+       {
+        "action": "reset_usage",
+        "label": "Fixture launch grant"
+       }
+      ],
+      "reset_at": 1790273819,
+      "referral": null,
+      "request_url": null
+     },
+     "ambient_usage": {
+      "default": {
+       "profile_subtext": "Fixture text",
+       "menu": {
+        "rows": [
+         {
+          "label": "Fixture row",
+          "value": {
+           "text": "Fixture text",
+           "tone": "warning"
+          },
+          "hover": {
+           "text": "Fixture text"
+          }
+         }
+        ],
+        "actions": [
+         {
+          "action": "add_credits",
+          "label": "Fixture action"
+         }
+        ]
+       }
+      }
+     },
+     "promo": null,
+     "rate_limit_reset_credits": {
+      "available_count": 1,
+      "applicable_available_count": 1
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1790273819000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "exhausted",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1790273819000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1790273819000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "remaining": 0,
+     "nextReset": null,
+     "rankReset": 1790273819000,
+     "rankRemaining": 0
+    }
+   }
+  },
+  {
+   "name": "codex fixture exhausted @2026-09-24T12:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "user_id": "user-fixture0001",
+     "account_id": "00000000-0000-4000-8000-000000000001",
+     "email": "fixture@example.invalid",
+     "plan_type": "pro",
+     "rate_limit": {
+      "allowed": false,
+      "limit_reached": true,
+      "primary_window": {
+       "used_percent": 100,
+       "limit_window_seconds": 604800,
+       "reset_after_seconds": 13619,
+       "reset_at": 1790273819
+      },
+      "secondary_window": null
+     },
+     "code_review_rate_limit": null,
+     "additional_rate_limits": null,
+     "model_usage": {
+      "gpt-6-astra": {
+       "available": false,
+       "available_at": "2026-09-24T18:16:59.563437Z",
+       "credits_would_enable": true
+      }
+     },
+     "credits": {
+      "has_credits": false,
+      "unlimited": false,
+      "overage_limit_reached": false,
+      "balance": "0",
+      "approx_local_messages": [
+       0,
+       0
+      ],
+      "approx_cloud_messages": [
+       0,
+       0
+      ]
+     },
+     "spend_control": {
+      "reached": false,
+      "individual_limit": null
+     },
+     "rate_limit_reached_type": {
+      "type": "rate_limit_reached",
+      "details": "default"
+     },
+     "rate_limit_upsell": {
+      "banner_type": "pro_rate_limit_reached",
+      "title": "Fixture reset",
+      "description": "Synthetic description for a recorded payload",
+      "ctas": [
+       {
+        "action": "add_credits",
+        "label": "Fixture launch grant"
+       },
+       {
+        "action": "reset_usage",
+        "label": "Fixture launch grant"
+       }
+      ],
+      "reset_at": 1790273819,
+      "referral": null,
+      "request_url": null
+     },
+     "ambient_usage": {
+      "default": {
+       "profile_subtext": "Fixture text",
+       "menu": {
+        "rows": [
+         {
+          "label": "Fixture row",
+          "value": {
+           "text": "Fixture text",
+           "tone": "warning"
+          },
+          "hover": {
+           "text": "Fixture text"
+          }
+         }
+        ],
+        "actions": [
+         {
+          "action": "add_credits",
+          "label": "Fixture action"
+         }
+        ]
+       }
+      }
+     },
+     "promo": null,
+     "rate_limit_reset_credits": {
+      "available_count": 1,
+      "applicable_available_count": 1
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1790273819000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "exhausted",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1790273819000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1790273819000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "remaining": 0,
+     "nextReset": 1790273819000,
+     "rankReset": 1790273819000,
+     "rankRemaining": 0
+    }
+   }
+  },
+  {
+   "name": "codex fixture exhausted @2026-10-30T14:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "user_id": "user-fixture0001",
+     "account_id": "00000000-0000-4000-8000-000000000001",
+     "email": "fixture@example.invalid",
+     "plan_type": "pro",
+     "rate_limit": {
+      "allowed": false,
+      "limit_reached": true,
+      "primary_window": {
+       "used_percent": 100,
+       "limit_window_seconds": 604800,
+       "reset_after_seconds": 13619,
+       "reset_at": 1790273819
+      },
+      "secondary_window": null
+     },
+     "code_review_rate_limit": null,
+     "additional_rate_limits": null,
+     "model_usage": {
+      "gpt-6-astra": {
+       "available": false,
+       "available_at": "2026-09-24T18:16:59.563437Z",
+       "credits_would_enable": true
+      }
+     },
+     "credits": {
+      "has_credits": false,
+      "unlimited": false,
+      "overage_limit_reached": false,
+      "balance": "0",
+      "approx_local_messages": [
+       0,
+       0
+      ],
+      "approx_cloud_messages": [
+       0,
+       0
+      ]
+     },
+     "spend_control": {
+      "reached": false,
+      "individual_limit": null
+     },
+     "rate_limit_reached_type": {
+      "type": "rate_limit_reached",
+      "details": "default"
+     },
+     "rate_limit_upsell": {
+      "banner_type": "pro_rate_limit_reached",
+      "title": "Fixture reset",
+      "description": "Synthetic description for a recorded payload",
+      "ctas": [
+       {
+        "action": "add_credits",
+        "label": "Fixture launch grant"
+       },
+       {
+        "action": "reset_usage",
+        "label": "Fixture launch grant"
+       }
+      ],
+      "reset_at": 1790273819,
+      "referral": null,
+      "request_url": null
+     },
+     "ambient_usage": {
+      "default": {
+       "profile_subtext": "Fixture text",
+       "menu": {
+        "rows": [
+         {
+          "label": "Fixture row",
+          "value": {
+           "text": "Fixture text",
+           "tone": "warning"
+          },
+          "hover": {
+           "text": "Fixture text"
+          }
+         }
+        ],
+        "actions": [
+         {
+          "action": "add_credits",
+          "label": "Fixture action"
+         }
+        ]
+       }
+      }
+     },
+     "promo": null,
+     "rate_limit_reset_credits": {
+      "available_count": 1,
+      "applicable_available_count": 1
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1790273819000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "exhausted",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1790273819000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1790273819000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "remaining": 0,
+     "nextReset": null,
+     "rankReset": 1790273819000,
+     "rankRemaining": 0
+    }
+   }
+  },
+  {
+   "name": "claude fixture @2026-10-27T02:41:33.487Z",
+   "input": {
+    "provider": "claude",
+    "data": {
+     "five_hour": {
+      "utilization": 0,
+      "resets_at": null,
+      "limit_dollars": null,
+      "used_dollars": null,
+      "remaining_dollars": null,
+      "locked_reason": null
+     },
+     "seven_day": {
+      "utilization": 0,
+      "resets_at": "2026-09-30T13:00:00+00:00",
+      "limit_dollars": null,
+      "used_dollars": null,
+      "remaining_dollars": null,
+      "locked_reason": null
+     },
+     "seven_day_oauth_apps": null,
+     "seven_day_opus": null,
+     "seven_day_sonnet": null,
+     "seven_day_cowork": null,
+     "seven_day_omelette": null,
+     "tangelo": null,
+     "iguana_necktie": null,
+     "omelette_promotional": null,
+     "nimbus_quill": {
+      "utilization": 0,
+      "resets_at": null,
+      "limit_dollars": null,
+      "used_dollars": null,
+      "remaining_dollars": null,
+      "locked_reason": null
+     },
+     "cinder_cove": null,
+     "copper_kite": null,
+     "brass_thimble": null,
+     "harbor_lantern": null,
+     "wattle_ember": null,
+     "amber_ladder": null,
+     "amber_cistern": null,
+     "juniper_tide": null,
+     "cedar_ember": {
+      "eligible": true,
+      "ineligible_reason": null,
+      "at_limit": false,
+      "exhausted": [],
+      "grants": [
+       {
+        "id": "fixture-launch-grant",
+        "label": "Fixture launch grant",
+        "resets_total": 1,
+        "resets_left": 1,
+        "starts_at": "2026-09-22T16:00:00+00:00",
+        "ends_at": "2026-10-22T16:00:00+00:00",
+        "clears": [
+         "five_hour",
+         "seven_day",
+         "seven_day_overage_included"
+        ],
+        "paused": false,
+        "usable_now": true,
+        "use_requires_limit": false,
+        "percent_used": {
+         "five_hour": 0,
+         "seven_day": 0,
+         "seven_day_overage_included": 0
+        },
+        "blocking": [],
+        "arm": null
+       }
+      ],
+      "next_grant_id": "fixture-launch-grant",
+      "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+      "cooldown_until": null,
+      "event_props": {
+       "surface": "claude_code_cli",
+       "tier": "fixture_tier",
+       "tenure_bucket": "fixture",
+       "billing_path": "stripe",
+       "billing_period": "unknown",
+       "extra_usage_state": "not_configured"
+      }
+     },
+     "amber_gauge": null,
+     "extra_usage": null,
+     "limits": [
+      {
+       "kind": "session",
+       "group": "session",
+       "percent": 0,
+       "severity": "normal",
+       "resets_at": null,
+       "scope": null,
+       "is_active": true
+      },
+      {
+       "kind": "weekly_all",
+       "group": "weekly",
+       "percent": 0,
+       "severity": "normal",
+       "resets_at": "2026-09-30T13:00:00+00:00",
+       "scope": null,
+       "is_active": false
+      },
+      {
+       "kind": "weekly_scoped",
+       "group": "weekly",
+       "percent": 0,
+       "severity": "normal",
+       "resets_at": "2026-09-30T13:00:00+00:00",
+       "scope": {
+        "model": {
+         "id": null,
+         "display_name": "Fable"
+        },
+        "surface": null
+       },
+       "is_active": false
+      }
+     ],
+     "spend": null,
+     "member_dashboard_available": false,
+     "seven_day_breakdown": null
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "limit:0",
+      "scope": "All models",
+      "label": "5-hour",
+      "used": 0,
+      "resetAt": null,
+      "durationSeconds": 18000,
+      "common": true
+     },
+     {
+      "id": "limit:1",
+      "scope": "All models",
+      "label": "Weekly",
+      "used": 0,
+      "resetAt": 1790773200000,
+      "durationSeconds": 604800,
+      "common": true
+     },
+     {
+      "id": "limit:2",
+      "scope": "Fable",
+      "label": "Weekly",
+      "used": 0,
+      "resetAt": 1790773200000,
+      "durationSeconds": 604800,
+      "common": false
+     }
+    ],
+    "normalizeUsage": {
+     "status": "available",
+     "windows": [
+      {
+       "id": "limit:0",
+       "scope": "All models",
+       "label": "5-hour",
+       "used": 0,
+       "resetAt": null,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "limit:1",
+       "scope": "All models",
+       "label": "Weekly",
+       "used": 0,
+       "resetAt": 1790773200000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "limit:0",
+       "scope": "All models",
+       "label": "5-hour",
+       "used": 0,
+       "resetAt": null,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "limit:1",
+       "scope": "All models",
+       "label": "Weekly",
+       "used": 0,
+       "resetAt": 1790773200000,
+       "durationSeconds": 604800,
+       "common": true
+      },
+      {
+       "id": "limit:2",
+       "scope": "Fable",
+       "label": "Weekly",
+       "used": 0,
+       "resetAt": 1790773200000,
+       "durationSeconds": 604800,
+       "common": false
+      }
+     ],
+     "remaining": 100,
+     "nextReset": null,
+     "rankReset": 1790773200000,
+     "rankRemaining": 100
+    }
+   }
+  },
+  {
+   "name": "claude fixture @2026-09-24T12:00:00.000Z",
+   "input": {
+    "provider": "claude",
+    "data": {
+     "five_hour": {
+      "utilization": 0,
+      "resets_at": null,
+      "limit_dollars": null,
+      "used_dollars": null,
+      "remaining_dollars": null,
+      "locked_reason": null
+     },
+     "seven_day": {
+      "utilization": 0,
+      "resets_at": "2026-09-30T13:00:00+00:00",
+      "limit_dollars": null,
+      "used_dollars": null,
+      "remaining_dollars": null,
+      "locked_reason": null
+     },
+     "seven_day_oauth_apps": null,
+     "seven_day_opus": null,
+     "seven_day_sonnet": null,
+     "seven_day_cowork": null,
+     "seven_day_omelette": null,
+     "tangelo": null,
+     "iguana_necktie": null,
+     "omelette_promotional": null,
+     "nimbus_quill": {
+      "utilization": 0,
+      "resets_at": null,
+      "limit_dollars": null,
+      "used_dollars": null,
+      "remaining_dollars": null,
+      "locked_reason": null
+     },
+     "cinder_cove": null,
+     "copper_kite": null,
+     "brass_thimble": null,
+     "harbor_lantern": null,
+     "wattle_ember": null,
+     "amber_ladder": null,
+     "amber_cistern": null,
+     "juniper_tide": null,
+     "cedar_ember": {
+      "eligible": true,
+      "ineligible_reason": null,
+      "at_limit": false,
+      "exhausted": [],
+      "grants": [
+       {
+        "id": "fixture-launch-grant",
+        "label": "Fixture launch grant",
+        "resets_total": 1,
+        "resets_left": 1,
+        "starts_at": "2026-09-22T16:00:00+00:00",
+        "ends_at": "2026-10-22T16:00:00+00:00",
+        "clears": [
+         "five_hour",
+         "seven_day",
+         "seven_day_overage_included"
+        ],
+        "paused": false,
+        "usable_now": true,
+        "use_requires_limit": false,
+        "percent_used": {
+         "five_hour": 0,
+         "seven_day": 0,
+         "seven_day_overage_included": 0
+        },
+        "blocking": [],
+        "arm": null
+       }
+      ],
+      "next_grant_id": "fixture-launch-grant",
+      "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+      "cooldown_until": null,
+      "event_props": {
+       "surface": "claude_code_cli",
+       "tier": "fixture_tier",
+       "tenure_bucket": "fixture",
+       "billing_path": "stripe",
+       "billing_period": "unknown",
+       "extra_usage_state": "not_configured"
+      }
+     },
+     "amber_gauge": null,
+     "extra_usage": null,
+     "limits": [
+      {
+       "kind": "session",
+       "group": "session",
+       "percent": 0,
+       "severity": "normal",
+       "resets_at": null,
+       "scope": null,
+       "is_active": true
+      },
+      {
+       "kind": "weekly_all",
+       "group": "weekly",
+       "percent": 0,
+       "severity": "normal",
+       "resets_at": "2026-09-30T13:00:00+00:00",
+       "scope": null,
+       "is_active": false
+      },
+      {
+       "kind": "weekly_scoped",
+       "group": "weekly",
+       "percent": 0,
+       "severity": "normal",
+       "resets_at": "2026-09-30T13:00:00+00:00",
+       "scope": {
+        "model": {
+         "id": null,
+         "display_name": "Fable"
+        },
+        "surface": null
+       },
+       "is_active": false
+      }
+     ],
+     "spend": null,
+     "member_dashboard_available": false,
+     "seven_day_breakdown": null
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "limit:0",
+      "scope": "All models",
+      "label": "5-hour",
+      "used": 0,
+      "resetAt": null,
+      "durationSeconds": 18000,
+      "common": true
+     },
+     {
+      "id": "limit:1",
+      "scope": "All models",
+      "label": "Weekly",
+      "used": 0,
+      "resetAt": 1790773200000,
+      "durationSeconds": 604800,
+      "common": true
+     },
+     {
+      "id": "limit:2",
+      "scope": "Fable",
+      "label": "Weekly",
+      "used": 0,
+      "resetAt": 1790773200000,
+      "durationSeconds": 604800,
+      "common": false
+     }
+    ],
+    "normalizeUsage": {
+     "status": "available",
+     "windows": [
+      {
+       "id": "limit:0",
+       "scope": "All models",
+       "label": "5-hour",
+       "used": 0,
+       "resetAt": null,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "limit:1",
+       "scope": "All models",
+       "label": "Weekly",
+       "used": 0,
+       "resetAt": 1790773200000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "limit:0",
+       "scope": "All models",
+       "label": "5-hour",
+       "used": 0,
+       "resetAt": null,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "limit:1",
+       "scope": "All models",
+       "label": "Weekly",
+       "used": 0,
+       "resetAt": 1790773200000,
+       "durationSeconds": 604800,
+       "common": true
+      },
+      {
+       "id": "limit:2",
+       "scope": "Fable",
+       "label": "Weekly",
+       "used": 0,
+       "resetAt": 1790773200000,
+       "durationSeconds": 604800,
+       "common": false
+      }
+     ],
+     "remaining": 100,
+     "nextReset": 1790773200000,
+     "rankReset": 1790773200000,
+     "rankRemaining": 100
+    }
+   }
+  },
+  {
+   "name": "claude fixture @2026-10-30T14:00:00.000Z",
+   "input": {
+    "provider": "claude",
+    "data": {
+     "five_hour": {
+      "utilization": 0,
+      "resets_at": null,
+      "limit_dollars": null,
+      "used_dollars": null,
+      "remaining_dollars": null,
+      "locked_reason": null
+     },
+     "seven_day": {
+      "utilization": 0,
+      "resets_at": "2026-09-30T13:00:00+00:00",
+      "limit_dollars": null,
+      "used_dollars": null,
+      "remaining_dollars": null,
+      "locked_reason": null
+     },
+     "seven_day_oauth_apps": null,
+     "seven_day_opus": null,
+     "seven_day_sonnet": null,
+     "seven_day_cowork": null,
+     "seven_day_omelette": null,
+     "tangelo": null,
+     "iguana_necktie": null,
+     "omelette_promotional": null,
+     "nimbus_quill": {
+      "utilization": 0,
+      "resets_at": null,
+      "limit_dollars": null,
+      "used_dollars": null,
+      "remaining_dollars": null,
+      "locked_reason": null
+     },
+     "cinder_cove": null,
+     "copper_kite": null,
+     "brass_thimble": null,
+     "harbor_lantern": null,
+     "wattle_ember": null,
+     "amber_ladder": null,
+     "amber_cistern": null,
+     "juniper_tide": null,
+     "cedar_ember": {
+      "eligible": true,
+      "ineligible_reason": null,
+      "at_limit": false,
+      "exhausted": [],
+      "grants": [
+       {
+        "id": "fixture-launch-grant",
+        "label": "Fixture launch grant",
+        "resets_total": 1,
+        "resets_left": 1,
+        "starts_at": "2026-09-22T16:00:00+00:00",
+        "ends_at": "2026-10-22T16:00:00+00:00",
+        "clears": [
+         "five_hour",
+         "seven_day",
+         "seven_day_overage_included"
+        ],
+        "paused": false,
+        "usable_now": true,
+        "use_requires_limit": false,
+        "percent_used": {
+         "five_hour": 0,
+         "seven_day": 0,
+         "seven_day_overage_included": 0
+        },
+        "blocking": [],
+        "arm": null
+       }
+      ],
+      "next_grant_id": "fixture-launch-grant",
+      "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+      "cooldown_until": null,
+      "event_props": {
+       "surface": "claude_code_cli",
+       "tier": "fixture_tier",
+       "tenure_bucket": "fixture",
+       "billing_path": "stripe",
+       "billing_period": "unknown",
+       "extra_usage_state": "not_configured"
+      }
+     },
+     "amber_gauge": null,
+     "extra_usage": null,
+     "limits": [
+      {
+       "kind": "session",
+       "group": "session",
+       "percent": 0,
+       "severity": "normal",
+       "resets_at": null,
+       "scope": null,
+       "is_active": true
+      },
+      {
+       "kind": "weekly_all",
+       "group": "weekly",
+       "percent": 0,
+       "severity": "normal",
+       "resets_at": "2026-09-30T13:00:00+00:00",
+       "scope": null,
+       "is_active": false
+      },
+      {
+       "kind": "weekly_scoped",
+       "group": "weekly",
+       "percent": 0,
+       "severity": "normal",
+       "resets_at": "2026-09-30T13:00:00+00:00",
+       "scope": {
+        "model": {
+         "id": null,
+         "display_name": "Fable"
+        },
+        "surface": null
+       },
+       "is_active": false
+      }
+     ],
+     "spend": null,
+     "member_dashboard_available": false,
+     "seven_day_breakdown": null
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "limit:0",
+      "scope": "All models",
+      "label": "5-hour",
+      "used": 0,
+      "resetAt": null,
+      "durationSeconds": 18000,
+      "common": true
+     },
+     {
+      "id": "limit:1",
+      "scope": "All models",
+      "label": "Weekly",
+      "used": 0,
+      "resetAt": 1790773200000,
+      "durationSeconds": 604800,
+      "common": true
+     },
+     {
+      "id": "limit:2",
+      "scope": "Fable",
+      "label": "Weekly",
+      "used": 0,
+      "resetAt": 1790773200000,
+      "durationSeconds": 604800,
+      "common": false
+     }
+    ],
+    "normalizeUsage": {
+     "status": "available",
+     "windows": [
+      {
+       "id": "limit:0",
+       "scope": "All models",
+       "label": "5-hour",
+       "used": 0,
+       "resetAt": null,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "limit:1",
+       "scope": "All models",
+       "label": "Weekly",
+       "used": 0,
+       "resetAt": 1790773200000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "limit:0",
+       "scope": "All models",
+       "label": "5-hour",
+       "used": 0,
+       "resetAt": null,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "limit:1",
+       "scope": "All models",
+       "label": "Weekly",
+       "used": 0,
+       "resetAt": 1790773200000,
+       "durationSeconds": 604800,
+       "common": true
+      },
+      {
+       "id": "limit:2",
+       "scope": "Fable",
+       "label": "Weekly",
+       "used": 0,
+       "resetAt": 1790773200000,
+       "durationSeconds": 604800,
+       "common": false
+      }
+     ],
+     "remaining": 100,
+     "nextReset": null,
+     "rankReset": 1790773200000,
+     "rankRemaining": 100
+    }
+   }
+  },
+  {
+   "name": "codex additional and named buckets @2026-10-27T02:41:33.487Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "rate_limit": {
+      "allowed": true,
+      "limit_reached": false,
+      "primary_window": {
+       "used_percent": 40,
+       "limit_window_seconds": 18000,
+       "reset_at": 1793100000
+      },
+      "secondary_window": {
+       "used_percent": 12.5,
+       "limit_window_seconds": 604800,
+       "reset_at": 1793500000
+      }
+     },
+     "additional_rate_limits": [
+      {
+       "limit_name": "GPT-6 Astra",
+       "rate_limit": {
+        "primary_window": {
+         "used_percent": 100,
+         "limit_window_seconds": 604800,
+         "reset_at": 1793400000
+        }
+       }
+      },
+      {
+       "rate_limit": {
+        "primary_window": {
+         "utilization": 7,
+         "limit_window_seconds": 3600
+        }
+       }
+      }
+     ],
+     "code_review_rate_limit": {
+      "primary_window": {
+       "used_percent": 3,
+       "limit_window_seconds": 86400,
+       "reset_at": 1793200000
+      }
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "5-hour",
+      "used": 40,
+      "resetAt": 1793100000000,
+      "durationSeconds": 18000,
+      "common": true
+     },
+     {
+      "id": "codex:secondary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 12.5,
+      "resetAt": 1793500000000,
+      "durationSeconds": 604800,
+      "common": true
+     },
+     {
+      "id": "additional:0:primary_window",
+      "scope": "GPT-6 Astra",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1793400000000,
+      "durationSeconds": 604800,
+      "common": false
+     },
+     {
+      "id": "additional:1:primary_window",
+      "scope": "Additional limit 2",
+      "label": "1-hour",
+      "used": 7,
+      "resetAt": null,
+      "durationSeconds": 3600,
+      "common": false
+     },
+     {
+      "id": "code_review_rate_limit:primary_window",
+      "scope": "Code Review",
+      "label": "Daily",
+      "used": 3,
+      "resetAt": 1793200000000,
+      "durationSeconds": 86400,
+      "common": false
+     }
+    ],
+    "normalizeUsage": {
+     "status": "available",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "5-hour",
+       "used": 40,
+       "resetAt": 1793100000000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "codex:secondary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 12.5,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "5-hour",
+       "used": 40,
+       "resetAt": 1793100000000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "codex:secondary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 12.5,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      },
+      {
+       "id": "additional:0:primary_window",
+       "scope": "GPT-6 Astra",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793400000000,
+       "durationSeconds": 604800,
+       "common": false
+      },
+      {
+       "id": "additional:1:primary_window",
+       "scope": "Additional limit 2",
+       "label": "1-hour",
+       "used": 7,
+       "resetAt": null,
+       "durationSeconds": 3600,
+       "common": false
+      },
+      {
+       "id": "code_review_rate_limit:primary_window",
+       "scope": "Code Review",
+       "label": "Daily",
+       "used": 3,
+       "resetAt": 1793200000000,
+       "durationSeconds": 86400,
+       "common": false
+      }
+     ],
+     "remaining": 60,
+     "nextReset": 1793100000000,
+     "rankReset": 1793500000000,
+     "rankRemaining": 87.5
+    }
+   }
+  },
+  {
+   "name": "codex additional and named buckets @2026-09-24T12:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "rate_limit": {
+      "allowed": true,
+      "limit_reached": false,
+      "primary_window": {
+       "used_percent": 40,
+       "limit_window_seconds": 18000,
+       "reset_at": 1793100000
+      },
+      "secondary_window": {
+       "used_percent": 12.5,
+       "limit_window_seconds": 604800,
+       "reset_at": 1793500000
+      }
+     },
+     "additional_rate_limits": [
+      {
+       "limit_name": "GPT-6 Astra",
+       "rate_limit": {
+        "primary_window": {
+         "used_percent": 100,
+         "limit_window_seconds": 604800,
+         "reset_at": 1793400000
+        }
+       }
+      },
+      {
+       "rate_limit": {
+        "primary_window": {
+         "utilization": 7,
+         "limit_window_seconds": 3600
+        }
+       }
+      }
+     ],
+     "code_review_rate_limit": {
+      "primary_window": {
+       "used_percent": 3,
+       "limit_window_seconds": 86400,
+       "reset_at": 1793200000
+      }
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "5-hour",
+      "used": 40,
+      "resetAt": 1793100000000,
+      "durationSeconds": 18000,
+      "common": true
+     },
+     {
+      "id": "codex:secondary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 12.5,
+      "resetAt": 1793500000000,
+      "durationSeconds": 604800,
+      "common": true
+     },
+     {
+      "id": "additional:0:primary_window",
+      "scope": "GPT-6 Astra",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1793400000000,
+      "durationSeconds": 604800,
+      "common": false
+     },
+     {
+      "id": "additional:1:primary_window",
+      "scope": "Additional limit 2",
+      "label": "1-hour",
+      "used": 7,
+      "resetAt": null,
+      "durationSeconds": 3600,
+      "common": false
+     },
+     {
+      "id": "code_review_rate_limit:primary_window",
+      "scope": "Code Review",
+      "label": "Daily",
+      "used": 3,
+      "resetAt": 1793200000000,
+      "durationSeconds": 86400,
+      "common": false
+     }
+    ],
+    "normalizeUsage": {
+     "status": "available",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "5-hour",
+       "used": 40,
+       "resetAt": 1793100000000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "codex:secondary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 12.5,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "5-hour",
+       "used": 40,
+       "resetAt": 1793100000000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "codex:secondary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 12.5,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      },
+      {
+       "id": "additional:0:primary_window",
+       "scope": "GPT-6 Astra",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793400000000,
+       "durationSeconds": 604800,
+       "common": false
+      },
+      {
+       "id": "additional:1:primary_window",
+       "scope": "Additional limit 2",
+       "label": "1-hour",
+       "used": 7,
+       "resetAt": null,
+       "durationSeconds": 3600,
+       "common": false
+      },
+      {
+       "id": "code_review_rate_limit:primary_window",
+       "scope": "Code Review",
+       "label": "Daily",
+       "used": 3,
+       "resetAt": 1793200000000,
+       "durationSeconds": 86400,
+       "common": false
+      }
+     ],
+     "remaining": 60,
+     "nextReset": 1793100000000,
+     "rankReset": 1793500000000,
+     "rankRemaining": 87.5
+    }
+   }
+  },
+  {
+   "name": "codex additional and named buckets @2026-10-30T14:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "rate_limit": {
+      "allowed": true,
+      "limit_reached": false,
+      "primary_window": {
+       "used_percent": 40,
+       "limit_window_seconds": 18000,
+       "reset_at": 1793100000
+      },
+      "secondary_window": {
+       "used_percent": 12.5,
+       "limit_window_seconds": 604800,
+       "reset_at": 1793500000
+      }
+     },
+     "additional_rate_limits": [
+      {
+       "limit_name": "GPT-6 Astra",
+       "rate_limit": {
+        "primary_window": {
+         "used_percent": 100,
+         "limit_window_seconds": 604800,
+         "reset_at": 1793400000
+        }
+       }
+      },
+      {
+       "rate_limit": {
+        "primary_window": {
+         "utilization": 7,
+         "limit_window_seconds": 3600
+        }
+       }
+      }
+     ],
+     "code_review_rate_limit": {
+      "primary_window": {
+       "used_percent": 3,
+       "limit_window_seconds": 86400,
+       "reset_at": 1793200000
+      }
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "5-hour",
+      "used": 40,
+      "resetAt": 1793100000000,
+      "durationSeconds": 18000,
+      "common": true
+     },
+     {
+      "id": "codex:secondary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 12.5,
+      "resetAt": 1793500000000,
+      "durationSeconds": 604800,
+      "common": true
+     },
+     {
+      "id": "additional:0:primary_window",
+      "scope": "GPT-6 Astra",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1793400000000,
+      "durationSeconds": 604800,
+      "common": false
+     },
+     {
+      "id": "additional:1:primary_window",
+      "scope": "Additional limit 2",
+      "label": "1-hour",
+      "used": 7,
+      "resetAt": null,
+      "durationSeconds": 3600,
+      "common": false
+     },
+     {
+      "id": "code_review_rate_limit:primary_window",
+      "scope": "Code Review",
+      "label": "Daily",
+      "used": 3,
+      "resetAt": 1793200000000,
+      "durationSeconds": 86400,
+      "common": false
+     }
+    ],
+    "normalizeUsage": {
+     "status": "available",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "5-hour",
+       "used": 40,
+       "resetAt": 1793100000000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "codex:secondary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 12.5,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "5-hour",
+       "used": 40,
+       "resetAt": 1793100000000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "codex:secondary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 12.5,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      },
+      {
+       "id": "additional:0:primary_window",
+       "scope": "GPT-6 Astra",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793400000000,
+       "durationSeconds": 604800,
+       "common": false
+      },
+      {
+       "id": "additional:1:primary_window",
+       "scope": "Additional limit 2",
+       "label": "1-hour",
+       "used": 7,
+       "resetAt": null,
+       "durationSeconds": 3600,
+       "common": false
+      },
+      {
+       "id": "code_review_rate_limit:primary_window",
+       "scope": "Code Review",
+       "label": "Daily",
+       "used": 3,
+       "resetAt": 1793200000000,
+       "durationSeconds": 86400,
+       "common": false
+      }
+     ],
+     "remaining": 60,
+     "nextReset": 1793500000000,
+     "rankReset": 1793500000000,
+     "rankRemaining": 87.5
+    }
+   }
+  },
+  {
+   "name": "codex malformed flags @2026-10-27T02:41:33.487Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "rate_limit": {
+      "allowed": "yes",
+      "primary_window": {
+       "used_percent": 10,
+       "limit_window_seconds": 604800,
+       "reset_at": 1793500000
+      }
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 10,
+      "resetAt": 1793500000000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "unknown",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 10,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 10,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "nextReset": 1793500000000,
+     "rankReset": 1793500000000,
+     "rankRemaining": 90
+    }
+   }
+  },
+  {
+   "name": "codex malformed flags @2026-09-24T12:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "rate_limit": {
+      "allowed": "yes",
+      "primary_window": {
+       "used_percent": 10,
+       "limit_window_seconds": 604800,
+       "reset_at": 1793500000
+      }
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 10,
+      "resetAt": 1793500000000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "unknown",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 10,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 10,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "nextReset": 1793500000000,
+     "rankReset": 1793500000000,
+     "rankRemaining": 90
+    }
+   }
+  },
+  {
+   "name": "codex malformed flags @2026-10-30T14:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "rate_limit": {
+      "allowed": "yes",
+      "primary_window": {
+       "used_percent": 10,
+       "limit_window_seconds": 604800,
+       "reset_at": 1793500000
+      }
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 10,
+      "resetAt": 1793500000000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "unknown",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 10,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 10,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "nextReset": 1793500000000,
+     "rankReset": 1793500000000,
+     "rankRemaining": 90
+    }
+   }
+  },
+  {
+   "name": "codex used out of range @2026-10-27T02:41:33.487Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "rate_limit": {
+      "primary_window": {
+       "used_percent": 140,
+       "limit_window_seconds": 604800,
+       "reset_at": 1793500000
+      }
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": null,
+      "resetAt": 1793500000000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "unknown",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": null,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": null,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "nextReset": 1793500000000,
+     "rankReset": 1793500000000,
+     "rankRemaining": null
+    }
+   }
+  },
+  {
+   "name": "codex used out of range @2026-09-24T12:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "rate_limit": {
+      "primary_window": {
+       "used_percent": 140,
+       "limit_window_seconds": 604800,
+       "reset_at": 1793500000
+      }
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": null,
+      "resetAt": 1793500000000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "unknown",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": null,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": null,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "nextReset": 1793500000000,
+     "rankReset": 1793500000000,
+     "rankRemaining": null
+    }
+   }
+  },
+  {
+   "name": "codex used out of range @2026-10-30T14:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "rate_limit": {
+      "primary_window": {
+       "used_percent": 140,
+       "limit_window_seconds": 604800,
+       "reset_at": 1793500000
+      }
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": null,
+      "resetAt": 1793500000000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "unknown",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": null,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": null,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "nextReset": 1793500000000,
+     "rankReset": 1793500000000,
+     "rankRemaining": null
+    }
+   }
+  },
+  {
+   "name": "codex no flags, at limit @2026-10-27T02:41:33.487Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "rate_limit": {
+      "primary_window": {
+       "used_percent": 100,
+       "limit_window_seconds": 604800,
+       "reset_at": 1793500000
+      }
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1793500000000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "exhausted",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "remaining": 0,
+     "nextReset": 1793500000000,
+     "rankReset": 1793500000000,
+     "rankRemaining": 0
+    }
+   }
+  },
+  {
+   "name": "codex no flags, at limit @2026-09-24T12:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "rate_limit": {
+      "primary_window": {
+       "used_percent": 100,
+       "limit_window_seconds": 604800,
+       "reset_at": 1793500000
+      }
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1793500000000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "exhausted",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "remaining": 0,
+     "nextReset": 1793500000000,
+     "rankReset": 1793500000000,
+     "rankRemaining": 0
+    }
+   }
+  },
+  {
+   "name": "codex no flags, at limit @2026-10-30T14:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {
+     "rate_limit": {
+      "primary_window": {
+       "used_percent": 100,
+       "limit_window_seconds": 604800,
+       "reset_at": 1793500000
+      }
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "codex:primary_window",
+      "scope": "Codex",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1793500000000,
+      "durationSeconds": 604800,
+      "common": true
+     }
+    ],
+    "normalizeUsage": {
+     "status": "exhausted",
+     "windows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "codex:primary_window",
+       "scope": "Codex",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793500000000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "remaining": 0,
+     "nextReset": 1793500000000,
+     "rankReset": 1793500000000,
+     "rankRemaining": 0
+    }
+   }
+  },
+  {
+   "name": "codex empty @2026-10-27T02:41:33.487Z",
+   "input": {
+    "provider": "codex",
+    "data": {},
+    "now": 1793068893487
+   },
+   "result": {
+    "quotaWindows": [],
+    "normalizeUsage": {
+     "status": "unknown",
+     "windows": [],
+     "quotaWindows": [],
+     "nextReset": null,
+     "rankReset": null,
+     "rankRemaining": null
+    }
+   }
+  },
+  {
+   "name": "codex empty @2026-09-24T12:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {},
+    "now": 1790251200000
+   },
+   "result": {
+    "quotaWindows": [],
+    "normalizeUsage": {
+     "status": "unknown",
+     "windows": [],
+     "quotaWindows": [],
+     "nextReset": null,
+     "rankReset": null,
+     "rankRemaining": null
+    }
+   }
+  },
+  {
+   "name": "codex empty @2026-10-30T14:00:00.000Z",
+   "input": {
+    "provider": "codex",
+    "data": {},
+    "now": 1793368800000
+   },
+   "result": {
+    "quotaWindows": [],
+    "normalizeUsage": {
+     "status": "unknown",
+     "windows": [],
+     "quotaWindows": [],
+     "nextReset": null,
+     "rankReset": null,
+     "rankRemaining": null
+    }
+   }
+  },
+  {
+   "name": "claude structured scopes @2026-10-27T02:41:33.487Z",
+   "input": {
+    "provider": "claude",
+    "data": {
+     "limits": [
+      {
+       "kind": "session",
+       "percent": 10,
+       "resets_at": "2026-10-27T05:00:00+00:00"
+      },
+      {
+       "kind": "weekly_all",
+       "percent": 40,
+       "resets_at": "2026-10-30T13:00:00+00:00"
+      },
+      {
+       "kind": "weekly_scoped",
+       "group": "weekly",
+       "percent": 100,
+       "resets_at": "2026-10-30T13:00:00+00:00",
+       "scope": {
+        "model": {
+         "display_name": "Fable"
+        }
+       }
+      },
+      {
+       "kind": "daily_scoped",
+       "percent": 20,
+       "limit_window_seconds": 86400,
+       "scope": {
+        "model": {
+         "display_name": "Fable"
+        },
+        "surface": {
+         "name": "Cowork"
+        }
+       }
+      },
+      {
+       "kind": "weekly_all"
+      }
+     ],
+     "five_hour": {
+      "utilization": 99,
+      "resets_at": null
+     },
+     "seven_day": {
+      "utilization": 1
+     },
+     "seven_day_opus": {
+      "utilization": 50,
+      "resets_at": "2026-10-30T13:00:00+00:00"
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "limit:0",
+      "scope": "All models",
+      "label": "5-hour",
+      "used": 10,
+      "resetAt": 1793077200000,
+      "durationSeconds": 18000,
+      "common": true
+     },
+     {
+      "id": "limit:1",
+      "scope": "All models",
+      "label": "Weekly",
+      "used": 40,
+      "resetAt": 1793365200000,
+      "durationSeconds": 604800,
+      "common": true
+     },
+     {
+      "id": "limit:2",
+      "scope": "Fable",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1793365200000,
+      "durationSeconds": 604800,
+      "common": false
+     },
+     {
+      "id": "limit:3",
+      "scope": "Fable · Cowork",
+      "label": "Daily",
+      "used": 20,
+      "resetAt": null,
+      "durationSeconds": 86400,
+      "common": false
+     },
+     {
+      "id": "seven_day_opus",
+      "scope": "Opus",
+      "label": "Weekly",
+      "used": 50,
+      "resetAt": 1793365200000,
+      "durationSeconds": 604800,
+      "common": false
+     }
+    ],
+    "normalizeUsage": {
+     "status": "available",
+     "windows": [
+      {
+       "id": "limit:0",
+       "scope": "All models",
+       "label": "5-hour",
+       "used": 10,
+       "resetAt": 1793077200000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "limit:1",
+       "scope": "All models",
+       "label": "Weekly",
+       "used": 40,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "limit:0",
+       "scope": "All models",
+       "label": "5-hour",
+       "used": 10,
+       "resetAt": 1793077200000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "limit:1",
+       "scope": "All models",
+       "label": "Weekly",
+       "used": 40,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": true
+      },
+      {
+       "id": "limit:2",
+       "scope": "Fable",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": false
+      },
+      {
+       "id": "limit:3",
+       "scope": "Fable · Cowork",
+       "label": "Daily",
+       "used": 20,
+       "resetAt": null,
+       "durationSeconds": 86400,
+       "common": false
+      },
+      {
+       "id": "seven_day_opus",
+       "scope": "Opus",
+       "label": "Weekly",
+       "used": 50,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": false
+      }
+     ],
+     "remaining": 60,
+     "nextReset": 1793077200000,
+     "rankReset": 1793365200000,
+     "rankRemaining": 60
+    }
+   }
+  },
+  {
+   "name": "claude structured scopes @2026-09-24T12:00:00.000Z",
+   "input": {
+    "provider": "claude",
+    "data": {
+     "limits": [
+      {
+       "kind": "session",
+       "percent": 10,
+       "resets_at": "2026-10-27T05:00:00+00:00"
+      },
+      {
+       "kind": "weekly_all",
+       "percent": 40,
+       "resets_at": "2026-10-30T13:00:00+00:00"
+      },
+      {
+       "kind": "weekly_scoped",
+       "group": "weekly",
+       "percent": 100,
+       "resets_at": "2026-10-30T13:00:00+00:00",
+       "scope": {
+        "model": {
+         "display_name": "Fable"
+        }
+       }
+      },
+      {
+       "kind": "daily_scoped",
+       "percent": 20,
+       "limit_window_seconds": 86400,
+       "scope": {
+        "model": {
+         "display_name": "Fable"
+        },
+        "surface": {
+         "name": "Cowork"
+        }
+       }
+      },
+      {
+       "kind": "weekly_all"
+      }
+     ],
+     "five_hour": {
+      "utilization": 99,
+      "resets_at": null
+     },
+     "seven_day": {
+      "utilization": 1
+     },
+     "seven_day_opus": {
+      "utilization": 50,
+      "resets_at": "2026-10-30T13:00:00+00:00"
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "limit:0",
+      "scope": "All models",
+      "label": "5-hour",
+      "used": 10,
+      "resetAt": 1793077200000,
+      "durationSeconds": 18000,
+      "common": true
+     },
+     {
+      "id": "limit:1",
+      "scope": "All models",
+      "label": "Weekly",
+      "used": 40,
+      "resetAt": 1793365200000,
+      "durationSeconds": 604800,
+      "common": true
+     },
+     {
+      "id": "limit:2",
+      "scope": "Fable",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1793365200000,
+      "durationSeconds": 604800,
+      "common": false
+     },
+     {
+      "id": "limit:3",
+      "scope": "Fable · Cowork",
+      "label": "Daily",
+      "used": 20,
+      "resetAt": null,
+      "durationSeconds": 86400,
+      "common": false
+     },
+     {
+      "id": "seven_day_opus",
+      "scope": "Opus",
+      "label": "Weekly",
+      "used": 50,
+      "resetAt": 1793365200000,
+      "durationSeconds": 604800,
+      "common": false
+     }
+    ],
+    "normalizeUsage": {
+     "status": "available",
+     "windows": [
+      {
+       "id": "limit:0",
+       "scope": "All models",
+       "label": "5-hour",
+       "used": 10,
+       "resetAt": 1793077200000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "limit:1",
+       "scope": "All models",
+       "label": "Weekly",
+       "used": 40,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "limit:0",
+       "scope": "All models",
+       "label": "5-hour",
+       "used": 10,
+       "resetAt": 1793077200000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "limit:1",
+       "scope": "All models",
+       "label": "Weekly",
+       "used": 40,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": true
+      },
+      {
+       "id": "limit:2",
+       "scope": "Fable",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": false
+      },
+      {
+       "id": "limit:3",
+       "scope": "Fable · Cowork",
+       "label": "Daily",
+       "used": 20,
+       "resetAt": null,
+       "durationSeconds": 86400,
+       "common": false
+      },
+      {
+       "id": "seven_day_opus",
+       "scope": "Opus",
+       "label": "Weekly",
+       "used": 50,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": false
+      }
+     ],
+     "remaining": 60,
+     "nextReset": 1793077200000,
+     "rankReset": 1793365200000,
+     "rankRemaining": 60
+    }
+   }
+  },
+  {
+   "name": "claude structured scopes @2026-10-30T14:00:00.000Z",
+   "input": {
+    "provider": "claude",
+    "data": {
+     "limits": [
+      {
+       "kind": "session",
+       "percent": 10,
+       "resets_at": "2026-10-27T05:00:00+00:00"
+      },
+      {
+       "kind": "weekly_all",
+       "percent": 40,
+       "resets_at": "2026-10-30T13:00:00+00:00"
+      },
+      {
+       "kind": "weekly_scoped",
+       "group": "weekly",
+       "percent": 100,
+       "resets_at": "2026-10-30T13:00:00+00:00",
+       "scope": {
+        "model": {
+         "display_name": "Fable"
+        }
+       }
+      },
+      {
+       "kind": "daily_scoped",
+       "percent": 20,
+       "limit_window_seconds": 86400,
+       "scope": {
+        "model": {
+         "display_name": "Fable"
+        },
+        "surface": {
+         "name": "Cowork"
+        }
+       }
+      },
+      {
+       "kind": "weekly_all"
+      }
+     ],
+     "five_hour": {
+      "utilization": 99,
+      "resets_at": null
+     },
+     "seven_day": {
+      "utilization": 1
+     },
+     "seven_day_opus": {
+      "utilization": 50,
+      "resets_at": "2026-10-30T13:00:00+00:00"
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "limit:0",
+      "scope": "All models",
+      "label": "5-hour",
+      "used": 10,
+      "resetAt": 1793077200000,
+      "durationSeconds": 18000,
+      "common": true
+     },
+     {
+      "id": "limit:1",
+      "scope": "All models",
+      "label": "Weekly",
+      "used": 40,
+      "resetAt": 1793365200000,
+      "durationSeconds": 604800,
+      "common": true
+     },
+     {
+      "id": "limit:2",
+      "scope": "Fable",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1793365200000,
+      "durationSeconds": 604800,
+      "common": false
+     },
+     {
+      "id": "limit:3",
+      "scope": "Fable · Cowork",
+      "label": "Daily",
+      "used": 20,
+      "resetAt": null,
+      "durationSeconds": 86400,
+      "common": false
+     },
+     {
+      "id": "seven_day_opus",
+      "scope": "Opus",
+      "label": "Weekly",
+      "used": 50,
+      "resetAt": 1793365200000,
+      "durationSeconds": 604800,
+      "common": false
+     }
+    ],
+    "normalizeUsage": {
+     "status": "available",
+     "windows": [
+      {
+       "id": "limit:0",
+       "scope": "All models",
+       "label": "5-hour",
+       "used": 10,
+       "resetAt": 1793077200000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "limit:1",
+       "scope": "All models",
+       "label": "Weekly",
+       "used": 40,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "limit:0",
+       "scope": "All models",
+       "label": "5-hour",
+       "used": 10,
+       "resetAt": 1793077200000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "limit:1",
+       "scope": "All models",
+       "label": "Weekly",
+       "used": 40,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": true
+      },
+      {
+       "id": "limit:2",
+       "scope": "Fable",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": false
+      },
+      {
+       "id": "limit:3",
+       "scope": "Fable · Cowork",
+       "label": "Daily",
+       "used": 20,
+       "resetAt": null,
+       "durationSeconds": 86400,
+       "common": false
+      },
+      {
+       "id": "seven_day_opus",
+       "scope": "Opus",
+       "label": "Weekly",
+       "used": 50,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": false
+      }
+     ],
+     "remaining": 60,
+     "nextReset": null,
+     "rankReset": 1793365200000,
+     "rankRemaining": 60
+    }
+   }
+  },
+  {
+   "name": "claude legacy only @2026-10-27T02:41:33.487Z",
+   "input": {
+    "provider": "claude",
+    "data": {
+     "five_hour": {
+      "utilization": 35.5,
+      "resets_at": "2026-10-27T05:00:00+00:00"
+     },
+     "seven_day": {
+      "utilization": 100,
+      "resets_at": "2026-10-30T13:00:00+00:00"
+     },
+     "seven_day_sonnet": {
+      "utilization": 2,
+      "resets_at": null
+     },
+     "nimbus_quill": {
+      "utilization": 0
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "five_hour",
+      "scope": "All Models",
+      "label": "5-hour",
+      "used": 35.5,
+      "resetAt": 1793077200000,
+      "durationSeconds": 18000,
+      "common": true
+     },
+     {
+      "id": "seven_day",
+      "scope": "All Models",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1793365200000,
+      "durationSeconds": 604800,
+      "common": true
+     },
+     {
+      "id": "seven_day_sonnet",
+      "scope": "Sonnet",
+      "label": "Weekly",
+      "used": 2,
+      "resetAt": null,
+      "durationSeconds": 604800,
+      "common": false
+     }
+    ],
+    "normalizeUsage": {
+     "status": "exhausted",
+     "windows": [
+      {
+       "id": "five_hour",
+       "scope": "All Models",
+       "label": "5-hour",
+       "used": 35.5,
+       "resetAt": 1793077200000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "seven_day",
+       "scope": "All Models",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "five_hour",
+       "scope": "All Models",
+       "label": "5-hour",
+       "used": 35.5,
+       "resetAt": 1793077200000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "seven_day",
+       "scope": "All Models",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": true
+      },
+      {
+       "id": "seven_day_sonnet",
+       "scope": "Sonnet",
+       "label": "Weekly",
+       "used": 2,
+       "resetAt": null,
+       "durationSeconds": 604800,
+       "common": false
+      }
+     ],
+     "remaining": 0,
+     "nextReset": 1793077200000,
+     "rankReset": 1793365200000,
+     "rankRemaining": 0
+    }
+   }
+  },
+  {
+   "name": "claude legacy only @2026-09-24T12:00:00.000Z",
+   "input": {
+    "provider": "claude",
+    "data": {
+     "five_hour": {
+      "utilization": 35.5,
+      "resets_at": "2026-10-27T05:00:00+00:00"
+     },
+     "seven_day": {
+      "utilization": 100,
+      "resets_at": "2026-10-30T13:00:00+00:00"
+     },
+     "seven_day_sonnet": {
+      "utilization": 2,
+      "resets_at": null
+     },
+     "nimbus_quill": {
+      "utilization": 0
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "five_hour",
+      "scope": "All Models",
+      "label": "5-hour",
+      "used": 35.5,
+      "resetAt": 1793077200000,
+      "durationSeconds": 18000,
+      "common": true
+     },
+     {
+      "id": "seven_day",
+      "scope": "All Models",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1793365200000,
+      "durationSeconds": 604800,
+      "common": true
+     },
+     {
+      "id": "seven_day_sonnet",
+      "scope": "Sonnet",
+      "label": "Weekly",
+      "used": 2,
+      "resetAt": null,
+      "durationSeconds": 604800,
+      "common": false
+     }
+    ],
+    "normalizeUsage": {
+     "status": "exhausted",
+     "windows": [
+      {
+       "id": "five_hour",
+       "scope": "All Models",
+       "label": "5-hour",
+       "used": 35.5,
+       "resetAt": 1793077200000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "seven_day",
+       "scope": "All Models",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "five_hour",
+       "scope": "All Models",
+       "label": "5-hour",
+       "used": 35.5,
+       "resetAt": 1793077200000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "seven_day",
+       "scope": "All Models",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": true
+      },
+      {
+       "id": "seven_day_sonnet",
+       "scope": "Sonnet",
+       "label": "Weekly",
+       "used": 2,
+       "resetAt": null,
+       "durationSeconds": 604800,
+       "common": false
+      }
+     ],
+     "remaining": 0,
+     "nextReset": 1793077200000,
+     "rankReset": 1793365200000,
+     "rankRemaining": 0
+    }
+   }
+  },
+  {
+   "name": "claude legacy only @2026-10-30T14:00:00.000Z",
+   "input": {
+    "provider": "claude",
+    "data": {
+     "five_hour": {
+      "utilization": 35.5,
+      "resets_at": "2026-10-27T05:00:00+00:00"
+     },
+     "seven_day": {
+      "utilization": 100,
+      "resets_at": "2026-10-30T13:00:00+00:00"
+     },
+     "seven_day_sonnet": {
+      "utilization": 2,
+      "resets_at": null
+     },
+     "nimbus_quill": {
+      "utilization": 0
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "quotaWindows": [
+     {
+      "id": "five_hour",
+      "scope": "All Models",
+      "label": "5-hour",
+      "used": 35.5,
+      "resetAt": 1793077200000,
+      "durationSeconds": 18000,
+      "common": true
+     },
+     {
+      "id": "seven_day",
+      "scope": "All Models",
+      "label": "Weekly",
+      "used": 100,
+      "resetAt": 1793365200000,
+      "durationSeconds": 604800,
+      "common": true
+     },
+     {
+      "id": "seven_day_sonnet",
+      "scope": "Sonnet",
+      "label": "Weekly",
+      "used": 2,
+      "resetAt": null,
+      "durationSeconds": 604800,
+      "common": false
+     }
+    ],
+    "normalizeUsage": {
+     "status": "exhausted",
+     "windows": [
+      {
+       "id": "five_hour",
+       "scope": "All Models",
+       "label": "5-hour",
+       "used": 35.5,
+       "resetAt": 1793077200000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "seven_day",
+       "scope": "All Models",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": true
+      }
+     ],
+     "quotaWindows": [
+      {
+       "id": "five_hour",
+       "scope": "All Models",
+       "label": "5-hour",
+       "used": 35.5,
+       "resetAt": 1793077200000,
+       "durationSeconds": 18000,
+       "common": true
+      },
+      {
+       "id": "seven_day",
+       "scope": "All Models",
+       "label": "Weekly",
+       "used": 100,
+       "resetAt": 1793365200000,
+       "durationSeconds": 604800,
+       "common": true
+      },
+      {
+       "id": "seven_day_sonnet",
+       "scope": "Sonnet",
+       "label": "Weekly",
+       "used": 2,
+       "resetAt": null,
+       "durationSeconds": 604800,
+       "common": false
+      }
+     ],
+     "remaining": 0,
+     "nextReset": null,
+     "rankReset": 1793365200000,
+     "rankRemaining": 0
+    }
+   }
+  },
+  {
+   "name": "claude empty @2026-10-27T02:41:33.487Z",
+   "input": {
+    "provider": "claude",
+    "data": {},
+    "now": 1793068893487
+   },
+   "result": {
+    "quotaWindows": [],
+    "normalizeUsage": {
+     "status": "unknown",
+     "windows": [],
+     "quotaWindows": [],
+     "nextReset": null,
+     "rankReset": null,
+     "rankRemaining": null
+    }
+   }
+  },
+  {
+   "name": "claude empty @2026-09-24T12:00:00.000Z",
+   "input": {
+    "provider": "claude",
+    "data": {},
+    "now": 1790251200000
+   },
+   "result": {
+    "quotaWindows": [],
+    "normalizeUsage": {
+     "status": "unknown",
+     "windows": [],
+     "quotaWindows": [],
+     "nextReset": null,
+     "rankReset": null,
+     "rankRemaining": null
+    }
+   }
+  },
+  {
+   "name": "claude empty @2026-10-30T14:00:00.000Z",
+   "input": {
+    "provider": "claude",
+    "data": {},
+    "now": 1793368800000
+   },
+   "result": {
+    "quotaWindows": [],
+    "normalizeUsage": {
+     "status": "unknown",
+     "windows": [],
+     "quotaWindows": [],
+     "nextReset": null,
+     "rankReset": null,
+     "rankRemaining": null
+    }
+   }
+  }
+ ]
+}

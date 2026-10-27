@@ -1,0 +1,860 @@
+{
+ "format": "usage-value/v1",
+ "generatedAt": "2026-10-27T02:41:33.487Z",
+ "config": {
+  "analysisDays": 14,
+  "valueDays": 7,
+  "wasteDays": 30,
+  "bucketHours": 12
+ },
+ "valueFrom": "2026-10-22T02:41:33.870Z",
+ "valueWindowDays": 5,
+ "coverage": {
+  "ledgerSince": "2026-10-22T02:41:33.870Z",
+  "ledgerRows": 250238,
+  "duplicates": 0,
+  "unattributedRows": 0,
+  "unattributedUsd": 0,
+  "samplesSince": "2026-09-25T16:15:33.031Z",
+  "unpricedModels": {
+   "claude-haiku-4-5-20251001": 4,
+   "claude-sonnet-5": 28
+  },
+  "prices": {
+   "source": "codeburn 0.9.27 built-in pricing table (npx codeburn, dist/main.js), read 2026-10-15. API list prices; subscription quota is not priced this way, see usage-value.mjs.",
+   "effectiveFrom": "2026-10-01"
+  }
+ },
+ "fits": {
+  "codex": {
+   "observations": 37,
+   "hours": 120,
+   "usd": 4064.13,
+   "units": 3.735,
+   "status": "ok",
+   "pooled": {
+    "usdPerAccountWeek": 1181,
+    "unitsPerUsd": 0.0008470891427428231,
+    "r2": 0.984,
+    "outliers": 2
+   },
+   "perModel": {
+    "r2": 0.985,
+    "outliers": 2,
+    "models": {
+     "gpt-6-astra": {
+      "usdPerAccountWeek": 1252,
+      "unitsPerUsd": 0.0007988125725537494,
+      "usd": 1373.63
+     },
+     "gpt-6.1-sol": {
+      "usdPerAccountWeek": 1142,
+      "unitsPerUsd": 0.0008758529780300895,
+      "usd": 2690.28
+     },
+     "(other)": {
+      "usdPerAccountWeek": null,
+      "unitsPerUsd": 0,
+      "usd": 0.22
+     }
+    }
+   },
+   "perTokenType": {
+    "r2": 0.949,
+    "outliers": 0,
+    "types": {
+     "in": {
+      "unitsPerUsd": 0.00029875917115684445,
+      "usdPerAccountWeek": 3347
+     },
+     "cr": {
+      "unitsPerUsd": 0.00003780369334890711,
+      "usdPerAccountWeek": 26452
+     },
+     "cw": {
+      "unitsPerUsd": 0,
+      "usdPerAccountWeek": null
+     },
+     "out": {
+      "unitsPerUsd": 0.005429662910027465,
+      "usdPerAccountWeek": 184
+     }
+    }
+   },
+   "singleModel": {
+    "gpt-6.1-sol": {
+     "buckets": 9,
+     "usdPerAccountWeek": 625
+    }
+   }
+  },
+  "claude": {
+   "observations": 15,
+   "hours": 120,
+   "usd": 6205.4,
+   "units": 2.53,
+   "status": "ok",
+   "pooled": {
+    "usdPerAccountWeek": 2467,
+    "unitsPerUsd": 0.00040539458881280266,
+    "r2": 0.996,
+    "outliers": 0
+   },
+   "perModel": {
+    "r2": 0.996,
+    "outliers": 0,
+    "models": {
+     "claude-fable-5-1": {
+      "usdPerAccountWeek": 2780,
+      "unitsPerUsd": 0.0003596513188717374,
+      "usd": 91.49
+     },
+     "claude-opus-5-5": {
+      "usdPerAccountWeek": 2461,
+      "unitsPerUsd": 0.0004063870258221123,
+      "usd": 6109.81
+     },
+     "(other)": {
+      "usdPerAccountWeek": null,
+      "unitsPerUsd": 0,
+      "usd": 4.1
+     }
+    }
+   },
+   "perTokenType": {
+    "r2": 0.998,
+    "outliers": 0,
+    "types": {
+     "in": {
+      "unitsPerUsd": 0.004646433179586215,
+      "usdPerAccountWeek": 215
+     },
+     "cr": {
+      "unitsPerUsd": 0.0002273912357206001,
+      "usdPerAccountWeek": 4398
+     },
+     "cw": {
+      "unitsPerUsd": 0.0004971384669800326,
+      "usdPerAccountWeek": 2012
+     },
+     "out": {
+      "unitsPerUsd": 0.0006206480100065433,
+      "usdPerAccountWeek": 1611
+     }
+    }
+   },
+   "singleModel": {
+    "claude-opus-5-5": {
+     "buckets": 15,
+     "usdPerAccountWeek": 2448
+    }
+   }
+  }
+ },
+ "modelLimits": [
+  {
+   "provider": "claude",
+   "scope": "Fable",
+   "window": "limit:2",
+   "models": [
+    "claude-fable-5",
+    "claude-fable-5-1"
+   ],
+   "kind": "cap",
+   "shareOfCommon": 0.1776,
+   "shareBasis": "model",
+   "source": "measured",
+   "observations": 8,
+   "note": null
+  }
+ ],
+ "accounts": [
+  {
+   "id": "claude-0e602f2d-user1@example.invalid.json",
+   "email": "user1@example.invalid",
+   "provider": "claude",
+   "weight": 1,
+   "requests": 25209,
+   "failedRequests": 14,
+   "apiEquivalentUsd": 2106.51,
+   "usdByModel": {
+    "claude-opus-5-5": 2073.89,
+    "claude-sonnet-5-5": 0.2,
+    "claude-haiku-4-5-20251001": 0,
+    "claude-fable-5-1": 32.41,
+    "claude-haiku-5-5": 0.01
+   },
+   "weeklyPercentUsed": 86,
+   "quotaUnitsUsed": 0.86,
+   "quotaSource": "samples",
+   "fitSource": "headers",
+   "usdPerAccountWeek": 2449,
+   "unexplainedUnits": 0.0055,
+   "planUsdPerMonth": 200,
+   "planPriceSource": "list",
+   "valueMultiple": 63.9
+  },
+  {
+   "id": "claude-550c2ce1-user4@example.invalid.json",
+   "email": "user4@example.invalid",
+   "provider": "claude",
+   "weight": 1,
+   "requests": 22253,
+   "failedRequests": 20,
+   "apiEquivalentUsd": 2127.84,
+   "usdByModel": {
+    "claude-opus-5-5": 2091.91,
+    "claude-sonnet-5-5": 0.1,
+    "claude-fable-5-1": 35.83,
+    "claude-haiku-5-5": 0.01
+   },
+   "weeklyPercentUsed": 89,
+   "quotaUnitsUsed": 0.89,
+   "quotaSource": "samples",
+   "fitSource": "headers",
+   "usdPerAccountWeek": 2391,
+   "unexplainedUnits": 0.0269,
+   "planUsdPerMonth": 200,
+   "planPriceSource": "list",
+   "valueMultiple": 64.54
+  },
+  {
+   "id": "claude-b1dc4342-user3@example.invalid.json",
+   "email": "user3@example.invalid",
+   "provider": "claude",
+   "weight": 1,
+   "requests": 29225,
+   "failedRequests": 19,
+   "apiEquivalentUsd": 2464.47,
+   "usdByModel": {
+    "claude-opus-5-5": 2433.97,
+    "claude-sonnet-5-5": 3.79,
+    "claude-fable-5-1": 23.25,
+    "claude-haiku-4-5-20251001": 0,
+    "claude-sonnet-5": 0,
+    "claude-opus-5": 3.47
+   },
+   "weeklyPercentUsed": 99,
+   "quotaUnitsUsed": 0.99,
+   "quotaSource": "samples",
+   "fitSource": "headers",
+   "usdPerAccountWeek": 2489,
+   "unexplainedUnits": -0.0104,
+   "planUsdPerMonth": 200,
+   "planPriceSource": "list",
+   "valueMultiple": 74.76
+  },
+  {
+   "id": "codex-4a53e220-user1@example.invalid-pro.json",
+   "email": "user1@example.invalid",
+   "provider": "codex",
+   "weight": 1,
+   "requests": 58678,
+   "failedRequests": 12704,
+   "apiEquivalentUsd": 1323.15,
+   "usdByModel": {
+    "gpt-6.1-sol": 881.25,
+    "gpt-6-luna": 0.07,
+    "gpt-6-astra": 441.84
+   },
+   "weeklyPercentUsed": 112,
+   "quotaUnitsUsed": 1.12,
+   "quotaSource": "samples",
+   "fitSource": "headers",
+   "usdPerAccountWeek": 1181,
+   "unexplainedUnits": -0.0048,
+   "planUsdPerMonth": 200,
+   "planPriceSource": "provider",
+   "valueMultiple": 40.14
+  },
+  {
+   "id": "codex-5f88762d-user3@example.invalid-pro.json",
+   "email": "user3@example.invalid",
+   "provider": "codex",
+   "weight": 1,
+   "requests": 39435,
+   "failedRequests": 12909,
+   "apiEquivalentUsd": 908,
+   "usdByModel": {
+    "gpt-6.1-sol": 541.92,
+    "gpt-6-luna": 0.09,
+    "gpt-6-astra": 365.99
+   },
+   "weeklyPercentUsed": 78,
+   "quotaUnitsUsed": 0.78,
+   "quotaSource": "samples",
+   "fitSource": "headers",
+   "usdPerAccountWeek": 1164,
+   "unexplainedUnits": 0.0129,
+   "planUsdPerMonth": 200,
+   "planPriceSource": "provider",
+   "valueMultiple": 27.54
+  },
+  {
+   "id": "codex-decc23ae-user4@example.invalid-pro.json",
+   "email": "user4@example.invalid",
+   "provider": "codex",
+   "weight": 1,
+   "requests": 62325,
+   "failedRequests": 11568,
+   "apiEquivalentUsd": 1527.42,
+   "usdByModel": {
+    "gpt-6.1-sol": 977.31,
+    "gpt-6-luna": 0.08,
+    "gpt-6-astra": 550.03
+   },
+   "weeklyPercentUsed": 128,
+   "quotaUnitsUsed": 1.28,
+   "quotaSource": "samples",
+   "fitSource": "headers",
+   "usdPerAccountWeek": 1193,
+   "unexplainedUnits": -0.0154,
+   "planUsdPerMonth": 200,
+   "planPriceSource": "provider",
+   "valueMultiple": 46.33
+  },
+  {
+   "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+   "email": "user2@example.invalid",
+   "provider": "codex",
+   "weight": 0.5,
+   "requests": 13113,
+   "failedRequests": 40,
+   "apiEquivalentUsd": 401.59,
+   "usdByModel": {
+    "gpt-6.1-sol": 314.23,
+    "gpt-6-astra": 87.37
+   },
+   "weeklyPercentUsed": 130,
+   "quotaUnitsUsed": 0.65,
+   "quotaSource": "samples",
+   "fitSource": "headers",
+   "usdPerAccountWeek": 618,
+   "unexplainedUnits": 0.305,
+   "planUsdPerMonth": 100,
+   "planPriceSource": "provider",
+   "valueMultiple": 24.36
+  }
+ ],
+ "models": [
+  {
+   "provider": "claude",
+   "model": "claude-opus-5-5",
+   "requests": 75865,
+   "failedRequests": 51,
+   "sessions": 527,
+   "apiEquivalentUsd": 6599.76,
+   "usdPerRequest": 0.087,
+   "tokens": {
+    "in": 577600,
+    "cr": 14117154084,
+    "cw": 488952991,
+    "out": 66462783,
+    "rsn": 30337176
+   },
+   "estimatedQuotaUnits": 2.6821,
+   "shareOfProviderQuota": 0.987
+  },
+  {
+   "provider": "codex",
+   "model": "gpt-6.1-sol",
+   "requests": 162784,
+   "failedRequests": 35986,
+   "sessions": 1204,
+   "apiEquivalentUsd": 2714.71,
+   "usdPerRequest": 0.017,
+   "tokens": {
+    "in": 470308692,
+    "cr": 13497759360,
+    "cw": 0,
+    "out": 42431793,
+    "rsn": 13699355
+   },
+   "estimatedQuotaUnits": 2.3777,
+   "shareOfProviderQuota": 0.673
+  },
+  {
+   "provider": "codex",
+   "model": "gpt-6-astra",
+   "requests": 10339,
+   "failedRequests": 1087,
+   "sessions": 180,
+   "apiEquivalentUsd": 1445.22,
+   "usdPerRequest": 0.14,
+   "tokens": {
+    "in": 42409497,
+    "cr": 843106560,
+    "cw": 0,
+    "out": 3560380,
+    "rsn": 1343650
+   },
+   "estimatedQuotaUnits": 1.1545,
+   "shareOfProviderQuota": 0.327
+  },
+  {
+   "provider": "claude",
+   "model": "claude-fable-5-1",
+   "requests": 646,
+   "failedRequests": 2,
+   "sessions": 16,
+   "apiEquivalentUsd": 91.49,
+   "usdPerRequest": 0.142,
+   "tokens": {
+    "in": 1917,
+    "cr": 100405280,
+    "cw": 2267326,
+    "out": 760504,
+    "rsn": 450524
+   },
+   "estimatedQuotaUnits": 0.0329,
+   "shareOfProviderQuota": 0.012
+  },
+  {
+   "provider": "claude",
+   "model": "claude-sonnet-5-5",
+   "requests": 109,
+   "failedRequests": 0,
+   "sessions": 16,
+   "apiEquivalentUsd": 4.08,
+   "usdPerRequest": 0.037,
+   "tokens": {
+    "in": 1401,
+    "cr": 10548469,
+    "cw": 724027,
+    "out": 121601,
+    "rsn": 73135
+   },
+   "estimatedQuotaUnits": 0.0017,
+   "shareOfProviderQuota": 0.001
+  },
+  {
+   "provider": "claude",
+   "model": "claude-opus-5",
+   "requests": 26,
+   "failedRequests": 0,
+   "sessions": 1,
+   "apiEquivalentUsd": 3.47,
+   "usdPerRequest": 0.133,
+   "tokens": {
+    "in": 52,
+    "cr": 3256234,
+    "cw": 158389,
+    "out": 33918,
+    "rsn": 19696
+   },
+   "estimatedQuotaUnits": 0.0014,
+   "shareOfProviderQuota": 0.001
+  },
+  {
+   "provider": "codex",
+   "model": "gpt-6-luna",
+   "requests": 428,
+   "failedRequests": 148,
+   "sessions": 118,
+   "apiEquivalentUsd": 0.23,
+   "usdPerRequest": 0.001,
+   "tokens": {
+    "in": 1596671,
+    "cr": 4427648,
+    "cw": 0,
+    "out": 61147,
+    "rsn": 27403
+   },
+   "estimatedQuotaUnits": 0.0002,
+   "shareOfProviderQuota": 0
+  },
+  {
+   "provider": "claude",
+   "model": "claude-haiku-5-5",
+   "requests": 9,
+   "failedRequests": 0,
+   "sessions": 9,
+   "apiEquivalentUsd": 0.02,
+   "usdPerRequest": 0.002,
+   "tokens": {
+    "in": 18,
+    "cr": 113020,
+    "cw": 116519,
+    "out": 457,
+    "rsn": 421
+   },
+   "estimatedQuotaUnits": 0,
+   "shareOfProviderQuota": 0
+  },
+  {
+   "provider": "claude",
+   "model": "claude-haiku-4-5-20251001",
+   "requests": 4,
+   "failedRequests": 0,
+   "sessions": 4,
+   "apiEquivalentUsd": 0,
+   "usdPerRequest": 0,
+   "tokens": {
+    "in": 977,
+    "cr": 0,
+    "cw": 0,
+    "out": 79,
+    "rsn": 0
+   },
+   "estimatedQuotaUnits": 0,
+   "shareOfProviderQuota": 0
+  },
+  {
+   "provider": "claude",
+   "model": "claude-sonnet-5",
+   "requests": 28,
+   "failedRequests": 0,
+   "sessions": 3,
+   "apiEquivalentUsd": 0,
+   "usdPerRequest": 0,
+   "tokens": {
+    "in": 1278,
+    "cr": 545946,
+    "cw": 1080990,
+    "out": 1226,
+    "rsn": 0
+   },
+   "estimatedQuotaUnits": 0,
+   "shareOfProviderQuota": 0
+  }
+ ],
+ "sessions": [
+  {
+   "sid": "01a0ba3f-4ac2-70f1-a8bb-2817707886ad",
+   "client": "codex_cli_rs",
+   "provider": "claude",
+   "firstAt": "2026-10-22T02:41:33.870Z",
+   "lastAt": "2026-10-27T02:38:29.219Z",
+   "requests": 17548,
+   "apiEquivalentUsd": 1508.9,
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "estimatedQuotaUnits": 0.6132
+  },
+  {
+   "sid": "01a14fb1-ae81-7ff1-bec3-a463d5318d2a",
+   "client": "codex_cli_rs",
+   "provider": "claude",
+   "firstAt": "2026-10-22T02:42:06.303Z",
+   "lastAt": "2026-10-27T02:41:26.454Z",
+   "requests": 16961,
+   "apiEquivalentUsd": 818.84,
+   "models": [
+    "claude-opus-5-5",
+    "gpt-6.1-sol",
+    "gpt-6-astra",
+    "claude-fable-5-1",
+    "claude-sonnet-5-5"
+   ],
+   "estimatedQuotaUnits": 0.3312
+  },
+  {
+   "sid": "01a16bfb-f9cb-7973-b90f-bffec1e87718",
+   "client": "codex_cli_rs",
+   "provider": "claude",
+   "firstAt": "2026-10-24T03:37:22.700Z",
+   "lastAt": "2026-10-27T02:41:25.369Z",
+   "requests": 8799,
+   "apiEquivalentUsd": 741.44,
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "estimatedQuotaUnits": 0.3013
+  },
+  {
+   "sid": "01a16b18-9688-7e40-a606-788b06828861",
+   "client": "codex_cli_rs",
+   "provider": "claude",
+   "firstAt": "2026-10-23T23:29:03.428Z",
+   "lastAt": "2026-10-27T02:40:39.403Z",
+   "requests": 4274,
+   "apiEquivalentUsd": 376.7,
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "estimatedQuotaUnits": 0.1531
+  },
+  {
+   "sid": "01a156c4-0eb1-7832-b850-0b76a6285a9b",
+   "client": "codex_cli_rs",
+   "provider": "claude",
+   "firstAt": "2026-10-22T02:44:47.829Z",
+   "lastAt": "2026-10-25T18:15:12.508Z",
+   "requests": 3595,
+   "apiEquivalentUsd": 353.15,
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "estimatedQuotaUnits": 0.1435
+  },
+  {
+   "sid": "01a16167-c87e-73a2-b566-9c25e84800d1",
+   "client": "codex_cli_rs",
+   "provider": "claude",
+   "firstAt": "2026-10-22T02:43:18.998Z",
+   "lastAt": "2026-10-23T18:50:25.264Z",
+   "requests": 2521,
+   "apiEquivalentUsd": 233.08,
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "estimatedQuotaUnits": 0.0947
+  },
+  {
+   "sid": "f70ad3f8-991e-4685-ab15-69770b357774",
+   "client": "claude-cli",
+   "provider": "claude",
+   "firstAt": "2026-10-26T22:49:33.219Z",
+   "lastAt": "2026-10-27T02:41:24.874Z",
+   "requests": 701,
+   "apiEquivalentUsd": 219.36,
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "estimatedQuotaUnits": 0.0891
+  },
+  {
+   "sid": "01a15974-11b3-7ea1-ada8-237779e09fd5",
+   "client": "codex_cli_rs",
+   "provider": "claude",
+   "firstAt": "2026-10-22T02:41:34.586Z",
+   "lastAt": "2026-10-23T22:58:28.741Z",
+   "requests": 1918,
+   "apiEquivalentUsd": 211.64,
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "estimatedQuotaUnits": 0.086
+  },
+  {
+   "sid": "01a12613-4cd8-7db3-b1e6-76e27fbbef8b",
+   "client": "codex_cli_rs",
+   "provider": "claude",
+   "firstAt": "2026-10-22T02:51:56.043Z",
+   "lastAt": "2026-10-27T02:13:20.946Z",
+   "requests": 810,
+   "apiEquivalentUsd": 197.72,
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "estimatedQuotaUnits": 0.0804
+  },
+  {
+   "sid": "ab9a85af-336f-4f4b-983b-9630c77bdbff",
+   "client": "claude-cli",
+   "provider": "claude",
+   "firstAt": "2026-10-26T23:17:54.937Z",
+   "lastAt": "2026-10-27T02:41:33.269Z",
+   "requests": 852,
+   "apiEquivalentUsd": 185.5,
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "estimatedQuotaUnits": 0.0754
+  },
+  {
+   "sid": "01a17354-fcb0-7d30-8da2-f1400760a99f",
+   "client": "codex_cli_rs",
+   "provider": "claude",
+   "firstAt": "2026-10-25T13:52:03.444Z",
+   "lastAt": "2026-10-27T02:41:28.472Z",
+   "requests": 1730,
+   "apiEquivalentUsd": 165.14,
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "estimatedQuotaUnits": 0.0671
+  },
+  {
+   "sid": "01a14f7e-e2f9-75b0-b8bb-335e47e4d145",
+   "client": "codex_cli_rs",
+   "provider": "claude",
+   "firstAt": "2026-10-22T03:06:33.197Z",
+   "lastAt": "2026-10-27T02:02:59.280Z",
+   "requests": 373,
+   "apiEquivalentUsd": 136.47,
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "estimatedQuotaUnits": 0.0555
+  },
+  {
+   "sid": "01a16fc5-322e-7a80-b7fd-e3e110d8ea64",
+   "client": "codex_exec",
+   "provider": "codex",
+   "firstAt": "2026-10-24T21:15:57.225Z",
+   "lastAt": "2026-10-24T23:02:50.650Z",
+   "requests": 469,
+   "apiEquivalentUsd": 75.59,
+   "models": [
+    "gpt-6-astra"
+   ],
+   "estimatedQuotaUnits": 0.0604
+  },
+  {
+   "sid": "01a16fac-8f27-7a00-b164-f8b7730cab9d",
+   "client": "codex_cli_rs",
+   "provider": "claude",
+   "firstAt": "2026-10-24T20:49:10.846Z",
+   "lastAt": "2026-10-25T09:11:18.745Z",
+   "requests": 865,
+   "apiEquivalentUsd": 66.94,
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "estimatedQuotaUnits": 0.0272
+  },
+  {
+   "sid": "01a166db-1f0e-7392-a60e-073cc0380cd8",
+   "client": "codex_exec",
+   "provider": "codex",
+   "firstAt": "2026-10-23T03:43:19.701Z",
+   "lastAt": "2026-10-23T06:34:25.051Z",
+   "requests": 374,
+   "apiEquivalentUsd": 59.33,
+   "models": [
+    "gpt-6-astra"
+   ],
+   "estimatedQuotaUnits": 0.0474
+  }
+ ],
+ "waste": {
+  "measured": [
+   {
+    "id": "claude-0e602f2d-user1@example.invalid.json",
+    "provider": "claude",
+    "windowsEnded": 4,
+    "unusedUnits": 0.22,
+    "ends": [
+     {
+      "at": "2026-09-30T13:00:51.690Z",
+      "lastUsedPercent": 78
+     },
+     {
+      "at": "2026-10-07T13:01:28.088Z",
+      "lastUsedPercent": 100
+     },
+     {
+      "at": "2026-10-14T13:01:16.437Z",
+      "lastUsedPercent": 100
+     },
+     {
+      "at": "2026-10-21T13:00:31.227Z",
+      "lastUsedPercent": 100
+     }
+    ],
+    "refillsSeen": 1
+   },
+   {
+    "id": "claude-550c2ce1-user4@example.invalid.json",
+    "provider": "claude",
+    "windowsEnded": 5,
+    "unusedUnits": 0.45,
+    "ends": [
+     {
+      "at": "2026-09-27T09:00:29.527Z",
+      "lastUsedPercent": 97
+     },
+     {
+      "at": "2026-10-04T08:59:58.722Z",
+      "lastUsedPercent": 58
+     },
+     {
+      "at": "2026-10-11T09:01:13.140Z",
+      "lastUsedPercent": 100
+     },
+     {
+      "at": "2026-10-18T09:01:54.701Z",
+      "lastUsedPercent": 100
+     },
+     {
+      "at": "2026-10-25T09:00:59.647Z",
+      "lastUsedPercent": 100
+     }
+    ],
+    "refillsSeen": 1
+   },
+   {
+    "id": "claude-b1dc4342-user3@example.invalid.json",
+    "provider": "claude",
+    "windowsEnded": 4,
+    "unusedUnits": 0,
+    "ends": [
+     {
+      "at": "2026-10-04T02:29:22.914Z",
+      "lastUsedPercent": 100
+     },
+     {
+      "at": "2026-10-11T02:02:13.009Z",
+      "lastUsedPercent": 100
+     },
+     {
+      "at": "2026-10-18T02:00:41.171Z",
+      "lastUsedPercent": 100
+     },
+     {
+      "at": "2026-10-25T02:00:34.732Z",
+      "lastUsedPercent": 100
+     }
+    ],
+    "refillsSeen": 1
+   },
+   {
+    "id": "codex-4a53e220-user1@example.invalid-pro.json",
+    "provider": "codex",
+    "windowsEnded": 0,
+    "unusedUnits": 0,
+    "ends": [],
+    "refillsSeen": 0
+   },
+   {
+    "id": "codex-5f88762d-user3@example.invalid-pro.json",
+    "provider": "codex",
+    "windowsEnded": 0,
+    "unusedUnits": 0,
+    "ends": [],
+    "refillsSeen": 0
+   },
+   {
+    "id": "codex-decc23ae-user4@example.invalid-pro.json",
+    "provider": "codex",
+    "windowsEnded": 0,
+    "unusedUnits": 0,
+    "ends": [],
+    "refillsSeen": 0
+   },
+   {
+    "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+    "provider": "codex",
+    "windowsEnded": 0,
+    "unusedUnits": 0,
+    "ends": [],
+    "refillsSeen": 0
+   }
+  ],
+  "projected": {
+   "claude": {
+    "state": "conserve",
+    "creditsExpiringUnused": 0,
+    "wastedUnits": 0,
+    "creditsLapsingOutlook": 0,
+    "creditExpiries": []
+   },
+   "codex": {
+    "state": "conserve",
+    "creditsExpiringUnused": 2,
+    "wastedUnits": 2,
+    "creditsLapsingOutlook": 2,
+    "creditExpiries": [
+     "2026-10-29T19:00:36.292Z",
+     "2026-11-06T23:18:20.490Z",
+     "2026-11-06T23:28:59.954Z",
+     "2026-11-06T23:30:53.621Z",
+     "2026-11-06T23:39:11.687Z"
+    ]
+   }
+  }
+ },
+ "problems": []
+}

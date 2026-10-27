@@ -1,0 +1,124 @@
+{
+ "format": "model-prices/v1",
+ "unit": "USD per million tokens",
+ "source": "codeburn 0.9.27 built-in pricing table (npx codeburn, dist/main.js), read 2026-10-15. API list prices; subscription quota is not priced this way, see usage-value.mjs.",
+ "effectiveFrom": "2026-10-01",
+ "notes": "longContext applies to the whole request when its prompt (uncached + cache read + cache write) exceeds threshold tokens. priorityMultiplier applies when the response service tier is priority.",
+ "models": {
+  "gpt-6-astra": {
+   "input": 10,
+   "output": 50,
+   "cacheWrite": 12.5,
+   "cacheRead": 1,
+   "priorityMultiplier": 2,
+   "longContext": {
+    "threshold": 272000,
+    "input": 20,
+    "output": 75,
+    "cacheWrite": 25,
+    "cacheRead": 2
+   }
+  },
+  "gpt-6.1-sol": {
+   "input": 2,
+   "output": 10,
+   "cacheWrite": 2.5,
+   "cacheRead": 0.1,
+   "priorityMultiplier": 2,
+   "longContext": {
+    "threshold": 272000,
+    "input": 4,
+    "output": 15,
+    "cacheWrite": 5,
+    "cacheRead": 0.2
+   }
+  },
+  "gpt-6-sol": {
+   "input": 2,
+   "output": 10,
+   "cacheWrite": 2.5,
+   "cacheRead": 0.2,
+   "priorityMultiplier": 2,
+   "longContext": {
+    "threshold": 272000,
+    "input": 4,
+    "output": 15,
+    "cacheWrite": 5,
+    "cacheRead": 0.4
+   }
+  },
+  "gpt-6-luna": {
+   "input": 0.1,
+   "output": 0.5,
+   "cacheWrite": 0.125,
+   "cacheRead": 0.01,
+   "priorityMultiplier": 2,
+   "longContext": {
+    "threshold": 272000,
+    "input": 0.2,
+    "output": 0.75,
+    "cacheWrite": 0.25,
+    "cacheRead": 0.02
+   }
+  },
+  "gpt-5.6-sol": {
+   "input": 4,
+   "output": 20,
+   "cacheWrite": 5,
+   "cacheRead": 0.4,
+   "priorityMultiplier": 2,
+   "longContext": {
+    "threshold": 272000,
+    "input": 8,
+    "output": 30,
+    "cacheWrite": 10,
+    "cacheRead": 0.8
+   }
+  },
+  "claude-opus-5-5": {
+   "input": 4,
+   "output": 20,
+   "cacheWrite": 5,
+   "cacheRead": 0.2,
+   "priorityMultiplier": 2
+  },
+  "claude-opus-5": {
+   "input": 5,
+   "output": 25,
+   "cacheWrite": 6.25,
+   "cacheRead": 0.5,
+   "priorityMultiplier": 2
+  },
+  "claude-fable-5-1": {
+   "input": 10,
+   "output": 50,
+   "cacheWrite": 12.5,
+   "cacheRead": 0.25
+  },
+  "claude-fable-5": {
+   "input": 10,
+   "output": 50,
+   "cacheWrite": 12.5,
+   "cacheRead": 1
+  },
+  "claude-sonnet-5-5": {
+   "input": 2,
+   "output": 10,
+   "cacheWrite": 2.5,
+   "cacheRead": 0.1
+  },
+  "claude-haiku-5-5": {
+   "input": 0.1,
+   "output": 0.5,
+   "cacheWrite": 0.125,
+   "cacheRead": 0.01,
+   "longContext": {
+    "threshold": 100000,
+    "input": 0.5,
+    "output": 2.5,
+    "cacheWrite": 0.625,
+    "cacheRead": 0.05
+   }
+  }
+ }
+}

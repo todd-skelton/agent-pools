@@ -1,0 +1,4013 @@
+{
+ "function": "routing.mjs rankAccounts(accounts, drainFirst && new Map(drainFirst))",
+ "cases": [
+  {
+   "name": "as-is +0d drainFirst:0",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-27T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 53,
+      "rankReset": 1793523600738,
+      "rankRemaining": 87,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 13,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-28T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-02T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 1,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 99,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-10-29T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-03T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 97,
+      "rankReset": 1793599704000,
+      "rankRemaining": 97,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 3,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-10-30T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 70,
+      "rankReset": 1793599689000,
+      "rankRemaining": 70,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 30,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-10-31T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 81,
+      "rankReset": 1793599693000,
+      "rankRemaining": 81,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 19,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 91,
+      "rankReset": 1793600539000,
+      "rankRemaining": 91,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 9,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-01T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": null
+   },
+   "result": [
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json",
+    "codex-f81617fe-user2@example.invalid-prolite.json",
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json"
+   ]
+  },
+  {
+   "name": "as-is +0d drainFirst:1",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-27T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 53,
+      "rankReset": 1793523600738,
+      "rankRemaining": 87,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 13,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-28T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-02T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 1,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 99,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-10-29T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-03T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 97,
+      "rankReset": 1793599704000,
+      "rankRemaining": 97,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 3,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-10-30T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 70,
+      "rankReset": 1793599689000,
+      "rankRemaining": 70,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 30,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-10-31T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 81,
+      "rankReset": 1793599693000,
+      "rankRemaining": 81,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 19,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 91,
+      "rankReset": 1793600539000,
+      "rankRemaining": 91,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 9,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-01T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": [
+     [
+      "codex-f81617fe-user2@example.invalid-prolite.json",
+      1793090493487
+     ]
+    ]
+   },
+   "result": [
+    "codex-f81617fe-user2@example.invalid-prolite.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json",
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json"
+   ]
+  },
+  {
+   "name": "as-is +3d drainFirst:0",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-30T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 53,
+      "rankReset": 1793523600738,
+      "rankRemaining": 87,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 13,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-31T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 1,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 99,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-11-01T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 97,
+      "rankReset": 1793599704000,
+      "rankRemaining": 97,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 3,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-11-02T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 70,
+      "rankReset": 1793599689000,
+      "rankRemaining": 70,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 30,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-11-03T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-08T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 81,
+      "rankReset": 1793599693000,
+      "rankRemaining": 81,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 19,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-09T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 91,
+      "rankReset": 1793600539000,
+      "rankRemaining": 91,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 9,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-04T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-10T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": null
+   },
+   "result": [
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json",
+    "codex-f81617fe-user2@example.invalid-prolite.json",
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json"
+   ]
+  },
+  {
+   "name": "as-is +3d drainFirst:1",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-30T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 53,
+      "rankReset": 1793523600738,
+      "rankRemaining": 87,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 13,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-31T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 1,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 99,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-11-01T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 97,
+      "rankReset": 1793599704000,
+      "rankRemaining": 97,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 3,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-11-02T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 70,
+      "rankReset": 1793599689000,
+      "rankRemaining": 70,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 30,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-11-03T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-08T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 81,
+      "rankReset": 1793599693000,
+      "rankRemaining": 81,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 19,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-09T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 91,
+      "rankReset": 1793600539000,
+      "rankRemaining": 91,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 9,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-04T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-10T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": [
+     [
+      "codex-f81617fe-user2@example.invalid-prolite.json",
+      1793349693487
+     ]
+    ]
+   },
+   "result": [
+    "codex-f81617fe-user2@example.invalid-prolite.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json",
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json"
+   ]
+  },
+  {
+   "name": "all-out +0d drainFirst:0",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-27T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793523600738,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-28T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-02T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-10-29T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-03T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599704000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-10-30T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599689000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-10-31T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599693000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793600539000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-01T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": null
+   },
+   "result": [
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json",
+    "codex-f81617fe-user2@example.invalid-prolite.json"
+   ]
+  },
+  {
+   "name": "all-out +0d drainFirst:1",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-27T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793523600738,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-28T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-02T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-10-29T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-03T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599704000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-10-30T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599689000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-10-31T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599693000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793600539000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-01T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": [
+     [
+      "codex-f81617fe-user2@example.invalid-prolite.json",
+      1793090493487
+     ]
+    ]
+   },
+   "result": [
+    "codex-f81617fe-user2@example.invalid-prolite.json",
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json"
+   ]
+  },
+  {
+   "name": "all-out +3d drainFirst:0",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-30T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793523600738,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-31T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-11-01T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599704000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-11-02T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599689000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-11-03T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-08T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599693000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-09T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793600539000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-04T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-10T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": null
+   },
+   "result": [
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json",
+    "codex-f81617fe-user2@example.invalid-prolite.json"
+   ]
+  },
+  {
+   "name": "all-out +3d drainFirst:1",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-30T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793523600738,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-31T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-11-01T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599704000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-11-02T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599689000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-11-03T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-08T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599693000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-09T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793600539000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-04T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-10T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": [
+     [
+      "codex-f81617fe-user2@example.invalid-prolite.json",
+      1793349693487
+     ]
+    ]
+   },
+   "result": [
+    "claude-0e602f2d-user1@example.invalid.json",
+    "codex-f81617fe-user2@example.invalid-prolite.json",
+    "claude-b1dc4342-user3@example.invalid.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json"
+   ]
+  },
+  {
+   "name": "all-out-one-bank-unknown +0d drainFirst:0",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": false,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-27T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793523600738,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-28T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-02T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-10-29T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-03T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599704000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-10-30T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599689000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-10-31T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599693000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793600539000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-01T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": null
+   },
+   "result": [
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json",
+    "codex-f81617fe-user2@example.invalid-prolite.json"
+   ]
+  },
+  {
+   "name": "all-out-one-bank-unknown +0d drainFirst:1",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": false,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-27T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793523600738,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-28T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-02T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-10-29T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-03T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599704000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-10-30T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599689000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-10-31T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599693000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793600539000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-01T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": [
+     [
+      "codex-f81617fe-user2@example.invalid-prolite.json",
+      1793090493487
+     ]
+    ]
+   },
+   "result": [
+    "codex-f81617fe-user2@example.invalid-prolite.json",
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json"
+   ]
+  },
+  {
+   "name": "all-out-one-bank-unknown +3d drainFirst:0",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": false,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-30T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793523600738,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-31T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-11-01T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599704000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-11-02T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599689000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-11-03T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-08T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599693000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-09T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793600539000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-04T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-10T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": null
+   },
+   "result": [
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json",
+    "codex-f81617fe-user2@example.invalid-prolite.json"
+   ]
+  },
+  {
+   "name": "all-out-one-bank-unknown +3d drainFirst:1",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": false,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-30T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793523600738,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-31T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-11-01T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599704000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-11-02T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599689000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-11-03T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-08T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599693000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-09T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793600539000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-04T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-10T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": [
+     [
+      "codex-f81617fe-user2@example.invalid-prolite.json",
+      1793349693487
+     ]
+    ]
+   },
+   "result": [
+    "claude-0e602f2d-user1@example.invalid.json",
+    "codex-f81617fe-user2@example.invalid-prolite.json",
+    "claude-b1dc4342-user3@example.invalid.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json"
+   ]
+  },
+  {
+   "name": "all-but-one-out +0d drainFirst:0",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-27T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793523600738,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-28T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-02T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-10-29T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-03T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599704000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-10-30T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599689000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-10-31T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599693000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 91,
+      "rankReset": 1793600539000,
+      "rankRemaining": 91,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 9,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-01T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": null
+   },
+   "result": [
+    "codex-f81617fe-user2@example.invalid-prolite.json",
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json"
+   ]
+  },
+  {
+   "name": "all-but-one-out +0d drainFirst:1",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-27T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793523600738,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-28T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-02T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-10-29T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-03T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599704000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-10-30T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599689000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-10-31T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599693000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-01T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 91,
+      "rankReset": 1793600539000,
+      "rankRemaining": 91,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 9,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-01T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": [
+     [
+      "codex-f81617fe-user2@example.invalid-prolite.json",
+      1793090493487
+     ]
+    ]
+   },
+   "result": [
+    "codex-f81617fe-user2@example.invalid-prolite.json",
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json"
+   ]
+  },
+  {
+   "name": "all-but-one-out +3d drainFirst:0",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-30T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793523600738,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-31T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-11-01T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599704000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-11-02T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599689000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-11-03T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-08T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599693000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-09T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 91,
+      "rankReset": 1793600539000,
+      "rankRemaining": 91,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 9,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-04T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-10T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": null
+   },
+   "result": [
+    "codex-f81617fe-user2@example.invalid-prolite.json",
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json"
+   ]
+  },
+  {
+   "name": "all-but-one-out +3d drainFirst:1",
+   "input": {
+    "accounts": [
+     {
+      "id": "claude-0e602f2d-user1@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793192399697,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 0,
+        "resetAt": null
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793192399697
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-1-a",
+        "expires_at": "2026-10-30T22:41:33.487Z"
+       },
+       {
+        "id": "syn-1-b",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-550c2ce1-user4@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793523600738,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 47,
+        "resetAt": 1793074800738
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793523600738
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-2-a",
+        "expires_at": "2026-10-31T18:41:33.487Z"
+       },
+       {
+        "id": "syn-2-b",
+        "expires_at": "2026-11-05T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "claude-b1dc4342-user3@example.invalid.json",
+      "provider": "claude",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793498400816,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "limit:0",
+        "common": true,
+        "durationSeconds": 18000,
+        "used": 100,
+        "resetAt": 1793069400816
+       },
+       {
+        "id": "limit:1",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793498400816
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-3-a",
+        "expires_at": "2026-11-01T14:41:33.487Z"
+       },
+       {
+        "id": "syn-3-b",
+        "expires_at": "2026-11-06T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-4a53e220-user1@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599704000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599704000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-4-a",
+        "expires_at": "2026-11-02T10:41:33.487Z"
+       },
+       {
+        "id": "syn-4-b",
+        "expires_at": "2026-11-07T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-5f88762d-user3@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599689000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599689000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-5-a",
+        "expires_at": "2026-11-03T06:41:33.487Z"
+       },
+       {
+        "id": "syn-5-b",
+        "expires_at": "2026-11-08T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-decc23ae-user4@example.invalid-pro.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "exhausted",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 0,
+      "rankReset": 1793599693000,
+      "rankRemaining": 0,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 100,
+        "resetAt": 1793599693000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-6-a",
+        "expires_at": "2026-11-04T02:41:33.487Z"
+       },
+       {
+        "id": "syn-6-b",
+        "expires_at": "2026-11-09T02:41:33.487Z"
+       }
+      ]
+     },
+     {
+      "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+      "provider": "codex",
+      "disabled": false,
+      "status": "available",
+      "creditsKnown": true,
+      "creditCount": 2,
+      "remaining": 91,
+      "rankReset": 1793600539000,
+      "rankRemaining": 91,
+      "windows": [
+       {
+        "id": "codex:primary_window",
+        "common": true,
+        "durationSeconds": 604800,
+        "used": 9,
+        "resetAt": 1793600539000
+       }
+      ],
+      "credits": [
+       {
+        "id": "syn-7-a",
+        "expires_at": "2026-11-04T22:41:33.487Z"
+       },
+       {
+        "id": "syn-7-b",
+        "expires_at": "2026-11-10T02:41:33.487Z"
+       }
+      ]
+     }
+    ],
+    "drainFirst": [
+     [
+      "codex-f81617fe-user2@example.invalid-prolite.json",
+      1793349693487
+     ]
+    ]
+   },
+   "result": [
+    "codex-f81617fe-user2@example.invalid-prolite.json",
+    "claude-0e602f2d-user1@example.invalid.json",
+    "claude-b1dc4342-user3@example.invalid.json",
+    "claude-550c2ce1-user4@example.invalid.json",
+    "codex-5f88762d-user3@example.invalid-pro.json",
+    "codex-decc23ae-user4@example.invalid-pro.json",
+    "codex-4a53e220-user1@example.invalid-pro.json"
+   ]
+  }
+ ]
+}

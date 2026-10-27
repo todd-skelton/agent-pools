@@ -1,0 +1,9 @@
+{
+ "capacityForecast": {
+  "mode": "active"
+ },
+ "expectedAccounts": {
+  "claude": 3,
+  "codex": 4
+ }
+}

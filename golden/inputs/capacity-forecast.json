@@ -1,0 +1,578 @@
+{
+ "format": "capacity-forecast/v1",
+ "generatedAt": "2026-10-27T02:41:33.502Z",
+ "staleAfter": "2026-10-27T02:56:33.502Z",
+ "mode": "active",
+ "config": {
+  "halfLifeHours": 12,
+  "lookbackHours": 168,
+  "horizonDays": 14,
+  "maxHorizonDays": 35,
+  "minObservedHours": 6,
+  "margin": 0.25,
+  "spendEnterUnits": 0.5,
+  "spendExitUnits": 0.25,
+  "minDwellHours": 2,
+  "stepHours": 6,
+  "maxSteps": 4,
+  "staleAfterMinutes": 15,
+  "staleHoldMinutes": 30,
+  "planMargin": 0.5,
+  "planMinObservedHours": 72,
+  "planWindowDays": 14,
+  "weights": {},
+  "mode": "active"
+ },
+ "decisionDigest": "7e0c9c2a7186882c",
+ "decision": {
+  "mode": "active",
+  "states": {
+   "claude": "conserve",
+   "codex": "conserve"
+  },
+  "modelWindowStates": {
+   "claude": {
+    "Fable": "spend"
+   },
+   "codex": {}
+  },
+  "balance": {
+   "toward": null,
+   "steps": 0,
+   "maxSteps": 4,
+   "conserve": [
+    "codex",
+    "claude"
+   ]
+  }
+ },
+ "balance": {
+  "toward": null,
+  "steps": 0,
+  "maxSteps": 4,
+  "target": null,
+  "reason": "both-conserve",
+  "lastStepAt": "2026-10-17T21:34:57.008Z",
+  "conserve": [
+   "codex",
+   "claude"
+  ]
+ },
+ "providers": {
+  "claude": {
+   "provider": "claude",
+   "window": "limit:1",
+   "scope": "All models",
+   "state": "conserve",
+   "since": "2026-10-11T22:19:44.863Z",
+   "freshAt": "2026-10-27T02:41:33.502Z",
+   "demand": {
+    "unitsPerHour": 0.03006,
+    "last24h": 0.02542,
+    "last72h": 0.02306,
+    "last168h": 0.02768,
+    "currentHourUnits": 0.05,
+    "observedHours": 168,
+    "censoredHours": 0
+   },
+   "supply": {
+    "accounts": 3,
+    "weightedAccounts": 3,
+    "remainingUnits": 0.88,
+    "naturalUnitsPerHour": 0.01786,
+    "nextRefillAt": "2026-10-28T12:59:59.697Z",
+    "credits": 0,
+    "unmodeledCredits": 0,
+    "creditExpiries": []
+   },
+   "projection": {
+    "horizonHours": 336,
+    "creditsModeled": true,
+    "outageHours": 127,
+    "firstOutageAt": "2026-10-28T07:41:33.502Z",
+    "expiringUnits": 0,
+    "creditsUsed": 0,
+    "creditsExpiringUnused": 0,
+    "wastedUnits": 0,
+    "outageHoursAtMargin": 160,
+    "wastedUnitsAtMargin": 0,
+    "demandToNaturalSupply": 1.683
+   },
+   "creditOutlook": {
+    "horizonHours": 336,
+    "creditsUsed": 0,
+    "creditsLapsing": 0,
+    "firstOutageAt": "2026-10-28T07:41:33.502Z"
+   },
+   "creditPlan": {
+    "unitsPerHour": 0.04509,
+    "demandFactor": 1.5,
+    "evidence": true,
+    "windowDays": 14,
+    "holders": [],
+    "refill": {
+     "unitsPerHour": 0.02306,
+     "weights": {
+      "claude-0e602f2d-user1@example.invalid.json": 1,
+      "claude-550c2ce1-user4@example.invalid.json": 1,
+      "claude-b1dc4342-user3@example.invalid.json": 1
+     }
+    },
+    "method": "counterfactual",
+    "planned": true,
+    "drainFirst": [],
+    "credits": []
+   },
+   "scenarios": {
+    "horizonHours": 336,
+    "unitsPerHour": 0.03006,
+    "naturalOnly": {
+     "outageHours": 127,
+     "firstOutageAt": "2026-10-28T07:41:33.502Z",
+     "creditsUsed": 0,
+     "creditsLapsing": 0,
+     "redemptions": [],
+     "lapses": []
+    },
+    "bankedCredits": {
+     "outageHours": 127,
+     "firstOutageAt": "2026-10-28T07:41:33.502Z",
+     "creditsUsed": 0,
+     "creditsLapsing": 0,
+     "redemptions": [],
+     "lapses": []
+    },
+    "weeklyGrant": {
+     "outageHours": 93,
+     "firstOutageAt": "2026-10-28T07:41:33.502Z",
+     "creditsUsed": 1,
+     "creditsLapsing": 0,
+     "redemptions": [
+      {
+       "id": "claude-550c2ce1-user4@example.invalid.json",
+       "at": "2026-11-03T20:41:33.502Z"
+      }
+     ],
+     "lapses": [],
+     "assumption": "one new credit every 7 days, each valid 7 days",
+     "creditsGranted": 1
+    },
+    "creditsInStateRun": true
+   },
+   "pace": {
+    "computedAt": "2026-10-27T02:39:30.669Z",
+    "key": "3bb1a36418671a1e",
+    "objective": "most total usage: work done plus quota still available at the end of the run; running short loses nothing",
+    "horizonHours": 504,
+    "demandUnitsPerHour": 0.03006,
+    "naturalUnitsPerHour": 0.01786,
+    "credits": 0,
+    "maxUnits": 9.88,
+    "maxCreditsLapsing": 0,
+    "atDemand": {
+     "unitsPerHour": 0.03006,
+     "usedUnits": 9.88,
+     "lostUnits": 0,
+     "creditsUsed": 0,
+     "creditsLapsing": 0,
+     "shortHours": 196,
+     "firstShortAt": "2026-10-28T07:39:30.669Z"
+    },
+    "fullUse": {
+     "unitsPerHour": 0.01465,
+     "usedUnits": 9.782,
+     "lostUnits": 0.098,
+     "creditsUsed": 0,
+     "creditsLapsing": 0,
+     "shortHours": 0,
+     "firstShortAt": null
+    },
+    "noGap": {
+     "unitsPerHour": 0.01565,
+     "usedUnits": 9.88,
+     "lostUnits": 0,
+     "creditsUsed": 0,
+     "creditsLapsing": 0,
+     "shortHours": 0,
+     "firstShortAt": null
+    },
+    "then": null,
+    "steps": [],
+    "curve": [
+     {
+      "unitsPerHour": 0.00893,
+      "usedUnits": 7.134,
+      "lostUnits": 2.746,
+      "creditsUsed": 0,
+      "creditsLapsing": 0,
+      "shortHours": 0,
+      "firstShortAt": null
+     },
+     {
+      "unitsPerHour": 0.01786,
+      "usedUnits": 9.88,
+      "lostUnits": 0,
+      "creditsUsed": 0,
+      "creditsLapsing": 0,
+      "shortHours": 15,
+      "firstShortAt": "2026-10-31T11:39:30.669Z"
+     },
+     {
+      "unitsPerHour": 0.02679,
+      "usedUnits": 9.88,
+      "lostUnits": 0,
+      "creditsUsed": 0,
+      "creditsLapsing": 0,
+      "shortHours": 165,
+      "firstShortAt": "2026-10-28T10:39:30.669Z"
+     },
+     {
+      "unitsPerHour": 0.03571,
+      "usedUnits": 9.88,
+      "lostUnits": 0,
+      "creditsUsed": 0,
+      "creditsLapsing": 0,
+      "shortHours": 236,
+      "firstShortAt": "2026-10-28T02:39:30.669Z"
+     },
+     {
+      "unitsPerHour": 0.05357,
+      "usedUnits": 9.88,
+      "lostUnits": 0,
+      "creditsUsed": 0,
+      "creditsLapsing": 0,
+      "shortHours": 323,
+      "firstShortAt": "2026-10-27T18:39:30.669Z"
+     },
+     {
+      "unitsPerHour": 0.08929,
+      "usedUnits": 9.88,
+      "lostUnits": 0,
+      "creditsUsed": 0,
+      "creditsLapsing": 0,
+      "shortHours": 396,
+      "firstShortAt": "2026-10-27T11:39:30.669Z"
+     },
+     {
+      "unitsPerHour": 0.17857,
+      "usedUnits": 9.88,
+      "lostUnits": 0,
+      "creditsUsed": 0,
+      "creditsLapsing": 0,
+      "shortHours": 455,
+      "firstShortAt": "2026-10-27T06:39:30.669Z"
+     }
+    ]
+   },
+   "modelWindows": [
+    {
+     "window": "limit:2",
+     "scope": "Fable",
+     "state": "spend",
+     "since": "2026-10-12T04:00:53.279Z",
+     "freshAt": "2026-10-27T02:41:33.502Z",
+     "demand": {
+      "unitsPerHour": 0.00066,
+      "last24h": 0,
+      "last72h": 0.00139,
+      "last168h": 0.00232,
+      "currentHourUnits": 0,
+      "observedHours": 168,
+      "censoredHours": 0
+     },
+     "supply": {
+      "remainingUnits": 2.87,
+      "nextRefillAt": "2026-10-28T12:59:59.698Z"
+     },
+     "projection": {
+      "creditsModeled": false,
+      "creditsUsed": 0,
+      "outageHours": 0,
+      "firstOutageAt": null,
+      "wastedUnits": 5.675
+     }
+    }
+   ]
+  },
+  "codex": {
+   "provider": "codex",
+   "window": "codex:primary_window",
+   "scope": "Codex",
+   "state": "conserve",
+   "since": "2026-10-17T03:32:57.235Z",
+   "freshAt": "2026-10-27T02:41:33.502Z",
+   "demand": {
+    "unitsPerHour": 0.02746,
+    "last24h": 0.025,
+    "last72h": 0.02965,
+    "last168h": 0.03604,
+    "currentHourUnits": 0.055,
+    "observedHours": 168,
+    "censoredHours": 0
+   },
+   "supply": {
+    "accounts": 4,
+    "weightedAccounts": 3.5,
+    "remainingUnits": 2.935,
+    "naturalUnitsPerHour": 0.02083,
+    "nextRefillAt": "2026-11-02T06:08:09.000Z",
+    "credits": 5,
+    "unmodeledCredits": 0,
+    "creditExpiries": [
+     "2026-10-29T19:00:36.292Z",
+     "2026-11-06T23:18:20.490Z",
+     "2026-11-06T23:28:59.954Z",
+     "2026-11-06T23:30:53.621Z",
+     "2026-11-06T23:39:11.687Z"
+    ]
+   },
+   "projection": {
+    "horizonHours": 336,
+    "creditsModeled": true,
+    "outageHours": 5,
+    "firstOutageAt": "2026-11-07T08:41:33.502Z",
+    "expiringUnits": 0,
+    "creditsUsed": 3,
+    "creditsExpiringUnused": 2,
+    "wastedUnits": 2,
+    "outageHoursAtMargin": 48,
+    "wastedUnitsAtMargin": 1,
+    "demandToNaturalSupply": 1.318
+   },
+   "creditOutlook": {
+    "horizonHours": 336,
+    "creditsUsed": 3,
+    "creditsLapsing": 2,
+    "firstOutageAt": "2026-11-07T08:41:33.502Z"
+   },
+   "creditPlan": {
+    "unitsPerHour": 0.05406,
+    "demandFactor": 1.5,
+    "evidence": true,
+    "windowDays": 14,
+    "holders": [],
+    "refill": null,
+    "method": "lapse-at-plan-rate"
+   },
+   "scenarios": {
+    "horizonHours": 336,
+    "unitsPerHour": 0.02746,
+    "naturalOnly": {
+     "outageHours": 83,
+     "firstOutageAt": "2026-10-31T12:41:33.502Z",
+     "creditsUsed": 0,
+     "creditsLapsing": 0,
+     "redemptions": [],
+     "lapses": []
+    },
+    "bankedCredits": {
+     "outageHours": 5,
+     "firstOutageAt": "2026-11-07T08:41:33.502Z",
+     "creditsUsed": 3,
+     "creditsLapsing": 2,
+     "redemptions": [
+      {
+       "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+       "at": "2026-10-31T12:41:33.502Z"
+      },
+      {
+       "id": "codex-4a53e220-user1@example.invalid-pro.json",
+       "at": "2026-11-01T07:41:33.502Z"
+      },
+      {
+       "id": "codex-decc23ae-user4@example.invalid-pro.json",
+       "at": "2026-11-05T20:41:33.502Z"
+      }
+     ],
+     "lapses": [
+      {
+       "id": "codex-decc23ae-user4@example.invalid-pro.json",
+       "at": "2026-10-29T19:41:33.502Z"
+      },
+      {
+       "id": "codex-5f88762d-user3@example.invalid-pro.json",
+       "at": "2026-11-06T23:41:33.502Z"
+      }
+     ]
+    },
+    "weeklyGrant": {
+     "outageHours": 0,
+     "firstOutageAt": null,
+     "creditsUsed": 4,
+     "creditsLapsing": 2,
+     "redemptions": [
+      {
+       "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+       "at": "2026-10-31T12:41:33.502Z"
+      },
+      {
+       "id": "codex-4a53e220-user1@example.invalid-pro.json",
+       "at": "2026-11-01T07:41:33.502Z"
+      },
+      {
+       "id": "codex-decc23ae-user4@example.invalid-pro.json",
+       "at": "2026-11-05T20:41:33.502Z"
+      },
+      {
+       "id": "codex-decc23ae-user4@example.invalid-pro.json",
+       "at": "2026-11-07T08:41:33.502Z"
+      }
+     ],
+     "lapses": [
+      {
+       "id": "codex-decc23ae-user4@example.invalid-pro.json",
+       "at": "2026-10-29T19:41:33.502Z"
+      },
+      {
+       "id": "codex-5f88762d-user3@example.invalid-pro.json",
+       "at": "2026-11-06T23:41:33.502Z"
+      }
+     ],
+     "assumption": "one new credit every 7 days, each valid 7 days",
+     "creditsGranted": 1
+    },
+    "creditsInStateRun": true
+   },
+   "pace": {
+    "computedAt": "2026-10-27T02:39:30.669Z",
+    "key": "c6b02b01e9a34de5",
+    "objective": "most total usage: work done plus quota still available at the end of the run; running short loses nothing",
+    "horizonHours": 504,
+    "demandUnitsPerHour": 0.02746,
+    "naturalUnitsPerHour": 0.02083,
+    "credits": 5,
+    "maxUnits": 14.44,
+    "maxCreditsLapsing": 0,
+    "atDemand": {
+     "unitsPerHour": 0.02746,
+     "usedUnits": 13.44,
+     "lostUnits": 1,
+     "creditsUsed": 3,
+     "creditsLapsing": 2,
+     "shortHours": 46,
+     "firstShortAt": "2026-11-07T08:39:30.669Z"
+    },
+    "fullUse": {
+     "unitsPerHour": 0.04525,
+     "usedUnits": 14.44,
+     "lostUnits": 0,
+     "creditsUsed": 5,
+     "creditsLapsing": 0,
+     "shortHours": 186,
+     "firstShortAt": "2026-11-02T22:39:30.669Z"
+    },
+    "noGap": {
+     "unitsPerHour": 0.02088,
+     "usedUnits": 11.44,
+     "lostUnits": 3,
+     "creditsUsed": 1,
+     "creditsLapsing": 4,
+     "shortHours": 0,
+     "firstShortAt": null
+    },
+    "then": {
+     "from": "2026-11-02T01:39:30.669Z",
+     "unitsPerHour": 0.03086
+    },
+    "steps": [
+     {
+      "credits": 1,
+      "reachable": true,
+      "unitsPerHour": 0.0199,
+      "spentBy": "2026-11-02T05:39:30.669Z"
+     },
+     {
+      "credits": 2,
+      "reachable": true,
+      "unitsPerHour": 0.02327,
+      "spentBy": "2026-11-02T05:39:30.669Z"
+     },
+     {
+      "credits": 3,
+      "reachable": true,
+      "unitsPerHour": 0.0247,
+      "spentBy": "2026-11-06T22:39:30.669Z"
+     },
+     {
+      "credits": 4,
+      "reachable": true,
+      "unitsPerHour": 0.02852,
+      "spentBy": "2026-11-06T22:39:30.669Z"
+     },
+     {
+      "credits": 5,
+      "reachable": true,
+      "unitsPerHour": 0.04525,
+      "spentBy": "2026-11-02T00:39:30.669Z"
+     }
+    ],
+    "curve": [
+     {
+      "unitsPerHour": 0.01042,
+      "usedUnits": 7.042,
+      "lostUnits": 7.398,
+      "creditsUsed": 0,
+      "creditsLapsing": 5,
+      "shortHours": 0,
+      "firstShortAt": null
+     },
+     {
+      "unitsPerHour": 0.02083,
+      "usedUnits": 11.44,
+      "lostUnits": 3,
+      "creditsUsed": 1,
+      "creditsLapsing": 4,
+      "shortHours": 0,
+      "firstShortAt": null
+     },
+     {
+      "unitsPerHour": 0.03125,
+      "usedUnits": 13.44,
+      "lostUnits": 1,
+      "creditsUsed": 4,
+      "creditsLapsing": 1,
+      "shortHours": 80,
+      "firstShortAt": "2026-11-06T00:39:30.669Z"
+     },
+     {
+      "unitsPerHour": 0.04167,
+      "usedUnits": 13.44,
+      "lostUnits": 1,
+      "creditsUsed": 4,
+      "creditsLapsing": 1,
+      "shortHours": 182,
+      "firstShortAt": "2026-11-02T12:39:30.669Z"
+     },
+     {
+      "unitsPerHour": 0.0625,
+      "usedUnits": 14.44,
+      "lostUnits": 0,
+      "creditsUsed": 5,
+      "creditsLapsing": 0,
+      "shortHours": 273,
+      "firstShortAt": "2026-11-01T01:39:30.669Z"
+     },
+     {
+      "unitsPerHour": 0.10417,
+      "usedUnits": 14.44,
+      "lostUnits": 0,
+      "creditsUsed": 5,
+      "creditsLapsing": 0,
+      "shortHours": 369,
+      "firstShortAt": "2026-10-30T01:39:30.669Z"
+     },
+     {
+      "unitsPerHour": 0.20833,
+      "usedUnits": 14.44,
+      "lostUnits": 0,
+      "creditsUsed": 5,
+      "creditsLapsing": 0,
+      "shortHours": 437,
+      "firstShortAt": "2026-10-28T13:39:30.669Z"
+     }
+    ]
+   },
+   "modelWindows": []
+  }
+ }
+}

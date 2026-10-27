@@ -1,0 +1,1036 @@
+{
+ "accounts": [
+  {
+   "id": "claude-0e602f2d-user1@example.invalid.json",
+   "name": "claude-0e602f2d-user1@example.invalid.json",
+   "auth_index": "4be0394ec21612ea",
+   "accountId": "claude-0e602f2d-user1@example.invalid.json",
+   "email": "user1@example.invalid",
+   "provider": "claude",
+   "disabled": false,
+   "priority": 99,
+   "status": "exhausted",
+   "creditsKnown": true,
+   "creditCount": 0,
+   "credits": [],
+   "usageCheckStartedAt": "2026-10-27T02:41:31.126Z",
+   "windows": [
+    {
+     "id": "limit:0",
+     "scope": "All models",
+     "label": "5-hour",
+     "used": 0,
+     "resetAt": null,
+     "durationSeconds": 18000,
+     "common": true
+    },
+    {
+     "id": "limit:1",
+     "scope": "All models",
+     "label": "Weekly",
+     "used": 100,
+     "resetAt": 1793192399697,
+     "durationSeconds": 604800,
+     "common": true
+    }
+   ],
+   "quotaWindows": [
+    {
+     "id": "limit:0",
+     "scope": "All models",
+     "label": "5-hour",
+     "used": 0,
+     "resetAt": null,
+     "durationSeconds": 18000,
+     "common": true
+    },
+    {
+     "id": "limit:1",
+     "scope": "All models",
+     "label": "Weekly",
+     "used": 100,
+     "resetAt": 1793192399697,
+     "durationSeconds": 604800,
+     "common": true
+    },
+    {
+     "id": "limit:2",
+     "scope": "Fable",
+     "label": "Weekly",
+     "used": 8,
+     "resetAt": 1793192399698,
+     "durationSeconds": 604800,
+     "common": false
+    }
+   ],
+   "remaining": 0,
+   "nextReset": 1793192399697,
+   "rankReset": 1793192399697,
+   "rankRemaining": 0,
+   "modelQuotaRecoveryBlocked": false,
+   "usageUpdatedAt": "2026-10-27T02:41:31.621Z",
+   "usageStale": false,
+   "routingStatus": "blocked",
+   "routingCheckedAt": "2026-10-26T21:41:31.7556422-05:00",
+   "routingModels": {
+    "claude-fable-5": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    },
+    "claude-fable-5-1": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    },
+    "claude-haiku-4-5-20251001": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    },
+    "claude-haiku-5-5": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    },
+    "claude-opus-4-5-20251101": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    },
+    "claude-opus-4-6": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    },
+    "claude-opus-4-7": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    },
+    "claude-opus-4-8": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    },
+    "claude-opus-5": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    },
+    "claude-opus-5-5": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    },
+    "claude-sonnet-4-5-20250929": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    },
+    "claude-sonnet-4-6": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    },
+    "claude-sonnet-5": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    },
+    "claude-sonnet-5-5": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-28T08:00:02.0043323-05:00"
+    }
+   },
+   "modelList": {
+    "source": "live",
+    "fetchedAt": "2026-10-26T21:31:19.4416376-05:00",
+    "checkedAt": "2026-10-26T21:31:19.4416376-05:00",
+    "models": 14,
+    "error": null
+   },
+   "creditNote": "Resets not offered to this client (no_grant)",
+   "creditsUpdatedAt": "2026-10-27T02:41:31.760Z",
+   "plan": {
+    "plan": "max_20x",
+    "label": "Claude Max 20x",
+    "status": "active",
+    "billingPeriod": null,
+    "renewsAt": null,
+    "price": {
+     "usdPerMonth": 200,
+     "amount": 200,
+     "currency": "USD",
+     "source": "list",
+     "detail": "claude.com/pricing, read 2026-10-15; Anthropic does not report the billed price to Claude Code sign-ins"
+    },
+    "readAt": "2026-10-26T23:52:56.142Z"
+   },
+   "planCheckedAt": "2026-10-26T23:52:55.868Z"
+  },
+  {
+   "id": "claude-550c2ce1-user4@example.invalid.json",
+   "name": "claude-550c2ce1-user4@example.invalid.json",
+   "auth_index": "32718bbb47891a25",
+   "accountId": "claude-550c2ce1-user4@example.invalid.json",
+   "email": "user4@example.invalid",
+   "provider": "claude",
+   "disabled": false,
+   "priority": 100,
+   "status": "available",
+   "creditsKnown": true,
+   "creditCount": 0,
+   "credits": [],
+   "usageCheckStartedAt": "2026-10-27T02:41:31.126Z",
+   "windows": [
+    {
+     "id": "limit:0",
+     "scope": "All models",
+     "label": "5-hour",
+     "used": 47,
+     "resetAt": 1793074800738,
+     "durationSeconds": 18000,
+     "common": true
+    },
+    {
+     "id": "limit:1",
+     "scope": "All models",
+     "label": "Weekly",
+     "used": 13,
+     "resetAt": 1793523600738,
+     "durationSeconds": 604800,
+     "common": true
+    }
+   ],
+   "quotaWindows": [
+    {
+     "id": "limit:0",
+     "scope": "All models",
+     "label": "5-hour",
+     "used": 47,
+     "resetAt": 1793074800738,
+     "durationSeconds": 18000,
+     "common": true
+    },
+    {
+     "id": "limit:1",
+     "scope": "All models",
+     "label": "Weekly",
+     "used": 13,
+     "resetAt": 1793523600738,
+     "durationSeconds": 604800,
+     "common": true
+    },
+    {
+     "id": "limit:2",
+     "scope": "Fable",
+     "label": "Weekly",
+     "used": 0,
+     "resetAt": 1793523600000,
+     "durationSeconds": 604800,
+     "common": false
+    }
+   ],
+   "remaining": 53,
+   "nextReset": 1793074800738,
+   "rankReset": 1793523600738,
+   "rankRemaining": 87,
+   "modelQuotaRecoveryBlocked": false,
+   "usageUpdatedAt": "2026-10-27T02:41:31.653Z",
+   "usageStale": false,
+   "routingStatus": "ready",
+   "routingCheckedAt": "2026-10-26T21:41:31.9555332-05:00",
+   "routingModels": {
+    "claude-fable-5": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "claude-fable-5-1": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "claude-haiku-4-5-20251001": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "claude-haiku-5-5": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "claude-opus-4-5-20251101": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "claude-opus-4-6": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "claude-opus-4-7": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "claude-opus-4-8": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "claude-opus-5": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "claude-opus-5-5": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "claude-sonnet-4-5-20250929": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "claude-sonnet-4-6": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "claude-sonnet-5": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "claude-sonnet-5-5": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    }
+   },
+   "modelList": {
+    "source": "live",
+    "fetchedAt": "2026-10-26T21:31:19.4416376-05:00",
+    "checkedAt": "2026-10-26T21:31:19.4416376-05:00",
+    "models": 14,
+    "error": null
+   },
+   "creditNote": "Resets not offered to this client (no_grant)",
+   "creditsUpdatedAt": "2026-10-27T02:41:31.986Z",
+   "plan": {
+    "plan": "max_20x",
+    "label": "Claude Max 20x",
+    "status": "active",
+    "billingPeriod": null,
+    "renewsAt": null,
+    "price": {
+     "usdPerMonth": 200,
+     "amount": 200,
+     "currency": "USD",
+     "source": "list",
+     "detail": "claude.com/pricing, read 2026-10-15; Anthropic does not report the billed price to Claude Code sign-ins"
+    },
+    "readAt": "2026-10-26T19:36:47.579Z"
+   },
+   "planCheckedAt": "2026-10-26T19:36:46.923Z"
+  },
+  {
+   "id": "claude-b1dc4342-user3@example.invalid.json",
+   "name": "claude-b1dc4342-user3@example.invalid.json",
+   "auth_index": "4d40acd4d82e7dd1",
+   "accountId": "claude-b1dc4342-user3@example.invalid.json",
+   "email": "user3@example.invalid",
+   "provider": "claude",
+   "disabled": false,
+   "priority": 98,
+   "status": "exhausted",
+   "creditsKnown": true,
+   "creditCount": 0,
+   "credits": [],
+   "usageCheckStartedAt": "2026-10-27T02:41:31.126Z",
+   "windows": [
+    {
+     "id": "limit:0",
+     "scope": "All models",
+     "label": "5-hour",
+     "used": 100,
+     "resetAt": 1793069400816,
+     "durationSeconds": 18000,
+     "common": true
+    },
+    {
+     "id": "limit:1",
+     "scope": "All models",
+     "label": "Weekly",
+     "used": 99,
+     "resetAt": 1793498400816,
+     "durationSeconds": 604800,
+     "common": true
+    }
+   ],
+   "quotaWindows": [
+    {
+     "id": "limit:0",
+     "scope": "All models",
+     "label": "5-hour",
+     "used": 100,
+     "resetAt": 1793069400816,
+     "durationSeconds": 18000,
+     "common": true
+    },
+    {
+     "id": "limit:1",
+     "scope": "All models",
+     "label": "Weekly",
+     "used": 99,
+     "resetAt": 1793498400816,
+     "durationSeconds": 604800,
+     "common": true
+    },
+    {
+     "id": "limit:2",
+     "scope": "Fable",
+     "label": "Weekly",
+     "used": 5,
+     "resetAt": 1793498399816,
+     "durationSeconds": 604800,
+     "common": false
+    }
+   ],
+   "remaining": 0,
+   "nextReset": 1793069400816,
+   "rankReset": 1793498400816,
+   "rankRemaining": 1,
+   "modelQuotaRecoveryBlocked": false,
+   "usageUpdatedAt": "2026-10-27T02:41:31.751Z",
+   "usageStale": false,
+   "routingStatus": "blocked",
+   "routingCheckedAt": "2026-10-26T21:41:31.8449716-05:00",
+   "routingModels": {
+    "claude-fable-5": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    },
+    "claude-fable-5-1": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    },
+    "claude-haiku-4-5-20251001": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    },
+    "claude-haiku-5-5": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    },
+    "claude-opus-4-5-20251101": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    },
+    "claude-opus-4-6": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    },
+    "claude-opus-4-7": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    },
+    "claude-opus-4-8": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    },
+    "claude-opus-5": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    },
+    "claude-opus-5-5": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    },
+    "claude-sonnet-4-5-20250929": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    },
+    "claude-sonnet-4-6": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    },
+    "claude-sonnet-5": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    },
+    "claude-sonnet-5-5": {
+     "status": "blocked",
+     "next_retry_after": "2026-10-26T21:50:11.0189256-05:00"
+    }
+   },
+   "modelList": {
+    "source": "live",
+    "fetchedAt": "2026-10-26T21:31:19.4406384-05:00",
+    "checkedAt": "2026-10-26T21:31:19.4406384-05:00",
+    "models": 14,
+    "error": null
+   },
+   "creditNote": "Resets not offered to this client (no_grant)",
+   "creditsUpdatedAt": "2026-10-27T02:41:31.848Z",
+   "plan": {
+    "plan": "max_20x",
+    "label": "Claude Max 20x",
+    "status": "active",
+    "billingPeriod": null,
+    "renewsAt": null,
+    "price": {
+     "usdPerMonth": 200,
+     "amount": 200,
+     "currency": "USD",
+     "source": "list",
+     "detail": "claude.com/pricing, read 2026-10-15; Anthropic does not report the billed price to Claude Code sign-ins"
+    },
+    "readAt": "2026-10-26T23:52:56.348Z"
+   },
+   "planCheckedAt": "2026-10-26T23:52:56.002Z"
+  },
+  {
+   "id": "codex-4a53e220-user1@example.invalid-pro.json",
+   "name": "codex-4a53e220-user1@example.invalid-pro.json",
+   "auth_index": "b920256f3984c108",
+   "accountId": "00000000-0000-4000-8000-0000000000a3",
+   "email": "user1@example.invalid",
+   "provider": "codex",
+   "disabled": false,
+   "priority": 98,
+   "status": "available",
+   "creditsKnown": true,
+   "creditCount": 1,
+   "credits": [
+    {
+     "id": "fixture-credit-6",
+     "reset_type": "codex_rate_limits",
+     "is_supported_by_plan": true,
+     "status": "available",
+     "granted_at": "2026-10-07T23:18:20.490391Z",
+     "expires_at": "2026-11-06T23:18:20.490391Z",
+     "redeem_started_at": null,
+     "redeemed_at": null,
+     "profile_image_url": "https://example.invalid/profile.png",
+     "profile_user_id": "fixture-user",
+     "title": "Fixture credit",
+     "description": "Fixture credit description."
+    }
+   ],
+   "usageCheckStartedAt": "2026-10-27T02:41:31.126Z",
+   "windows": [
+    {
+     "id": "codex:primary_window",
+     "scope": "Codex",
+     "label": "Weekly",
+     "used": 3,
+     "resetAt": 1793599704000,
+     "durationSeconds": 604800,
+     "common": true
+    }
+   ],
+   "quotaWindows": [
+    {
+     "id": "codex:primary_window",
+     "scope": "Codex",
+     "label": "Weekly",
+     "used": 3,
+     "resetAt": 1793599704000,
+     "durationSeconds": 604800,
+     "common": true
+    }
+   ],
+   "remaining": 97,
+   "nextReset": 1793599704000,
+   "rankReset": 1793599704000,
+   "rankRemaining": 97,
+   "modelQuotaRecoveryBlocked": false,
+   "usageUpdatedAt": "2026-10-27T02:41:31.806Z",
+   "usageStale": false,
+   "routingStatus": "ready",
+   "routingCheckedAt": "2026-10-26T21:41:31.90663-05:00",
+   "routingModels": {
+    "codex-auto-review": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-5.6-luna": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-5.6-sol": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-5.6-terra": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6-astra": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6-chat-thinking": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6-luna": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6-sol": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6.1-sol": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6.1-terra": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-reserve": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    }
+   },
+   "modelList": {
+    "source": "live",
+    "fetchedAt": "2026-10-26T21:31:19.4564761-05:00",
+    "checkedAt": "2026-10-26T21:31:19.4564761-05:00",
+    "models": 11,
+    "error": null
+   },
+   "creditsUpdatedAt": "2026-10-27T02:41:33.483Z",
+   "plan": {
+    "plan": "pro",
+    "label": "ChatGPT Pro 200",
+    "status": "active",
+    "billingPeriod": "monthly",
+    "renewsAt": "2026-11-04T18:18:41Z",
+    "price": {
+     "usdPerMonth": 200,
+     "amount": 200,
+     "currency": "USD",
+     "source": "provider",
+     "detail": "ChatGPT checkout pricing (US)"
+    },
+    "readAt": "2026-10-26T23:52:57.790Z"
+   },
+   "planCheckedAt": "2026-10-26T23:52:57.277Z"
+  },
+  {
+   "id": "codex-5f88762d-user3@example.invalid-pro.json",
+   "name": "codex-5f88762d-user3@example.invalid-pro.json",
+   "auth_index": "0fe008fa56d86afe",
+   "accountId": "00000000-0000-4000-8000-0000000000a1",
+   "email": "user3@example.invalid",
+   "provider": "codex",
+   "disabled": false,
+   "priority": 100,
+   "status": "available",
+   "creditsKnown": true,
+   "creditCount": 1,
+   "credits": [
+    {
+     "id": "fixture-credit-4",
+     "reset_type": "codex_rate_limits",
+     "is_supported_by_plan": true,
+     "status": "available",
+     "granted_at": "2026-10-07T23:28:59.954978Z",
+     "expires_at": "2026-11-06T23:28:59.954978Z",
+     "redeem_started_at": null,
+     "redeemed_at": null,
+     "profile_image_url": "https://example.invalid/profile.png",
+     "profile_user_id": "fixture-user",
+     "title": "Fixture credit",
+     "description": "Fixture credit description."
+    }
+   ],
+   "usageCheckStartedAt": "2026-10-27T02:41:31.126Z",
+   "windows": [
+    {
+     "id": "codex:primary_window",
+     "scope": "Codex",
+     "label": "Weekly",
+     "used": 30,
+     "resetAt": 1793599689000,
+     "durationSeconds": 604800,
+     "common": true
+    }
+   ],
+   "quotaWindows": [
+    {
+     "id": "codex:primary_window",
+     "scope": "Codex",
+     "label": "Weekly",
+     "used": 30,
+     "resetAt": 1793599689000,
+     "durationSeconds": 604800,
+     "common": true
+    }
+   ],
+   "remaining": 70,
+   "nextReset": 1793599689000,
+   "rankReset": 1793599689000,
+   "rankRemaining": 70,
+   "modelQuotaRecoveryBlocked": false,
+   "usageUpdatedAt": "2026-10-27T02:41:31.828Z",
+   "usageStale": false,
+   "routingStatus": "ready",
+   "routingCheckedAt": "2026-10-26T21:41:31.9663005-05:00",
+   "routingModels": {
+    "codex-auto-review": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-5.6-luna": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-5.6-sol": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-5.6-terra": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6-astra": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6-luna": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6-sol": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6.1-sol": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6.1-terra": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-reserve": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    }
+   },
+   "modelList": {
+    "source": "live",
+    "fetchedAt": "2026-10-26T21:31:19.4495141-05:00",
+    "checkedAt": "2026-10-26T21:31:19.4495141-05:00",
+    "models": 10,
+    "error": null
+   },
+   "creditsUpdatedAt": "2026-10-27T02:41:32.480Z",
+   "plan": {
+    "plan": "pro",
+    "label": "ChatGPT Pro 200",
+    "status": "active",
+    "billingPeriod": "monthly",
+    "renewsAt": "2026-11-24T01:04:51Z",
+    "price": {
+     "usdPerMonth": 200,
+     "amount": 200,
+     "currency": "USD",
+     "source": "provider",
+     "detail": "ChatGPT checkout pricing (US)"
+    },
+    "readAt": "2026-10-26T23:52:57.311Z"
+   },
+   "planCheckedAt": "2026-10-26T23:52:56.354Z"
+  },
+  {
+   "id": "codex-decc23ae-user4@example.invalid-pro.json",
+   "name": "codex-decc23ae-user4@example.invalid-pro.json",
+   "auth_index": "fb8ee101abf66b58",
+   "accountId": "00000000-0000-4000-8000-0000000000a4",
+   "email": "user4@example.invalid",
+   "provider": "codex",
+   "disabled": false,
+   "priority": 99,
+   "status": "available",
+   "creditsKnown": true,
+   "creditCount": 2,
+   "credits": [
+    {
+     "id": "fixture-credit-1",
+     "reset_type": "codex_rate_limits",
+     "is_supported_by_plan": true,
+     "status": "available",
+     "granted_at": "2026-09-29T19:00:36.292604Z",
+     "expires_at": "2026-10-29T19:00:36.292604Z",
+     "redeem_started_at": null,
+     "redeemed_at": null,
+     "profile_image_url": "https://example.invalid/profile.png",
+     "profile_user_id": "fixture-user",
+     "title": "Fixture credit",
+     "description": "Fixture credit description."
+    },
+    {
+     "id": "fixture-credit-5",
+     "reset_type": "codex_rate_limits",
+     "is_supported_by_plan": true,
+     "status": "available",
+     "granted_at": "2026-10-07T23:30:53.621214Z",
+     "expires_at": "2026-11-06T23:30:53.621214Z",
+     "redeem_started_at": null,
+     "redeemed_at": null,
+     "profile_image_url": "https://example.invalid/profile.png",
+     "profile_user_id": "fixture-user",
+     "title": "Fixture credit",
+     "description": "Fixture credit description."
+    }
+   ],
+   "usageCheckStartedAt": "2026-10-27T02:41:31.126Z",
+   "windows": [
+    {
+     "id": "codex:primary_window",
+     "scope": "Codex",
+     "label": "Weekly",
+     "used": 19,
+     "resetAt": 1793599693000,
+     "durationSeconds": 604800,
+     "common": true
+    }
+   ],
+   "quotaWindows": [
+    {
+     "id": "codex:primary_window",
+     "scope": "Codex",
+     "label": "Weekly",
+     "used": 19,
+     "resetAt": 1793599693000,
+     "durationSeconds": 604800,
+     "common": true
+    }
+   ],
+   "remaining": 81,
+   "nextReset": 1793599693000,
+   "rankReset": 1793599693000,
+   "rankRemaining": 81,
+   "modelQuotaRecoveryBlocked": false,
+   "usageUpdatedAt": "2026-10-27T02:41:31.778Z",
+   "usageStale": false,
+   "routingStatus": "ready",
+   "routingCheckedAt": "2026-10-26T21:41:31.9000312-05:00",
+   "routingModels": {
+    "codex-auto-review": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-5.6-luna": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-5.6-sol": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-5.6-terra": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6-astra": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6-luna": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6-sol": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6.1-sol": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6.1-terra": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-reserve": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    }
+   },
+   "modelList": {
+    "source": "live",
+    "fetchedAt": "2026-10-26T21:31:19.4416376-05:00",
+    "checkedAt": "2026-10-26T21:31:19.4416376-05:00",
+    "models": 10,
+    "error": null
+   },
+   "creditsUpdatedAt": "2026-10-27T02:41:32.470Z",
+   "plan": {
+    "plan": "pro",
+    "label": "ChatGPT Pro 200",
+    "status": "active",
+    "billingPeriod": "monthly",
+    "renewsAt": "2026-11-18T19:12:55Z",
+    "price": {
+     "usdPerMonth": 200,
+     "amount": 200,
+     "currency": "USD",
+     "source": "provider",
+     "detail": "ChatGPT checkout pricing (US)"
+    },
+    "readAt": "2026-10-26T23:52:57.311Z"
+   },
+   "planCheckedAt": "2026-10-26T23:52:56.397Z"
+  },
+  {
+   "id": "codex-f81617fe-user2@example.invalid-prolite.json",
+   "name": "codex-f81617fe-user2@example.invalid-prolite.json",
+   "auth_index": "c257d68ac7d56a1f",
+   "accountId": "00000000-0000-4000-8000-0000000000a2",
+   "email": "user2@example.invalid",
+   "provider": "codex",
+   "disabled": false,
+   "priority": 97,
+   "status": "available",
+   "creditsKnown": true,
+   "creditCount": 1,
+   "credits": [
+    {
+     "id": "fixture-credit-2",
+     "reset_type": "codex_rate_limits",
+     "is_supported_by_plan": true,
+     "status": "available",
+     "granted_at": "2026-10-07T23:39:11.687310Z",
+     "expires_at": "2026-11-06T23:39:11.687310Z",
+     "redeem_started_at": null,
+     "redeemed_at": null,
+     "profile_image_url": "https://example.invalid/profile.png",
+     "profile_user_id": "fixture-user",
+     "title": "Fixture credit",
+     "description": "Fixture credit description."
+    }
+   ],
+   "usageCheckStartedAt": "2026-10-27T02:41:31.127Z",
+   "windows": [
+    {
+     "id": "codex:primary_window",
+     "scope": "Codex",
+     "label": "Weekly",
+     "used": 9,
+     "resetAt": 1793600539000,
+     "durationSeconds": 604800,
+     "common": true
+    }
+   ],
+   "quotaWindows": [
+    {
+     "id": "codex:primary_window",
+     "scope": "Codex",
+     "label": "Weekly",
+     "used": 9,
+     "resetAt": 1793600539000,
+     "durationSeconds": 604800,
+     "common": true
+    }
+   ],
+   "remaining": 91,
+   "nextReset": 1793600539000,
+   "rankReset": 1793600539000,
+   "rankRemaining": 91,
+   "modelQuotaRecoveryBlocked": false,
+   "usageUpdatedAt": "2026-10-27T02:41:31.933Z",
+   "usageStale": false,
+   "routingStatus": "ready",
+   "routingCheckedAt": "2026-10-26T21:41:32.0321803-05:00",
+   "routingModels": {
+    "codex-auto-review": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-5.6-luna": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-5.6-sol": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-5.6-terra": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6-astra": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6-luna": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6-sol": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6.1-sol": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-6.1-terra": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    },
+    "gpt-reserve": {
+     "status": "ready",
+     "next_retry_after": "0001-01-01T00:00:00Z"
+    }
+   },
+   "modelList": {
+    "source": "live",
+    "fetchedAt": "2026-10-26T21:31:19.4630681-05:00",
+    "checkedAt": "2026-10-26T21:31:19.4630681-05:00",
+    "models": 10,
+    "error": null
+   },
+   "creditsUpdatedAt": "2026-10-27T02:41:32.703Z",
+   "plan": {
+    "plan": "prolite",
+    "label": "ChatGPT Pro 100",
+    "status": "active",
+    "billingPeriod": "monthly",
+    "renewsAt": "2026-11-20T16:28:32Z",
+    "price": {
+     "usdPerMonth": 100,
+     "amount": 100,
+     "currency": "USD",
+     "source": "provider",
+     "detail": "ChatGPT checkout pricing (US)"
+    },
+    "readAt": "2026-10-26T23:52:57.556Z"
+   },
+   "planCheckedAt": "2026-10-26T23:52:56.809Z"
+  }
+ ],
+ "checkedAt": "2026-10-27T02:41:33.487Z",
+ "error": null,
+ "resetAutomation": true,
+ "resets": {
+  "codex": {
+   "pending": null,
+   "last": {
+    "accountId": "codex-5f88762d-user3@example.invalid-pro.json",
+    "creditId": "fixture-credit-3",
+    "phase": "uncertain",
+    "requestId": "4449ec25-a916-5b5f-805d-42628f9445ba",
+    "firstAttemptAt": "2026-10-06T20:28:26.509Z",
+    "provider": "codex",
+    "at": "2026-10-06T20:28:31.584Z",
+    "outcome": "reset"
+   },
+   "refused": {}
+  },
+  "claude": {
+   "pending": null,
+   "last": {
+    "accountId": "claude-550c2ce1-user4@example.invalid.json",
+    "creditId": "fixture-credit-7",
+    "trigger": "before-lapse",
+    "phase": "uncertain",
+    "requestId": "8a364529-aae8-4915-87f6-d6ea201ac0ad",
+    "creditCountAtClaim": 1,
+    "firstAttemptAt": "2026-10-21T16:19:37.989Z",
+    "provider": "claude",
+    "at": "2026-10-21T16:19:38.477Z",
+    "outcome": "reset"
+   },
+   "refused": {}
+  }
+ },
+ "exhausted": {},
+ "reauth": {},
+ "creditRisk": {}
+}

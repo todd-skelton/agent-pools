@@ -1,0 +1,2000 @@
+{
+ "function": "provider-codex.mjs availableCredits(data, now) and provider-claude.mjs claudeBank(block, now)",
+ "cases": [
+  {
+   "name": "availableCredits fixture @2026-10-27T02:41:33.487Z",
+   "input": {
+    "data": {
+     "credits": [
+      {
+       "id": "RateLimitResetCredit_fixture0001",
+       "reset_type": "codex_rate_limits",
+       "is_supported_by_plan": true,
+       "status": "available",
+       "granted_at": "2026-09-22T20:42:33.558403Z",
+       "expires_at": "2026-10-22T20:42:33.558403Z",
+       "redeem_started_at": null,
+       "redeemed_at": null,
+       "profile_image_url": "https://example.invalid/avatar.png",
+       "profile_user_id": "fixture0001",
+       "title": "Fixture reset",
+       "description": "Synthetic description for a recorded payload"
+      }
+     ],
+     "available_count": 1,
+     "total_earned_count": 0,
+     "immediate_reset_purchase_eligible": false,
+     "history_enabled": true
+    },
+    "now": 1793068893487
+   },
+   "result": []
+  },
+  {
+   "name": "availableCredits fixture @2026-09-24T12:00:00.000Z",
+   "input": {
+    "data": {
+     "credits": [
+      {
+       "id": "RateLimitResetCredit_fixture0001",
+       "reset_type": "codex_rate_limits",
+       "is_supported_by_plan": true,
+       "status": "available",
+       "granted_at": "2026-09-22T20:42:33.558403Z",
+       "expires_at": "2026-10-22T20:42:33.558403Z",
+       "redeem_started_at": null,
+       "redeemed_at": null,
+       "profile_image_url": "https://example.invalid/avatar.png",
+       "profile_user_id": "fixture0001",
+       "title": "Fixture reset",
+       "description": "Synthetic description for a recorded payload"
+      }
+     ],
+     "available_count": 1,
+     "total_earned_count": 0,
+     "immediate_reset_purchase_eligible": false,
+     "history_enabled": true
+    },
+    "now": 1790251200000
+   },
+   "result": [
+    {
+     "id": "RateLimitResetCredit_fixture0001",
+     "reset_type": "codex_rate_limits",
+     "is_supported_by_plan": true,
+     "status": "available",
+     "granted_at": "2026-09-22T20:42:33.558403Z",
+     "expires_at": "2026-10-22T20:42:33.558403Z",
+     "redeem_started_at": null,
+     "redeemed_at": null,
+     "profile_image_url": "https://example.invalid/avatar.png",
+     "profile_user_id": "fixture0001",
+     "title": "Fixture reset",
+     "description": "Synthetic description for a recorded payload"
+    }
+   ]
+  },
+  {
+   "name": "availableCredits fixture @2026-10-30T14:00:00.000Z",
+   "input": {
+    "data": {
+     "credits": [
+      {
+       "id": "RateLimitResetCredit_fixture0001",
+       "reset_type": "codex_rate_limits",
+       "is_supported_by_plan": true,
+       "status": "available",
+       "granted_at": "2026-09-22T20:42:33.558403Z",
+       "expires_at": "2026-10-22T20:42:33.558403Z",
+       "redeem_started_at": null,
+       "redeemed_at": null,
+       "profile_image_url": "https://example.invalid/avatar.png",
+       "profile_user_id": "fixture0001",
+       "title": "Fixture reset",
+       "description": "Synthetic description for a recorded payload"
+      }
+     ],
+     "available_count": 1,
+     "total_earned_count": 0,
+     "immediate_reset_purchase_eligible": false,
+     "history_enabled": true
+    },
+    "now": 1793368800000
+   },
+   "result": []
+  },
+  {
+   "name": "availableCredits mixed @2026-10-27T02:41:33.487Z",
+   "input": {
+    "data": {
+     "credits": [
+      {
+       "id": "c-late",
+       "reset_type": "codex_rate_limits",
+       "status": "available",
+       "expires_at": "2026-11-20T00:00:00Z"
+      },
+      {
+       "id": "c-soon",
+       "resetType": "codexRateLimits",
+       "status": "available",
+       "expiresAt": "2026-10-28T00:00:00Z"
+      },
+      {
+       "id": "c-used",
+       "reset_type": "codex_rate_limits",
+       "status": "redeemed",
+       "expires_at": "2026-11-01T00:00:00Z"
+      },
+      {
+       "id": "c-other",
+       "reset_type": "something_else",
+       "status": "available",
+       "expires_at": "2026-11-01T00:00:00Z"
+      },
+      {
+       "id": "c-noexp",
+       "reset_type": "codex_rate_limits",
+       "status": "available"
+      }
+     ]
+    },
+    "now": 1793068893487
+   },
+   "result": [
+    {
+     "id": "c-soon",
+     "resetType": "codexRateLimits",
+     "status": "available",
+     "expiresAt": "2026-10-28T00:00:00Z"
+    },
+    {
+     "id": "c-late",
+     "reset_type": "codex_rate_limits",
+     "status": "available",
+     "expires_at": "2026-11-20T00:00:00Z"
+    },
+    {
+     "id": "c-noexp",
+     "reset_type": "codex_rate_limits",
+     "status": "available"
+    }
+   ]
+  },
+  {
+   "name": "availableCredits mixed @2026-09-24T12:00:00.000Z",
+   "input": {
+    "data": {
+     "credits": [
+      {
+       "id": "c-late",
+       "reset_type": "codex_rate_limits",
+       "status": "available",
+       "expires_at": "2026-11-20T00:00:00Z"
+      },
+      {
+       "id": "c-soon",
+       "resetType": "codexRateLimits",
+       "status": "available",
+       "expiresAt": "2026-10-28T00:00:00Z"
+      },
+      {
+       "id": "c-used",
+       "reset_type": "codex_rate_limits",
+       "status": "redeemed",
+       "expires_at": "2026-11-01T00:00:00Z"
+      },
+      {
+       "id": "c-other",
+       "reset_type": "something_else",
+       "status": "available",
+       "expires_at": "2026-11-01T00:00:00Z"
+      },
+      {
+       "id": "c-noexp",
+       "reset_type": "codex_rate_limits",
+       "status": "available"
+      }
+     ]
+    },
+    "now": 1790251200000
+   },
+   "result": [
+    {
+     "id": "c-soon",
+     "resetType": "codexRateLimits",
+     "status": "available",
+     "expiresAt": "2026-10-28T00:00:00Z"
+    },
+    {
+     "id": "c-late",
+     "reset_type": "codex_rate_limits",
+     "status": "available",
+     "expires_at": "2026-11-20T00:00:00Z"
+    },
+    {
+     "id": "c-noexp",
+     "reset_type": "codex_rate_limits",
+     "status": "available"
+    }
+   ]
+  },
+  {
+   "name": "availableCredits mixed @2026-10-30T14:00:00.000Z",
+   "input": {
+    "data": {
+     "credits": [
+      {
+       "id": "c-late",
+       "reset_type": "codex_rate_limits",
+       "status": "available",
+       "expires_at": "2026-11-20T00:00:00Z"
+      },
+      {
+       "id": "c-soon",
+       "resetType": "codexRateLimits",
+       "status": "available",
+       "expiresAt": "2026-10-28T00:00:00Z"
+      },
+      {
+       "id": "c-used",
+       "reset_type": "codex_rate_limits",
+       "status": "redeemed",
+       "expires_at": "2026-11-01T00:00:00Z"
+      },
+      {
+       "id": "c-other",
+       "reset_type": "something_else",
+       "status": "available",
+       "expires_at": "2026-11-01T00:00:00Z"
+      },
+      {
+       "id": "c-noexp",
+       "reset_type": "codex_rate_limits",
+       "status": "available"
+      }
+     ]
+    },
+    "now": 1793368800000
+   },
+   "result": [
+    {
+     "id": "c-late",
+     "reset_type": "codex_rate_limits",
+     "status": "available",
+     "expires_at": "2026-11-20T00:00:00Z"
+    },
+    {
+     "id": "c-noexp",
+     "reset_type": "codex_rate_limits",
+     "status": "available"
+    }
+   ]
+  },
+  {
+   "name": "availableCredits none @2026-10-27T02:41:33.487Z",
+   "input": {
+    "data": {},
+    "now": 1793068893487
+   },
+   "result": []
+  },
+  {
+   "name": "availableCredits none @2026-09-24T12:00:00.000Z",
+   "input": {
+    "data": {},
+    "now": 1790251200000
+   },
+   "result": []
+  },
+  {
+   "name": "availableCredits none @2026-10-30T14:00:00.000Z",
+   "input": {
+    "data": {},
+    "now": 1793368800000
+   },
+   "result": []
+  },
+  {
+   "name": "claudeBank fixture @2026-10-27T02:41:33.487Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank fixture @2026-09-24T12:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "credits": [
+     {
+      "id": "fixture-launch-grant",
+      "expires_at": "2026-10-22T16:00:00+00:00",
+      "label": "Fixture launch grant"
+     }
+    ],
+    "count": 1,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank fixture @2026-10-30T14:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank missing @2026-10-27T02:41:33.487Z",
+   "input": {
+    "block": null,
+    "now": 1793068893487
+   },
+   "result": null
+  },
+  {
+   "name": "claudeBank missing @2026-09-24T12:00:00.000Z",
+   "input": {
+    "block": null,
+    "now": 1790251200000
+   },
+   "result": null
+  },
+  {
+   "name": "claudeBank missing @2026-10-30T14:00:00.000Z",
+   "input": {
+    "block": null,
+    "now": 1793368800000
+   },
+   "result": null
+  },
+  {
+   "name": "claudeBank not eligible @2026-10-27T02:41:33.487Z",
+   "input": {
+    "block": {
+     "eligible": false,
+     "ineligible_reason": "surface",
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": "Resets not offered to this client (surface)"
+   }
+  },
+  {
+   "name": "claudeBank not eligible @2026-09-24T12:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": false,
+     "ineligible_reason": "surface",
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": "Resets not offered to this client (surface)"
+   }
+  },
+  {
+   "name": "claudeBank not eligible @2026-10-30T14:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": false,
+     "ineligible_reason": "surface",
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": "Resets not offered to this client (surface)"
+   }
+  },
+  {
+   "name": "claudeBank cooling @2026-10-27T02:41:33.487Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": "2026-10-01T00:00:00Z",
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank cooling @2026-09-24T12:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": "2026-10-01T00:00:00Z",
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "credits": [],
+    "count": 1,
+    "note": "Resets cooling down until 2026-10-01T00:00:00Z"
+   }
+  },
+  {
+   "name": "claudeBank cooling @2026-10-30T14:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": "2026-10-01T00:00:00Z",
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank paused @2026-10-27T02:41:33.487Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": true,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank paused @2026-09-24T12:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": true,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank paused @2026-10-30T14:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": true,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank needs limit, not at limit @2026-10-27T02:41:33.487Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": true,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank needs limit, not at limit @2026-09-24T12:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": true,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "credits": [],
+    "count": 1,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank needs limit, not at limit @2026-10-30T14:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": true,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank needs limit, at limit @2026-10-27T02:41:33.487Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": true,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": true,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank needs limit, at limit @2026-09-24T12:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": true,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": true,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "credits": [
+     {
+      "id": "fixture-launch-grant",
+      "expires_at": "2026-10-22T16:00:00+00:00",
+      "label": "Fixture launch grant"
+     }
+    ],
+    "count": 1,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank needs limit, at limit @2026-10-30T14:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": true,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": true,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank next id elsewhere @2026-10-27T02:41:33.487Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "other-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank next id elsewhere @2026-09-24T12:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "other-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "credits": [],
+    "count": 1,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank next id elsewhere @2026-10-30T14:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "other-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank two grants @2026-10-27T02:41:33.487Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      },
+      {
+       "id": "fixture-second-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 2,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-11-30T00:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "credits": [],
+    "count": 2,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank two grants @2026-09-24T12:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      },
+      {
+       "id": "fixture-second-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 2,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-11-30T00:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "credits": [
+     {
+      "id": "fixture-launch-grant",
+      "expires_at": "2026-10-22T16:00:00+00:00",
+      "label": "Fixture launch grant"
+     }
+    ],
+    "count": 3,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank two grants @2026-10-30T14:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      },
+      {
+       "id": "fixture-second-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 2,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-11-30T00:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "credits": [],
+    "count": 2,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank bad id @2026-10-27T02:41:33.487Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "Bad Id!",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "Bad Id!",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank bad id @2026-09-24T12:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "Bad Id!",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "Bad Id!",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank bad id @2026-10-30T14:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "Bad Id!",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-09-22T16:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "Bad Id!",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank not started @2026-10-27T02:41:33.487Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-12-01T00:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793068893487
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank not started @2026-09-24T12:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-12-01T00:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1790251200000
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  },
+  {
+   "name": "claudeBank not started @2026-10-30T14:00:00.000Z",
+   "input": {
+    "block": {
+     "eligible": true,
+     "ineligible_reason": null,
+     "at_limit": false,
+     "exhausted": [],
+     "grants": [
+      {
+       "id": "fixture-launch-grant",
+       "label": "Fixture launch grant",
+       "resets_total": 1,
+       "resets_left": 1,
+       "starts_at": "2026-12-01T00:00:00+00:00",
+       "ends_at": "2026-10-22T16:00:00+00:00",
+       "clears": [
+        "five_hour",
+        "seven_day",
+        "seven_day_overage_included"
+       ],
+       "paused": false,
+       "usable_now": true,
+       "use_requires_limit": false,
+       "percent_used": {
+        "five_hour": 0,
+        "seven_day": 0,
+        "seven_day_overage_included": 0
+       },
+       "blocking": [],
+       "arm": null
+      }
+     ],
+     "next_grant_id": "fixture-launch-grant",
+     "weekly_resets_at": "2026-09-30T13:00:00+00:00",
+     "cooldown_until": null,
+     "event_props": {
+      "surface": "claude_code_cli",
+      "tier": "fixture_tier",
+      "tenure_bucket": "fixture",
+      "billing_path": "stripe",
+      "billing_period": "unknown",
+      "extra_usage_state": "not_configured"
+     }
+    },
+    "now": 1793368800000
+   },
+   "result": {
+    "credits": [],
+    "count": 0,
+    "note": null
+   }
+  }
+ ]
+}

@@ -1,0 +1,47 @@
+{
+ "format": "agent-pools-golden-outputs/v1",
+ "inputs": "2026-10-27T02:41:33.487Z",
+ "forecastProblems": [],
+ "files": {
+  "forecast/now.json": {
+   "bytes": 13874,
+   "sha256": "b6f220f267aff9f5f024b5f9b2166ac2f393b13b7104e9fc24f79cb7d0c7e66b"
+  },
+  "forecast/replay.json": {
+   "bytes": 1112837,
+   "sha256": "3751689a72624175c55577c5eb4dfbdacc1af7b37e6c05e9455cdf5621b8dfb1"
+  },
+  "quota/banks.json": {
+   "bytes": 49460,
+   "sha256": "f5e83697598f5deaf6631ad6b704ad6a8a23a8368d0cb9b10379b362900bc4a9"
+  },
+  "quota/usage.json": {
+   "bytes": 76186,
+   "sha256": "bfb5158a3e3a1605afd6aba38d9643ae42c3dd0f62b8d191559e4de76806483a"
+  },
+  "routing/choose-reset.json": {
+   "bytes": 4558839,
+   "sha256": "74a87f312ab3eb644729d68f1508d7bfb522e175cdfccd03d0205b7229874a43"
+  },
+  "routing/rank-accounts.json": {
+   "bytes": 94016,
+   "sha256": "4997e9438a2240cfdb365389db5603e9f2ecef33dc850f9e16331cfb40e44ea3"
+  },
+  "summary/now.json": {
+   "bytes": 19094,
+   "sha256": "05e670a14b1a74aa7591228bf461fba65e88ee4b46e569f4b83a430611dcf728"
+  },
+  "value/deployed-session-usage.json": {
+   "bytes": 997067,
+   "sha256": "03588d1d045d0979b63adb27ae25a706c46a11796158fb31fee1e747ba8eccb3"
+  },
+  "value/deployed.json": {
+   "bytes": 19306,
+   "sha256": "7370df57c6c94e40032e5cd1bc5b1d6144d1b4c9207820b1155de78e8991d7c6"
+  },
+  "value/short-windows.json": {
+   "bytes": 17707,
+   "sha256": "7220f7a34ba91291a8971dffb9c21b5d96df446776238b4d1ad83ac7ea5b6c2b"
+  }
+ }
+}

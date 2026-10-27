@@ -1,0 +1,22 @@
+{
+  "credits": [
+    {
+      "id": "RateLimitResetCredit_fixture0001",
+      "reset_type": "codex_rate_limits",
+      "is_supported_by_plan": true,
+      "status": "available",
+      "granted_at": "2026-09-22T20:42:33.558403Z",
+      "expires_at": "2026-10-22T20:42:33.558403Z",
+      "redeem_started_at": null,
+      "redeemed_at": null,
+      "profile_image_url": "https://example.invalid/avatar.png",
+      "profile_user_id": "fixture0001",
+      "title": "Fixture reset",
+      "description": "Synthetic description for a recorded payload"
+    }
+  ],
+  "available_count": 1,
+  "total_earned_count": 0,
+  "immediate_reset_purchase_eligible": false,
+  "history_enabled": true
+}

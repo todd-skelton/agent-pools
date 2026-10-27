@@ -1,0 +1,29 @@
+{
+ "format": "agent-pools-golden-inputs/v1",
+ "takenAt": "2026-10-27T02:41:53.550Z",
+ "now": "2026-10-27T02:41:33.487Z",
+ "ledgerDays": 5,
+ "counts": {
+  "accounts": 7,
+  "samples": 36155,
+  "ledgerRows": 250238
+ },
+ "scrubbed": {
+  "emails": 4,
+  "creditIds": 7,
+  "creditProfileValues": 4
+ },
+ "files": [
+  "capacity-forecast.json",
+  "install.json",
+  "model-prices.json",
+  "model-registry.json",
+  "pool-state.json",
+  "provider/claude-usage.json",
+  "provider/codex-credits.json",
+  "provider/codex-usage-available.json",
+  "provider/codex-usage-exhausted.json",
+  "usage-ledger.jsonl.gz",
+  "usage-samples.jsonl.gz"
+ ]
+}
