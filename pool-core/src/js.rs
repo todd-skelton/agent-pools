@@ -485,6 +485,50 @@ pub fn stringify(v: &Value) -> String {
     out
 }
 
+/// `JSON.stringify(v, null, indent)`: as [`stringify`], one member per line, nested `indent`
+/// spaces deeper; an empty object or array stays `{}` or `[]`.
+pub fn stringify_pretty(v: &Value, indent: usize) -> String {
+    let mut out = String::new();
+    write_pretty(&mut out, v, indent, 0);
+    out
+}
+
+fn write_pretty(out: &mut String, v: &Value, indent: usize, depth: usize) {
+    let pad = |out: &mut String, d: usize| {
+        out.push('\n');
+        out.extend(std::iter::repeat_n(' ', indent * d));
+    };
+    match v {
+        Value::Array(a) if !a.is_empty() => {
+            out.push('[');
+            for (i, x) in a.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                pad(out, depth + 1);
+                write_pretty(out, x, indent, depth + 1);
+            }
+            pad(out, depth);
+            out.push(']');
+        }
+        Value::Object(m) if !m.is_empty() => {
+            out.push('{');
+            for (i, (k, x)) in entries(Some(v)).into_iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                pad(out, depth + 1);
+                write_quoted(out, &k);
+                out.push_str(": ");
+                write_pretty(out, x, indent, depth + 1);
+            }
+            pad(out, depth);
+            out.push('}');
+        }
+        v => write_json(out, v),
+    }
+}
+
 fn write_json(out: &mut String, v: &Value) {
     match v {
         Value::Null => out.push_str("null"),

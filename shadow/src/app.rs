@@ -99,7 +99,7 @@ impl corten::json::ToJson for JsJson {
     }
 }
 
-async fn build_summary(shadow: &Shared) -> Result<Value> {
+async fn build_summary(shadow: &Shared) -> corten::Result<Value> {
     let s = shadow.clone();
     let doc =
         tokio::task::spawn_blocking(move || parity::summary_now(&s.install, now_ms())).await?;

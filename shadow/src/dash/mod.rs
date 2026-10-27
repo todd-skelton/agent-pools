@@ -41,7 +41,7 @@ impl Data {
 
 /// The status as the shadow builds it (the live service's memory, `processes`, `holds` and
 /// `usageLedger`, from its last `/api/status` answer when there is one) and the value report.
-pub async fn load(shadow: &Shared) -> Result<Data> {
+pub async fn load(shadow: &Shared) -> corten::Result<Data> {
     let s = shadow.clone();
     let live = shadow.live_memory();
     let (status, value, now) = tokio::task::spawn_blocking(move || {

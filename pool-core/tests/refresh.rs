@@ -411,6 +411,15 @@ async fn each_cycle_matches_agent_pools() {
                     failures.push(format!("{at_cycle} {kind} ({} port, {} js) {}", a.len(), b.len(), first_difference(&a, &b)));
                 }
             }
+            // The saved file itself: key order and number spelling as Agent Pools writes them.
+            let text = js::stringify_pretty(&state, 2);
+            if let Some(js_text) = expected["stateText"].as_str() {
+                if text != js_text {
+                    let line = text.lines().zip(js_text.lines()).position(|(a, b)| a != b).unwrap_or(0);
+                    failures.push(format!("{at_cycle} saved text differs at line {}:\n  port: {}\n  js:   {}", line + 1,
+                        text.lines().nth(line).unwrap_or(""), js_text.lines().nth(line).unwrap_or("")));
+                }
+            }
             let mut diffs = Vec::new();
             value_difference(&state, &expected["state"], "state", &mut diffs);
             if !diffs.is_empty() {

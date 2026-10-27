@@ -131,7 +131,7 @@ async function run(s) {
     if (step.hooks) hooks = { ...hooks, ...clone(step.hooks) };
     trace = { calls: [], events: [], samples: [], toasts: [], saves: [], hooks: [] };
     const result = await refresh();
-    cycles.push({ now: clock, result, ...trace, state: clone(state) });
+    cycles.push({ now: clock, result, ...trace, state: clone(state), stateText: JSON.stringify(state, null, 2) });
   }
   return cycles;
 }

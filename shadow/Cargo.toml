@@ -9,9 +9,8 @@ description = "Agent Pools' dashboard and /api/summary on Corten, read-only besi
 
 [dependencies]
 pool-core = { path = "../pool-core" }
-# main after "corten::serve_on serves an app on listeners of its own" (corten#137, for corten#115)
-# and "An area or an API sets its own deadline" (corten#135, for corten#114).
-corten = { git = "https://github.com/todd-skelton/corten", rev = "15dc546", features = ["json"] }
+# main after "ClientIp" (corten#145, for corten#120), with serve_on (corten#137) and per-area deadlines (corten#135).
+corten = { git = "https://github.com/todd-skelton/corten", rev = "4a94783", features = ["json"] }
 # The dashboard's live stream (corten::live takes a Stream).
 futures-util = { version = "0.3", default-features = false }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
