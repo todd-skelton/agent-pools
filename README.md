@@ -240,9 +240,16 @@ Where it differs, by design or because of Corten:
    ([corten#171](https://github.com/todd-skelton/corten/pull/171), for
    [corten#163 An API cannot shape the failures Corten answers itself](https://github.com/todd-skelton/corten/issues/163)),
    with Corten's statuses: a wrong method is 405 where Agent Pools answers 404. Outside `/v1` they
-   are the pages' (the HTML error page). Machine keys are still checked in the handlers; with
-   `Api::errors` they can move into an `Identify`, not done yet.
-4. A relayed page keeps its own Content-Security-Policy
+   are the pages' (the HTML error page).
+4. The machine key is Corten's `Caller<Machine>` (`caller = Machine` on the `/v1` routes, so a
+   route without it does not compile), with Agent Pools' words on its refusals
+   (`Refused::message`, `Refused::too_many`;
+   [corten#177 A Caller refusal cannot say why](https://github.com/todd-skelton/corten/issues/177)):
+   401 `Invalid API key`, and 429 `Too many failed attempts; try again later` before the key is
+   looked at. Two differences: the 429 also sends `Retry-After` (seconds until the address's
+   15-minute window ends), and a malformed `/v1/models/{id}` is a 404 only once the key is good
+   (Agent Pools answers it before the key).
+5. A relayed page keeps its own Content-Security-Policy
    ([corten#172](https://github.com/todd-skelton/corten/pull/172), for
    [corten#164 A Relay loses the upstream's Content-Security-Policy](https://github.com/todd-skelton/corten/issues/164)).
    With `AP_GATEWAY_LIVE=http://127.0.0.1:8318`, a test signs in to the gateway and reads the live

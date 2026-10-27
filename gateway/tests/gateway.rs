@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use corten::axum::{self, Router, body::Body, extract::Request, response::Response};
 use pools_gateway::{Client, Config, app, sha256};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 const HOST: &str = "pool.example.test";
 const ORIGIN: &str = "https://pool.example.test";
@@ -340,10 +340,20 @@ async fn expired_sessions_are_refused() {
 async fn repeated_failures_from_one_address_are_throttled() {
     let f = fixture_with(sse_pool(), json_service(), |c| c.max_failures = 3).await;
     let from = |ip| ("x-forwarded-for", ip);
+    let body = |a: &Answer| serde_json::from_str::<serde_json::Value>(&a.body).unwrap();
     for _ in 0..3 {
-        assert_eq!(f.call("GET", "/v1/models", &[("x-api-key", "wrong"), from("198.51.100.7")], None).await.status, 401);
+        let a = f.call("GET", "/v1/models", &[("x-api-key", "wrong"), from("198.51.100.7")], None).await;
+        assert_eq!(a.status, 401);
+        // public-gateway.mjs's words, from the Caller's refusal (corten#177).
+        assert_eq!(body(&a), json!({ "type": "error", "error": { "type": "authentication_error", "message": "Invalid API key" } }));
     }
-    assert_eq!(f.call("GET", "/v1/models", &[("x-api-key", MACHINE_KEY), from("198.51.100.7")], None).await.status, 429);
+    let locked = f.call("GET", "/v1/models", &[("x-api-key", MACHINE_KEY), from("198.51.100.7")], None).await;
+    assert_eq!(locked.status, 429, "the right key is not even looked at");
+    assert_eq!(body(&locked), json!({ "type": "error", "error": { "type": "rate_limit_error", "message": "Too many failed attempts; try again later" } }));
+    // Agent Pools sends no Retry-After; the port says when the 15-minute window ends.
+    let wait: u64 = locked.headers["retry-after"].to_str().unwrap().parse().unwrap();
+    assert!((1..=900).contains(&wait), "{wait}");
+    assert_eq!(locked.headers["cache-control"], "no-store");
     assert_eq!(f.call("GET", "/v1/models", &[("x-api-key", MACHINE_KEY), from("198.51.100.8")], None).await.status, 200);
     assert_eq!(f.events("public-auth-rejected").len(), 1);
 }

@@ -27,6 +27,10 @@
 //!    pages' (the HTML error page), and an unlisted host is Corten's 421 in plain text.
 //! 4. `Referrer-Policy` is Corten's `strict-origin-when-cross-origin`, which, like Agent Pools'
 //!    `same-origin`, keeps the real `Origin` on the sign-in form's POST.
+//! 5. The machine key is Corten's `Caller<Machine>` (corten#177), looked up before the handler:
+//!    a `/v1/models/{id}` with a malformed id is a 404 only once the key is good (Agent Pools
+//!    answers it before the key), and the 429 for too many failures carries `Retry-After` (the
+//!    seconds until the address's window ends), which Agent Pools does not send.
 
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -46,7 +50,7 @@ pub mod backend;
 pub mod inference;
 
 /// A registered machine (state/remote-clients.json): its name and the SHA-256 of its key.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct Client {
     pub name: String,
     pub key_sha256: String,
@@ -239,7 +243,33 @@ pub mod url {
     pub struct Refresh;
 }
 
-#[corten::routes(api = V1, state = Gw)]
+/// A registered machine, found by the key it presents (`x-api-key` or Bearer). Every `/v1` route
+/// takes one (`caller = Machine`), so nothing reaches the pool without it.
+#[derive(Clone, Hash)]
+pub struct Machine(pub Client);
+
+impl corten::Identify<Gw> for Machine {
+    /// public-gateway.mjs's `inference` checks: an address with too many failures is refused
+    /// before its key is looked at (429); a missing or unknown key is a 401 and a failure counted
+    /// against the address.
+    async fn identify(parts: &corten::axum::http::request::Parts, gw: &Gw) -> Result<Machine, corten::Refused> {
+        let mut own = parts.clone();
+        let ip = ip_of(<ClientIp as corten::axum::extract::OptionalFromRequestParts<Gw>>::from_request_parts(&mut own, gw).await.unwrap_or(None));
+        if let Some(wait) = gw.locked_for(&ip) {
+            return Err(corten::Refused::too_many(wait).message("Too many failed attempts; try again later"));
+        }
+        let presented = presented_key(&parts.headers);
+        match gw.find_client(presented.as_ref().map(|p| p.0.as_str())) {
+            Some(client) => Ok(Machine(client)),
+            None => {
+                gw.fail(&ip, parts.uri.path(), if presented.is_some() { "unknown-key" } else { "no-key" });
+                Err(corten::Refused::unauthorized().message("Invalid API key"))
+            }
+        }
+    }
+}
+
+#[corten::routes(api = V1, state = Gw, caller = Machine)]
 pub mod v1 {
     #[route("/v1")]
     pub struct V1;
@@ -403,15 +433,24 @@ impl Gw {
     }
 
     fn locked(&self, ip: &str) -> bool {
+        self.locked_for(ip).is_some()
+    }
+
+    /// `locked(ip)`, and how long until its window ends and the address may try again.
+    fn locked_for(&self, ip: &str) -> Option<std::time::Duration> {
         let now = (self.c().now)();
         let mut failures = self.0.failures.lock().unwrap();
         match failures.get(ip) {
-            None => false,
+            None => None,
             Some((first, _)) if now - first > self.c().failure_window_ms => {
                 failures.remove(ip);
-                false
+                None
             }
-            Some((_, count)) => *count >= self.c().max_failures,
+            Some((first, count)) if *count >= self.c().max_failures => {
+                let left = (first + self.c().failure_window_ms - now).max(0.0);
+                Some(std::time::Duration::from_millis(left as u64))
+            }
+            Some(_) => None,
         }
     }
 
@@ -525,8 +564,7 @@ fn model_id_ok(id: &str) -> bool {
     (1..=128).contains(&id.chars().count()) && id.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '.' || c == ':' || c == '-')
 }
 
-async fn inference(State(gw): State<Gw>, ip: Option<ClientIp>, req: Request) -> Out {
-    let ip = ip_of(ip);
+async fn inference(State(gw): State<Gw>, corten::Caller(Machine(client)): corten::Caller<Machine>, req: Request) -> Out {
     let (parts, body) = req.into_parts();
     let path = parts.uri.path().to_string();
     if let Some(id) = path.strip_prefix("/v1/models/")
@@ -534,14 +572,7 @@ async fn inference(State(gw): State<Gw>, ip: Option<ClientIp>, req: Request) -> 
     {
         return error(StatusCode::NOT_FOUND, "Not found", "not_found_error");
     }
-    if gw.locked(&ip) {
-        return error(StatusCode::TOO_MANY_REQUESTS, "Too many failed attempts; try again later", "rate_limit_error");
-    }
     let presented = presented_key(&parts.headers);
-    let Some(client) = gw.find_client(presented.as_ref().map(|p| p.0.as_str())) else {
-        gw.fail(&ip, &path, if presented.is_some() { "unknown-key" } else { "no-key" });
-        return error(StatusCode::UNAUTHORIZED, "Invalid API key", "authentication_error");
-    };
     let Some(key) = (gw.c().pool_key)().filter(|k| !k.is_empty()) else {
         return error(StatusCode::SERVICE_UNAVAILABLE, "Pool key unavailable", "api_error");
     };
