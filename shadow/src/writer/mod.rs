@@ -14,7 +14,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use pool_core::js;
-use pool_core::refresh::{Options, Refresh, account::invalidate, migrate_state};
+use pool_core::refresh::{Options, Outcome, Refresh, account::invalidate, migrate_state};
 use serde_json::{Value, json};
 use tokio::sync::Notify;
 
@@ -76,37 +76,68 @@ pub fn load_state(root: &Path) -> Value {
     state
 }
 
-/// The refresh loop: the first cycle after `delays.every` (startup serves the saved state), then
-/// on the interval, sooner after a degraded or follow-up cycle within the budget, and at once on
-/// a request. `changed` is called after each cycle.
-pub async fn run(io: Arc<io::FileIo>, trigger: Arc<Trigger>, delays: Delays, options: Options, changed: impl Fn() + Send, signal: corten::Signal) {
-    let mut state = load_state(&io.root);
-    let mut refresh = Refresh::new(options, &state);
-    let mut wait = delays.every;
-    let mut fast = 0;
-    loop {
-        let notified = trigger.notify.notified();
-        tokio::pin!(notified);
-        notified.as_mut().enable();
-        if !trigger.requested.swap(false, Ordering::SeqCst) {
-            tokio::select! {
-                _ = tokio::time::sleep(wait) => {}
-                _ = &mut notified => {}
-                _ = signal.aborted() => return,
-            }
-            trigger.requested.store(false, Ordering::SeqCst);
-        }
-        trigger.running.store(true, Ordering::SeqCst);
-        // A cycle in progress finishes, so a journaled claim is saved before the process ends.
-        let outcome = refresh.refresh(&mut state, &*io).await;
-        trigger.running.store(false, Ordering::SeqCst);
-        changed();
+/// One refresh: what [`run_loop`] calls each time.
+pub trait Check {
+    fn check(&mut self) -> impl Future<Output = Outcome> + Send;
+}
+
+/// `pool_core::refresh` over the copy's files and the stand-in proxy.
+struct Cycle<F> {
+    io: Arc<io::FileIo>,
+    state: Value,
+    refresh: Refresh,
+    changed: F,
+}
+
+impl<F: Fn() + Send> Check for Cycle<F> {
+    async fn check(&mut self) -> Outcome {
+        let outcome = self.refresh.refresh(&mut self.state, &*self.io).await;
+        (self.changed)();
         println!(
             "writer: cycle at {} degraded={} followUp={}",
             js::iso(io::now_ms()),
             outcome.degraded,
             outcome.follow_up
         );
+        outcome
+    }
+}
+
+/// The write side's refresh: the saved state, a first cycle as soon as the proxy answers
+/// (pool-service.mjs's `bootstrapped`: saved status is unverified after a start), then
+/// [`run_loop`]. `changed` is called after each cycle.
+pub async fn run(io: Arc<io::FileIo>, trigger: Arc<Trigger>, delays: Delays, options: Options, changed: impl Fn() + Send, signal: corten::Signal) {
+    let state = load_state(&io.root);
+    let refresh = Refresh::new(options, &state);
+    // checkProxy: healthy when `auth-files` answers with a `files` list.
+    let healthy = io.call("auth-files", None, None).await.is_ok_and(|v| v.get("files").is_some_and(Value::is_array));
+    let mut cycle = Cycle { io, state, refresh, changed };
+    run_loop(&trigger, delays, healthy, &mut cycle, &signal).await;
+}
+
+/// refresh-loop.mjs: the next cycle `delays.every` after the last one ends (at once when
+/// `bootstrap`), sooner after a degraded or follow-up cycle within the budget, and at once on a
+/// request. A request while a cycle runs joins it, and the delay starts when it ends. A cycle in
+/// progress finishes before the loop stops, so a journaled claim is saved first.
+pub async fn run_loop<C: Check>(trigger: &Trigger, delays: Delays, bootstrap: bool, check: &mut C, signal: &corten::Signal) {
+    let mut wait = if bootstrap { Duration::ZERO } else { delays.every };
+    let mut fast = 0;
+    loop {
+        let notified = trigger.notify.notified();
+        tokio::pin!(notified);
+        notified.as_mut().enable();
+        if !trigger.requested.load(Ordering::SeqCst) {
+            tokio::select! {
+                _ = tokio::time::sleep(wait) => {}
+                _ = &mut notified => {}
+                _ = signal.aborted() => return,
+            }
+        }
+        // Running before the request is cleared: one that arrives from here on joins this cycle.
+        trigger.running.store(true, Ordering::SeqCst);
+        trigger.requested.store(false, Ordering::SeqCst);
+        let outcome = check.check().await;
+        trigger.running.store(false, Ordering::SeqCst);
         let soon = outcome.degraded || outcome.follow_up;
         if soon && fast < delays.budget {
             fast += 1;
@@ -119,3 +150,6 @@ pub async fn run(io: Arc<io::FileIo>, trigger: Arc<Trigger>, delays: Delays, opt
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
