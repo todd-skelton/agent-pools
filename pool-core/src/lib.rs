@@ -9,7 +9,8 @@
 //! choice ([`routing`]), Codex credits and the Claude bank ([`banks`]), reset policies
 //! ([`resets`]), the capacity forecast ([`forecast`]), the usage value report and session usage
 //! ([`value`]) `/api/summary` with account freshness ([`summary`]) and `/api/status` ([`status`]), over the provider facts
-//! in [`providers`].
+//! in [`providers`]. The refresh cycle ([`refresh`]), the pool's write path, is ported with its I/O behind a trait and held
+//! to traces of Agent Pools' own cycle (`golden/refresh-traces.mjs`, `tests/refresh.rs`).
 //!
 //! # Where the port knowingly differs
 //!
@@ -38,6 +39,7 @@ pub mod forecast;
 pub mod js;
 pub mod providers;
 pub mod quota;
+pub mod refresh;
 pub mod resets;
 pub mod routing;
 pub mod status;

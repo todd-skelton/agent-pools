@@ -16,7 +16,14 @@ serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
 ryu-js = "1"
 # capacity-forecast.mjs digest(): the first 16 hex of SHA-256 over JSON.stringify.
 sha2 = "0.10"
+# routing.mjs redemptionId(): a name-based UUID from SHA-1, kept so a retried Codex claim keeps its id.
+sha1 = "0.10"
+# The refresh cycle reads accounts concurrently and bounds a plan read (join_all, select, an
+# async lock); no runtime.
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 
 [dev-dependencies]
+# The refresh replay runs cycles on a runtime and times out a hung plan read for real.
+tokio = { version = "1", features = ["rt", "time", "macros"] }
 # The golden inputs keep the sample and ledger streams gzipped.
 flate2 = "1"

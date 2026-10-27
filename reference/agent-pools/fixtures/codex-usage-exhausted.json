@@ -1,0 +1,96 @@
+{
+  "user_id": "user-fixture0001",
+  "account_id": "00000000-0000-4000-8000-000000000001",
+  "email": "fixture@example.invalid",
+  "plan_type": "pro",
+  "rate_limit": {
+    "allowed": false,
+    "limit_reached": true,
+    "primary_window": {
+      "used_percent": 100,
+      "limit_window_seconds": 604800,
+      "reset_after_seconds": 13619,
+      "reset_at": 1790273819
+    },
+    "secondary_window": null
+  },
+  "code_review_rate_limit": null,
+  "additional_rate_limits": null,
+  "model_usage": {
+    "gpt-6-astra": {
+      "available": false,
+      "available_at": "2026-09-24T18:16:59.563437Z",
+      "credits_would_enable": true
+    }
+  },
+  "credits": {
+    "has_credits": false,
+    "unlimited": false,
+    "overage_limit_reached": false,
+    "balance": "0",
+    "approx_local_messages": [
+      0,
+      0
+    ],
+    "approx_cloud_messages": [
+      0,
+      0
+    ]
+  },
+  "spend_control": {
+    "reached": false,
+    "individual_limit": null
+  },
+  "rate_limit_reached_type": {
+    "type": "rate_limit_reached",
+    "details": "default"
+  },
+  "rate_limit_upsell": {
+    "banner_type": "pro_rate_limit_reached",
+    "title": "Fixture reset",
+    "description": "Synthetic description for a recorded payload",
+    "ctas": [
+      {
+        "action": "add_credits",
+        "label": "Fixture launch grant"
+      },
+      {
+        "action": "reset_usage",
+        "label": "Fixture launch grant"
+      }
+    ],
+    "reset_at": 1790273819,
+    "referral": null,
+    "request_url": null
+  },
+  "ambient_usage": {
+    "default": {
+      "profile_subtext": "Fixture text",
+      "menu": {
+        "rows": [
+          {
+            "label": "Fixture row",
+            "value": {
+              "text": "Fixture text",
+              "tone": "warning"
+            },
+            "hover": {
+              "text": "Fixture text"
+            }
+          }
+        ],
+        "actions": [
+          {
+            "action": "add_credits",
+            "label": "Fixture action"
+          }
+        ]
+      }
+    }
+  },
+  "promo": null,
+  "rate_limit_reset_credits": {
+    "available_count": 1,
+    "applicable_available_count": 1
+  }
+}
