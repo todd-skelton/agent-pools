@@ -83,6 +83,8 @@ pub struct Shadow {
     pub writer: std::sync::OnceLock<Arc<crate::writer::Trigger>>,
     /// The copy's write side (its I/O and proxy watch), set only on `run-copy`.
     pub copy: std::sync::OnceLock<Arc<crate::writer::Copy>>,
+    /// A sign-in started on the copy's dashboard and not yet confirmed.
+    pub signin: crate::dash::signin::Signins,
     http: reqwest::Client,
 }
 
@@ -113,6 +115,7 @@ impl Shadow {
             inner: Mutex::new(Inner::default()),
             writer: std::sync::OnceLock::new(),
             copy: std::sync::OnceLock::new(),
+            signin: Default::default(),
             http,
         })
     }

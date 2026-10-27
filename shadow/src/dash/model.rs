@@ -25,7 +25,8 @@ pub enum View {
     Policy,
 }
 
-/// An action button. The shadow is read-only: what changes the pool is only named.
+/// An action button. What changes the pool works on a copy (`run-copy`); the read-only shadow
+/// only names it.
 #[derive(Clone, Debug)]
 pub enum Act {
     /// The account's row, open, on the accounts page.
@@ -34,17 +35,18 @@ pub enum Act {
     Credits { text: String, open: Option<String> },
     /// Another page, at an anchor.
     Go { text: String, view: View, anchor: Option<&'static str> },
-    /// Sign-in, refresh: done on the live dashboard.
-    Live { text: String, primary: bool },
+    /// Sign-in, refresh: a form or the sign-in page where the app may write, else a disabled
+    /// button (done on the live dashboard).
+    Live { text: String, primary: bool, does: Does, writable: bool },
 }
 
-impl Act {
-    fn live(text: impl Into<String>) -> Act {
-        Act::Live { text: text.into(), primary: false }
-    }
-    fn live_primary(text: impl Into<String>) -> Act {
-        Act::Live { text: text.into(), primary: true }
-    }
+/// What a `Live` action does.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Does {
+    /// A refresh cycle (`refreshNow`), then back to the account's row when there is one.
+    Refresh { open: Option<String> },
+    /// The sign-in steps (`openSignin(p, id)`).
+    Signin { provider: Option<String>, account: Option<String> },
 }
 
 fn get<'a>(v: Option<&'a Value>, k: &str) -> Option<&'a Value> {
@@ -85,6 +87,8 @@ pub struct Ctx<'a> {
     pub v: Option<&'a Value>,
     pub now: f64,
     pub z: Zone,
+    /// Whether the app may change the pool (a copy): its actions work.
+    pub writable: bool,
 }
 
 pub struct Price {
@@ -146,6 +150,17 @@ impl<'a> Ctx<'a> {
     }
     pub fn in_t(&self, v: Option<&Value>) -> String {
         in_t(ts(v), self.now)
+    }
+
+    /// `act(text, "refresh")`
+    pub fn refresh(&self, text: impl Into<String>, open: Option<String>) -> Act {
+        Act::Live { text: text.into(), primary: false, does: Does::Refresh { open }, writable: self.writable }
+    }
+
+    /// `act(text, "signin", { p, id })`
+    pub fn signin(&self, text: impl Into<String>, primary: bool, p: Option<&str>, id: Option<&str>) -> Act {
+        let does = Does::Signin { provider: p.map(str::to_string), account: id.map(str::to_string) };
+        Act::Live { text: text.into(), primary, does, writable: self.writable }
     }
 
     pub fn pname(&self, p: &str) -> String {
@@ -469,7 +484,7 @@ impl<'a> Ctx<'a> {
                     Some(&p),
                     format!("Sign-in expired: {}", label(a)),
                     format!("The provider rejected the saved login{since}. The account stops serving requests when its current token lapses."),
-                    vec![Act::live_primary("Sign in again")],
+                    vec![self.signin("Sign in again", true, Some(&p), a.get("id").and_then(Value::as_str))],
                 ));
             } else if truthy(e) {
                 let attempts = if n(get(e, "attempts")) > 1.0 { format!(" ({} attempts)", cat(get(e, "attempts"))) } else { String::new() };
@@ -489,7 +504,7 @@ impl<'a> Ctx<'a> {
                     Some(&p),
                     format!("Not routed yet: {}", label(a)),
                     format!("Its live model list has not been read{err}; nothing is routed to it until it is."),
-                    vec![Act::live("Retry now")],
+                    vec![self.refresh("Retry now", None)],
                 ));
             }
             if truthy(a.get("usageStale")) || s_eq(a.get("status"), "unknown") {
@@ -499,7 +514,7 @@ impl<'a> Ctx<'a> {
                 } else {
                     "No usage read yet.".into()
                 };
-                items.push(Item::new(Tone::Warn, Some(&p), format!("Usage not verified: {}", label(a)), format!("{err}{last}"), vec![Act::live("Refresh")]));
+                items.push(Item::new(Tone::Warn, Some(&p), format!("Usage not verified: {}", label(a)), format!("{err}{last}"), vec![self.refresh("Refresh", None)]));
             }
         }
         for (p, since) in js::entries(get(self.sv(), "exhausted")) {
@@ -513,7 +528,7 @@ impl<'a> Ctx<'a> {
                     self.dt(Some(since)),
                     self.pname(&p)
                 ),
-                vec![Act::live_primary("Connect another account")],
+                vec![self.signin("Connect another account", true, Some(&p), None)],
             ));
         }
         for (p, f) in js::entries(self.cap()) {
@@ -608,7 +623,7 @@ impl<'a> Ctx<'a> {
                         detail,
                         vec![
                             Act::Go { text: "Timeline".into(), view: View::Overview, anchor: Some("tl-anchor") },
-                            Act::live(format!("Connect {} account", self.pname(&p))),
+                            self.signin(format!("Connect {} account", self.pname(&p)), false, Some(&p), None),
                         ],
                     )
                     .why(why),
@@ -716,7 +731,7 @@ impl<'a> Ctx<'a> {
                     Some(&p),
                     format!("A {} {t} needs attention", self.pname(&p)),
                     "Reconnect its account so the outcome can be reconciled.".into(),
-                    vec![Act::live_primary("Reconnect")],
+                    vec![self.signin("Reconnect", true, Some(&p), None)],
                 ));
             }
             let e = get(r, "error");
@@ -1319,7 +1334,7 @@ pub struct Col {
 }
 
 pub enum Cell {
-    Who { tone: Tone, status: &'static str, name: String, email: String, next: bool, notes: Vec<(Tone, String)>, reauth: Option<String> },
+    Who { tone: Tone, status: &'static str, name: String, email: String, next: bool, notes: Vec<(Tone, String)>, reauth: Option<Act> },
     Plan { name: String, weight: Option<String>, sub: Option<String>, tip: String },
     Meter { used: f64, tick: Option<f64>, sub: Option<String> },
     Text { text: String, title: Option<String>, sub: Option<String>, tone: Option<Tone>, dim: bool, mono: bool },
@@ -1346,8 +1361,8 @@ pub struct Detail {
     pub plan: Vec<KV>,
     pub notes: Vec<String>,
     pub id: String,
-    /// The sign-in has to be done again (the action says so).
-    pub reauth: bool,
+    /// "Refresh usage", then "Sign in again" (primary) or "Reconnect".
+    pub acts: Vec<Act>,
 }
 
 pub struct Row {
@@ -1359,6 +1374,8 @@ pub struct Row {
 
 pub struct AcctTable {
     pub provider: String,
+    /// "Connect {name}"
+    pub connect: Act,
     pub name: String,
     pub summary: String,
     pub state: (Tone, &'static str),
@@ -1654,7 +1671,15 @@ impl<'a> Ctx<'a> {
             plan: rows,
             notes,
             id: text(a.get("id")),
-            reauth: reauth_needed(a),
+            acts: vec![
+                self.refresh("Refresh usage", a.get("id").and_then(Value::as_str).map(str::to_string)),
+                self.signin(
+                    if reauth_needed(a) { "Sign in again" } else { "Reconnect" },
+                    reauth_needed(a),
+                    a.get("provider").and_then(Value::as_str),
+                    a.get("id").and_then(Value::as_str),
+                ),
+            ],
         }
     }
 
@@ -1693,7 +1718,7 @@ impl<'a> Ctx<'a> {
                 if truthy(su) {
                     summary += &format!(" · {} of {} account-weeks left", num_v(get(su, "remainingUnits"), 1), num_v(get(su, "weightedAccounts"), 1));
                 }
-                AcctTable { name: self.pname(&p), provider: p, summary, state: state_of(get(f, "state")), cols, rows }
+                AcctTable { name: self.pname(&p), connect: self.signin(format!("Connect {}", self.pname(&p)), false, Some(&p), None), provider: p, summary, state: state_of(get(f, "state")), cols, rows }
             })
             .collect();
         AccountsView { filter, shown: format!("{shown} of {} accounts", self.all_accounts().len()), tables }
@@ -1713,7 +1738,9 @@ impl<'a> Ctx<'a> {
                 email: text(a.get("email")),
                 next: up.is_some_and(|u| u.get("id") == a.get("id")),
                 notes: self.account_notes(a),
-                reauth: (reauth_needed(a) && !truthy(a.get("disabled"))).then(|| format!("Sign in again as {who}")),
+                reauth: (reauth_needed(a) && !truthy(a.get("disabled"))).then(|| {
+                    self.signin(format!("Sign in again as {who}"), true, a.get("provider").and_then(Value::as_str), a.get("id").and_then(Value::as_str))
+                }),
             }
         })];
         if list.iter().any(|a| !plan_name(a).is_empty() || self.price_of(a).is_some()) {

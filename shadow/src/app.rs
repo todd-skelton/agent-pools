@@ -17,6 +17,7 @@ use corten::prelude::*;
 use pool_core::js;
 use serde_json::{Value, json};
 
+use crate::dash::signin::{cancel as signin_cancel, finish as signin_finish, open as signin_open, page as signin_page};
 use crate::dash::{accounts, live, overview, policy, usage};
 use crate::parity::{self, Kind, Outcome};
 use crate::watch::{Shared, now_ms};
@@ -124,6 +125,18 @@ pub mod url {
 
     #[route("/refresh", post = refresh_now)]
     pub struct RefreshNow;
+
+    #[route("/signin", get = signin_page, post = signin_open)]
+    pub struct Signin<'a> {
+        pub provider: Option<&'a str>,
+        pub account: Option<&'a str>,
+    }
+
+    #[route("/signin/finish", post = signin_finish)]
+    pub struct SigninFinish;
+
+    #[route("/signin/cancel", post = signin_cancel)]
+    pub struct SigninCancel;
 
     #[route("/api/summary", get = summary_json)]
     pub struct Summary;
@@ -349,9 +362,16 @@ async fn build_summary(shadow: &Shared) -> corten::Result<Value> {
     })
 }
 
-/// `POST /refresh`: a refresh cycle now, on a copy (`run-copy`); the read-only shadow has no
-/// write side and answers 404.
-async fn refresh_now(req: Req, State(shadow): State<Shared>) -> HtmlResult {
+/// What a refresh form sends: the account whose row it was on, to go back to.
+#[derive(serde::Deserialize)]
+struct RefreshInput {
+    open: Option<String>,
+}
+
+/// `POST /refresh`: a refresh cycle now, on a copy (`run-copy`), then back to the overview, or
+/// to the account's row when the form was on one; the read-only shadow has no write side and
+/// answers 404.
+async fn refresh_now(req: Req, State(shadow): State<Shared>, Form(input): Form<RefreshInput>) -> HtmlResult {
     let Some(trigger) = shadow.writer.get() else {
         return Err(corten::Error::new("This shadow only reads; refresh on the live dashboard").with_status(StatusCode::NOT_FOUND));
     };
@@ -359,7 +379,10 @@ async fn refresh_now(req: Req, State(shadow): State<Shared>) -> HtmlResult {
         return Err(corten::Error::new("Service stopping").with_status(StatusCode::SERVICE_UNAVAILABLE));
     }
     trigger.request();
-    req.redirect(&url::Overview)
+    match input.open.as_deref().filter(|id| !id.is_empty()) {
+        Some(id) => req.redirect(&url::Accounts { filter: None, open: Some(id) }.at(crate::dash::views::AcctId(id))),
+        None => req.redirect(&url::Overview),
+    }
 }
 
 /// `/api/ladders`: the routing ladders last published, as the service keeps them (the file it

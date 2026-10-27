@@ -356,6 +356,99 @@ async fn a_copy_answers_the_services_api_through_the_stand_in() {
     std::fs::remove_file(t.dir.join("logs/fake-proxy.jsonl")).unwrap();
 }
 
+/// A form value as a browser encodes it.
+fn enc(s: &str) -> String {
+    s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-._~".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect()
+}
+
+async fn send_form(app: corten::axum::Router, path: &str, body: &str) -> (StatusCode, String, Option<String>) {
+    let req = Request::builder()
+        .method("POST")
+        .uri(path)
+        .header("host", "localhost")
+        .header("origin", "http://localhost")
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(Body::from(body.to_string()))
+        .unwrap();
+    let res = app.oneshot(req).await.unwrap();
+    let status = res.status();
+    let location = res.headers().get("location").and_then(|v| v.to_str().ok()).map(str::to_string);
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    (status, String::from_utf8(bytes.to_vec()).unwrap(), location)
+}
+
+/// The dashboard's actions on a copy: "Add account" and each sign-in action open the sign-in
+/// steps, which get the stand-in's sign-in page, check a pasted localhost link as the live page
+/// does and pass it to the stand-in's `oauth-callback`; the banner says a sign-in is pending
+/// until it is cancelled; a refresh form goes back to the row it was on.
+#[tokio::test]
+async fn a_copys_dashboard_signs_in_and_refreshes_through_the_stand_in() {
+    let t = snapshot("copy-signin", false);
+    let key = "test-key".to_string();
+    let proxy = crate::writer::fake_proxy::start(t.dir.clone(), key.clone(), None).await.unwrap();
+    let io = std::sync::Arc::new(crate::writer::io::FileIo::new(t.dir.clone(), proxy, key));
+    let copy = std::sync::Arc::new(crate::writer::Copy::new(io));
+    let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
+    let app = crate::app::app_copy(
+        shadow.clone(),
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"),
+        copy.clone(),
+        Default::default(),
+        Default::default(),
+    )
+    .router();
+
+    let (status, home) = get(app.clone(), "/").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(home.contains(r#"<a class="btn primary" href="/signin" data-nav>Add account</a>"#), "{home}");
+    assert!(!home.contains(" disabled "), "no action is disabled on a copy");
+    assert!(home.contains(r#"<main><div id="finish" class="finish" hidden></div>"#), "in <main>, which a navigation swaps");
+    let (_, accounts) = get(app.clone(), "/accounts").await;
+    assert!(accounts.contains(r#"href="/signin?provider=codex" data-nav>Connect Codex</a>"#), "{accounts}");
+
+    let (status, page) = get(app.clone(), "/signin").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains(r#"<li class="step active"><span class="n">1</span>"#) && page.contains(r#"href="/signin?provider=claude""#));
+    let (_, page) = get(app.clone(), "/signin?provider=codex").await;
+    assert!(page.contains(r#"<li class="step active"><span class="n">2</span>"#) && page.contains("Open ChatGPT (Codex) sign-in"));
+
+    let (status, page, _) = send_form(app.clone(), "/signin", "provider=codex").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains(r#"href="https://example.invalid/stand-in-sign-in">Open the sign-in page</a>"#), "{page}");
+    assert!(page.contains("Open the sign-in page and complete ChatGPT (Codex) sign-in in the new tab."));
+    let (_, home) = get(app.clone(), "/").await;
+    assert!(home.contains("Finish ChatGPT (Codex) sign-in."), "the banner says a sign-in is pending");
+
+    for (link, says) in [
+        ("not a link", "That is not the sign-in link."),
+        ("https://example.com/cb?code=x", "That is not the localhost sign-in link."),
+        ("http://localhost:1455/auth/callback?error=access_denied", "The provider refused the sign-in: access_denied. Start again."),
+        ("http://localhost:1455/auth/callback?state=s", "That link has no sign-in code."),
+    ] {
+        let body = format!("link={}", enc(link));
+        let (status, page, _) = send_form(app.clone(), "/signin/finish", &body).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(page.contains(says), "{link}: {page}");
+    }
+    let (_, page, _) = send_form(app.clone(), "/signin/finish", "link=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback%3Fcode%3Dabc").await;
+    assert!(page.contains("ChatGPT (Codex) sign-in submitted; waiting for the account to reconnect..."), "{page}");
+    let log = std::fs::read_to_string(t.dir.join("logs/fake-proxy.jsonl")).unwrap();
+    assert!(log.contains("codex-auth-url") && log.contains(r#""provider":"codex""#), "{log}");
+
+    let (_, page, _) = send_form(app.clone(), "/signin/cancel", "").await;
+    assert!(page.contains("Sign-in cancelled."));
+    let (_, home) = get(app.clone(), "/").await;
+    assert!(home.contains(r#"<div id="finish" class="finish" hidden></div>"#), "cancelled");
+
+    let id = shadow.install.json("state/pool-state.json").unwrap()["accounts"].as_array().unwrap()[0]["id"].as_str().unwrap().to_string();
+    let (status, _, location) = send_form(app.clone(), "/refresh", &format!("open={}", enc(&id))).await;
+    assert_eq!(status, StatusCode::SEE_OTHER);
+    assert!(location.as_deref().is_some_and(|l| l.starts_with("/accounts?open=") && l.contains("#acct-")), "{location:?}");
+    let (status, _, location) = send_form(app.clone(), "/refresh", "").await;
+    assert_eq!((status, location.as_deref()), (StatusCode::SEE_OTHER, Some("/")));
+    std::fs::remove_file(t.dir.join("logs/fake-proxy.jsonl")).unwrap();
+}
+
 /// The copy's ledger end to end: the stand-in's queue drained into the day's raw file (the row
 /// attributed to the account the stand-in named, with the quota from its headers), the stats in
 /// `/api/status`, and a value report written from the ledger.
@@ -649,6 +742,14 @@ async fn the_management_key_stops_the_copy_once_and_writes_are_refused_while_it_
 
 #[tokio::test]
 async fn the_read_only_shadow_serves_documents_but_no_writes() {
+    {
+        let t = snapshot("read-only-signin", false);
+        let (status, _) = get(router(&t), "/signin").await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "sign-in is the live dashboard's");
+        let (_, home) = get(router(&t), "/").await;
+        assert!(home.contains(r#"<button type="button" class="btn primary" disabled title="#), "Add account is disabled");
+        assert!(!home.contains("/signin"));
+    }
     let t = snapshot("ro-api", false);
     let app = router(&t);
     let (status, body) = get(app.clone(), "/api/capacity").await;

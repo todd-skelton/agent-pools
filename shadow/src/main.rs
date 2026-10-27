@@ -264,6 +264,8 @@ fn render_dash() -> std::io::Result<()> {
         v: if value == "-" { None } else { Some(read(value)?) },
         now: now.parse().map_err(std::io::Error::other)?,
         z: dash::fmt::Zone::from_env(),
+        writable: false,
+        signin: None,
     };
     let parts = dash::fragments(&data, args.get(3).map(String::as_str).filter(|f| !f.is_empty()), args.get(4).map(String::as_str));
     println!("{}", serde_json::Value::Object(parts));

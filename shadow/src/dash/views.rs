@@ -6,8 +6,9 @@
 use corten::prelude::*;
 
 use super::model::{
-    AccountsView, Act, Cell, Detail, Filter, Item, Ladder, PolicyView, ProviderCard, Timeline, Tone, UsageView, View,
+    AccountsView, Act, Cell, Detail, Does, Filter, Item, Ladder, PolicyView, ProviderCard, Timeline, Tone, UsageView, View,
 };
+use super::signin::{Banner, signin_name};
 use crate::app::url;
 
 /// An account's row on the accounts page: `acct-{id}`.
@@ -34,11 +35,17 @@ pub struct FreshId;
 #[derive(Id)]
 pub struct ConfigId;
 
+/// The sign-in banner under the top bar (`#finish`).
+#[derive(Id)]
+pub struct FinishId;
+
 /// What the header shows on every page.
 pub struct Header {
     pub count: usize,
     pub fresh: String,
     pub bad: bool,
+    /// The sign-in banner (a copy's).
+    pub finish: Option<Banner>,
 }
 
 pub fn tone(t: Tone) -> &'static str {
@@ -69,10 +76,12 @@ fn pct(x: f64) -> f64 {
 
 const READ_ONLY: &str = "Done on the live dashboard (port 8318): the shadow only reads";
 
-/// The document around every dashboard page: the top bar with its tabs and freshness. On a copy
-/// (`run-copy`, `writable`) Refresh posts to `/refresh`; the read-only shadow shows it disabled.
+/// The document around every dashboard page: the top bar with its tabs and freshness, and the
+/// sign-in banner. On a copy (`run-copy`, `writable`) Refresh posts to `/refresh` and "Add
+/// account" opens the sign-in steps; the read-only shadow shows both disabled. `view` is the
+/// tab marked current (none on the sign-in page).
 #[component]
-pub fn Dash<'a>(req: &'a Req, title: &'a str, view: View, header: &'a Header, writable: bool, children: impl Render) -> impl Document {
+pub fn Dash<'a>(req: &'a Req, title: &'a str, view: Option<View>, header: &'a Header, writable: bool, children: impl Render) -> impl Document {
     html! {
         <!DOCTYPE html>
         <html lang="en">
@@ -88,27 +97,29 @@ pub fn Dash<'a>(req: &'a Req, title: &'a str, view: View, header: &'a Header, wr
                     <div class="bar-in">
                         <div class="brand"><span class="logo"></span>"Agent pools"<span class="shadow-tag" title="Corten shadow: built from the live install's files, read only">"shadow"</span></div>
                         <nav class="tabs">
-                            <a href={url::Overview} data-nav aria-current={(view == View::Overview).then_some("page")}>
+                            <a href={url::Overview} data-nav aria-current={(view == Some(View::Overview)).then_some("page")}>
                                 "Overview "
                                 {count(header.count)}
                             </a>
-                            <a href={url::Accounts { filter: None, open: None }} data-nav aria-current={(view == View::Accounts).then_some("page")}>"Accounts"</a>
-                            <a href={url::Usage} data-nav aria-current={(view == View::Usage).then_some("page")}>"Usage & value"</a>
-                            <a href={url::Policy} data-nav aria-current={(view == View::Policy).then_some("page")}>"Automation"</a>
+                            <a href={url::Accounts { filter: None, open: None }} data-nav aria-current={(view == Some(View::Accounts)).then_some("page")}>"Accounts"</a>
+                            <a href={url::Usage} data-nav aria-current={(view == Some(View::Usage)).then_some("page")}>"Usage & value"</a>
+                            <a href={url::Policy} data-nav aria-current={(view == Some(View::Policy)).then_some("page")}>"Automation"</a>
                         </nav>
                         <div class="bar-right">
                             {fresh(header)}
                             <a class="btn ghost" href={url::Parity} data-nav>"Parity"</a>
                             if writable {
                                 <form class="inline" method="post" action={url::RefreshNow}><button type="submit" class="btn" title="Run a refresh cycle on this copy now">"Refresh"</button></form>
+                                <a class="btn primary" href={url::Signin { provider: None, account: None }} data-nav>"Add account"</a>
                             } else {
                                 <button type="button" class="btn" disabled title={READ_ONLY}>"Refresh"</button>
+                                <button type="button" class="btn primary" disabled title={READ_ONLY}>"Add account"</button>
                             }
-                            <button type="button" class="btn primary" disabled title={READ_ONLY}>"Add account"</button>
                         </div>
                     </div>
                 </header>
-                <main>{children}</main>
+                // In <main>, so a navigation (which swaps <main>) brings the banner as it is.
+                <main>{finish(header)}{children}</main>
             </body>
         </html>
     }
@@ -124,12 +135,37 @@ pub fn count(n: usize) -> impl Render {
     html! { <span id={AttCountId} class="tab-count" hidden={n == 0}>{n}</span> }
 }
 
+/// `renderFinish()`: a sign-in to finish (from this PC by itself, or by pasting the link on the
+/// sign-in page), or the one just confirmed (the live page's toast); hidden otherwise.
+pub fn finish(h: &Header) -> impl Render + '_ {
+    html! {
+        match &h.finish {
+            None => <div id={FinishId} class="finish" hidden></div>,
+            Some(Banner::Pending(p)) => {
+                <div id={FinishId} class="finish">
+                    <div class="gap">
+                        <div>
+                            <p><b>"Finish "{signin_name(p)}" sign-in."</b>" "<span class="mut">"On this PC it finishes by itself. Signed in on another device? Paste the localhost link it opened."</span></p>
+                        </div>
+                        <div class="acts">
+                            <a class="btn sm primary" href={url::Signin { provider: None, account: None }} data-nav>"Finish sign-in"</a>
+                            <form class="inline" method="post" action={url::SigninCancel}><button type="submit" class="btn sm">"Cancel"</button></form>
+                        </div>
+                    </div>
+                </div>
+            }
+            Some(Banner::Signed(m)) => <div id={FinishId} class="finish"><div class="gap ok"><p role="status">{m}</p></div></div>,
+        }
+    }
+}
+
 pub fn fresh(h: &Header) -> impl Render + '_ {
     html! { <div id={FreshId} class={if h.bad { "fresh bad" } else { "fresh" }}><span class="pulse"></span><span class="t">{&h.fresh}</span></div> }
 }
 
-/// An action: a link where it goes somewhere on these pages, a disabled button where it would
-/// change the pool.
+/// An action: a link where it goes somewhere on these pages; where it changes the pool, a
+/// refresh form or a link to the sign-in steps on a copy, and a disabled button on the read-only
+/// shadow.
 pub fn act(a: &Act, sm: bool) -> impl Render + '_ {
     let base = if sm { "btn sm" } else { "btn" };
     html! {
@@ -143,7 +179,16 @@ pub fn act(a: &Act, sm: bool) -> impl Render + '_ {
             Act::Go { text, view: View::Accounts, .. } => <a class={base} href={url::Accounts { filter: None, open: None }} data-nav>{text}</a>,
             Act::Go { text, view: View::Usage, .. } => <a class={base} href={url::Usage} data-nav>{text}</a>,
             Act::Go { text, view: View::Policy, anchor: None } => <a class={base} href={url::Policy} data-nav>{text}</a>,
-            Act::Live { text, primary } => <button type="button" class={(base, if *primary { " primary" } else { "" })} disabled title={READ_ONLY}>{text}</button>,
+            Act::Live { text, primary, writable: false, .. } => <button type="button" class={(base, if *primary { " primary" } else { "" })} disabled title={READ_ONLY}>{text}</button>,
+            Act::Live { text, primary, does: Does::Refresh { open }, .. } => {
+                <form class="inline" method="post" action={url::RefreshNow}>
+                    if let Some(id) = open { <input type="hidden" name="open" value={id}> }
+                    <button type="submit" class={(base, if *primary { " primary" } else { "" })}>{text}</button>
+                </form>
+            }
+            Act::Live { text, primary, does: Does::Signin { provider, account }, .. } => {
+                <a class={(base, if *primary { " primary" } else { "" })} href={url::Signin { provider: provider.as_deref(), account: account.as_deref() }} data-nav>{text}</a>
+            }
         }
     }
 }
@@ -334,7 +379,7 @@ fn cell<'a>(c: &'a Cell, filter: Filter, open: bool, id: &'a str) -> impl Render
                     if *t != Tone::Ok { <span class={("chip ", tone(*t))}>{*status}</span> }
                 </div>
                 for (t, n) in notes { <div class={("note ", tone(*t))}>{n}</div> }
-                if let Some(r) = reauth { <div class="note"><button type="button" class="btn sm primary" disabled title={READ_ONLY}>{r}</button></div> }
+                if let Some(r) = reauth { <div class="note">{act(r, true)}</div> }
             }
             Cell::Plan { name, weight, sub, tip } => {
                 <span title={tip}>{name}if let Some(w) = weight { " "<span class="dim">{w}</span> }</span>
@@ -381,8 +426,7 @@ fn detail(d: &Detail) -> impl Render + '_ {
             <div>
                 <h4>"Actions"</h4>
                 <div class="dacts">
-                    <button type="button" class="btn sm" disabled title={READ_ONLY}>"Refresh usage"</button>
-                    <button type="button" class={if d.reauth { "btn sm primary" } else { "btn sm" }} disabled title={READ_ONLY}>{if d.reauth { "Sign in again" } else { "Reconnect" }}</button>
+                    for a in &d.acts { {act(a, true)} }
                 </div>
                 if !d.notes.is_empty() { <p class="fs12 mt10">for n in &d.notes { {n}<br> }</p> }
                 <p class="dim fs12 mt10">"Id "<code>{&d.id}</code></p>
@@ -412,7 +456,7 @@ pub fn accounts(v: &AccountsView) -> impl Render + '_ {
                         <span class={("chip ", tone(t.state.0))}>{t.state.1}</span>
                         <div class="right">
                             <span class="dim hide-sm fs12">"Routing order: soonest weekly reset first"</span>
-                            <button type="button" class="btn sm" disabled title={READ_ONLY}>"Connect "{&t.name}</button>
+                            {act(&t.connect, true)}
                         </div>
                     </div>
                     <div class="tw">

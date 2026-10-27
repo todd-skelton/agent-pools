@@ -1,6 +1,7 @@
 //! The live dashboard (`dashboard.html`) on Corten: the same four tabs, built on the server from
-//! the shadow's `/api/status` and the usage value report on disk, read only. Its actions are
-//! shown but disabled (sign-in, refresh): they change the pool, which the shadow never does.
+//! the shadow's `/api/status` and the usage value report on disk. On the read-only shadow its
+//! actions are shown but disabled (sign-in, refresh): they change the pool. On a copy
+//! (`run-copy`) they work: refresh is a form, sign-in is [`signin`]'s steps.
 //!
 //! | Route | Tab |
 //! |---|---|
@@ -9,9 +10,11 @@
 //! | `GET /usage` | Usage & value |
 //! | `GET /policy` | Automation |
 //! | `GET /live?tab=&filter=&open=` | the open tab, sent again whenever it changes, for its `<corten-live>` |
+//! | `GET /signin?provider=&account=`, `POST /signin`, `/signin/finish`, `/signin/cancel` | on a copy: the sign-in steps ([`signin`]) |
 
 pub mod fmt;
 pub mod model;
+pub mod signin;
 pub mod views;
 
 use corten::axum::http::StatusCode;
@@ -31,11 +34,15 @@ pub struct Data {
     pub v: Option<Value>,
     pub now: f64,
     pub z: fmt::Zone,
+    /// Whether the actions work (a copy).
+    pub writable: bool,
+    /// The sign-in banner (a copy's).
+    pub signin: Option<signin::Banner>,
 }
 
 impl Data {
     pub fn ctx(&self) -> Ctx<'_> {
-        Ctx { s: &self.s, v: self.v.as_ref(), now: self.now, z: self.z }
+        Ctx { s: &self.s, v: self.v.as_ref(), now: self.now, z: self.z, writable: self.writable }
     }
 }
 
@@ -53,7 +60,12 @@ pub async fn load(shadow: &Shared) -> corten::Result<Data> {
     let s = status.ok_or_else(|| {
         corten::Error::new("state/pool-state.json did not read").with_status(StatusCode::SERVICE_UNAVAILABLE)
     })?;
-    Ok(Data { s, v: value.filter(|v| v.is_object()), now, z: fmt::Zone::from_env() })
+    let writable = shadow.copy.get().is_some();
+    if writable && shadow.signin.observe(&s, now).is_some() {
+        shadow.changed_inputs();
+    }
+    let banner = shadow.signin.banner(now).filter(|_| writable);
+    Ok(Data { s, v: value.filter(|v| v.is_object()), now, z: fmt::Zone::from_env(), writable, signin: banner })
 }
 
 /// Each part of the dashboard as the live page fills its containers (`#attention`,
@@ -134,7 +146,7 @@ pub fn draw(d: &Data, tab: Tab, filter: Option<&str>, open: Option<&str>) -> (St
     let c = d.ctx();
     let items = c.attention_items();
     let (fresh, bad) = c.freshness();
-    let header = Header { count: c.attention_count(&items), fresh, bad };
+    let header = Header { count: c.attention_count(&items), fresh, bad, finish: d.signin.clone() };
     let body = match tab {
         Tab::Overview => {
             let healthy = c.healthy();
@@ -156,11 +168,13 @@ pub fn draw(d: &Data, tab: Tab, filter: Option<&str>, open: Option<&str>) -> (St
     (body, header)
 }
 
-/// The fragment `/live` sends: the body and the header's two live parts, each by id.
+/// The fragment `/live` sends: the body, the header's two live parts and the sign-in banner,
+/// each by id.
 fn fragment(body: &str, header: &Header) -> String {
     let mut out = views::body(body).to_html();
     out.push_str(&views::count(header.count).to_html());
     out.push_str(&views::fresh(header).to_html());
+    out.push_str(&views::finish(header).to_html());
     out
 }
 
@@ -234,7 +248,7 @@ async fn page(req: Req, shadow: Shared, tab: Tab, q: DashQuery) -> HtmlResult {
     let since = cursor(&fragment(&body, &header));
     let src = url::Live { tab: Some(tab.key()), filter: q.filter.as_deref(), open: q.open.as_deref() };
     req.page(html! {
-        <Dash req={&req} title={tab.title()} view={tab.view()} header={&header} writable={shadow.writer.get().is_some()}>
+        <Dash req={&req} title={tab.title()} view={Some(tab.view())} header={&header} writable={d.writable}>
             <corten-live src={src} since={&since}>{views::body(&body)}</corten-live>
         </Dash>
     })

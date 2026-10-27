@@ -89,7 +89,7 @@ Measured on the live install: a pool-state save at 11:53:58.781Z was on an open 
 checked every two minutes, and the ledger's row count moves every 10 s or so. The pages
 use the shadow's `/api/status`, with the live service's memory keys taken from its last
 `/api/status` answer, and `state/usage-value.json`. Sign-in and refresh change the pool, so
-they are shown disabled.
+the read-only shadow shows them disabled; on a copy they work (below).
 
 `golden/dash-text.mjs` draws every part with the live page's own JavaScript and with
 `pools-shadow render-dash` from the same documents at the same moment, and compares the words,
@@ -142,7 +142,23 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   their file inputs read again after an hour, published to `state/routing-ladders.json` and
   served at `/api/ladders` (503 before there are any, as the live service answers);
 - the dashboard, where Refresh is a form posting to `/refresh` (Corten's cross-site check
-  applies: a cross-site POST gets 403). The read-only shadow keeps it disabled and answers 404.
+  applies: a cross-site POST gets 403), and so is each "Refresh", "Retry now" and "Refresh
+  usage" (a row's comes back to that row). The read-only shadow keeps them disabled and answers 404;
+- the dashboard's sign-in (`shadow/src/dash/signin.rs`): "Add account", "Connect ...", "Sign in
+  again" and "Reconnect" open `/signin`, the live page's drawer as a page with no script of the
+  app's own: choose a provider, "Open ... sign-in" (`POST /signin`, the proxy's
+  `<loginId>-auth-url`), then the provider's page as a link, and a box for the localhost link a
+  phone ends on (`POST /signin/finish`, checked as `finishSignin` checks it, then the proxy's
+  `oauth-callback`) or "Cancel sign-in". The pending sign-in (`pendingSignin`, 15 minutes) is
+  kept on the server, so the "Finish sign-in" banner is on every open page, and `waitForSignin`
+  (a refresh now and every fourth of up to 24 checks) runs whether a page is open or not; a new
+  account or a cleared sign-in confirms it ("Signed in: ... is connected", on the banner for two
+  minutes). The stand-in signs nothing in, so on the copy a sign-in is submitted and never
+  confirmed. Differences: the provider's page is a link rather than a tab the script opens (what
+  the live page shows when its tab is blocked), and there is no "Paste from clipboard" button or
+  submit-on-paste. Measured on 2026-10-27: Codex and Claude sign-ins started from the copy's
+  pages reached the stand-in (`codex-auth-url`, `oauth-callback`, `anthropic-auth-url`), each
+  start and a row's "Refresh usage" ran a cycle, and the banner followed a navigation;
 - the proxy watch (pool-service.mjs `checkProxy`, every 10 s): the stand-in's health, its outage
   hold counters (`holds` on `/api/status`, `holdSince` saved with the state, start and clear
   logged and toasted), and the first refresh when the proxy was not up at start;
