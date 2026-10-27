@@ -41,6 +41,7 @@ use futures_util::StreamExt;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
+pub mod backend;
 pub mod inference;
 
 /// A registered machine (state/remote-clients.json): its name and the SHA-256 of its key.

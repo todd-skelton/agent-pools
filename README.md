@@ -23,8 +23,8 @@ Plan:
    sample, toast, save, hook call and final state (`node golden/refresh-traces.mjs`, then
    `cargo test -p pool-core --test refresh`). `pools-shadow run-copy` runs that cycle, the
    capacity publisher, the routing ladders and a manual refresh on a copied state directory
-   (below). The public gateway and the inference relay are ported (`gateway/`, below) on
-   Corten's `Relay` and `Upgrade`; the backend relay is not yet.
+   (below). The public gateway, the inference relay and the backend relay with its usage
+   overlay are ported (`gateway/`, below) on Corten's `Relay` and `Upgrade`.
 5. Cutover: only with Todd's go-ahead.
 
 ## The shadow
@@ -193,6 +193,25 @@ Differences: Corten's 426, 404, 405 and 421 where Agent Pools answers 404 or 403
 lists them), and no setting for the server's connection cap or header timeout. On Windows a
 refused loopback connect takes about 2 s (measured 2,076 ms), so the restart test brings the pool
 up after 3 s rather than Agent Pools' 0.6 s.
+
+### The backend relay and the usage overlay
+
+`gateway::backend` is backend-relay.mjs, the desktop relay: everything under `/backend-api/` goes
+to the upstream (chatgpt.com in service) with the caller's own credentials and streams back, and a
+WebSocket handshake is relayed with `Upgrade::switch` and then tunneled byte for byte. Only
+`GET /backend-api/wham/usage` is rewritten, by `pool_core::pool_usage` (pool-usage.mjs), so the
+desktop's banner and usage panel show the pool. `cargo test -p pools-gateway --test backend` runs
+Agent Pools' 6 relay tests over real sockets plus one for the host and cross-site checks; a tunnel
+that stops passing bytes fails the echo case. `cargo test -p pool-core --test pool_usage` replays
+all 38 `poolUsage` calls Agent Pools' 16 pool-usage tests make (recorded by
+`node --import ./golden/usage-hook.mjs reference/agent-pools/pool-usage.test.mjs`), byte for byte;
+moving the grace boundary or the "available" verdict's floor fails 3 of them.
+
+Differences (`src/backend.rs` lists them): a switch the relay cannot carry is answered (Corten's
+404, a 502, the host check's 403) where Agent Pools drops the connection; the host check covers
+switches too; a browser's cross-site write or switch is Corten's 403 unless
+`Config::allow_origins` names its origin. TLS for the listener is the program's (`serve_on`), with
+`load_relay_tls` reading `state/certs` as Agent Pools does.
 
 ## Golden outputs
 

@@ -5,7 +5,7 @@ edition = "2024"
 rust-version.workspace = true
 license.workspace = true
 publish = false
-description = "Agent Pools' public gateway (public-gateway.mjs) and inference relay (inference-relay.mjs) on Corten."
+description = "Agent Pools' public gateway (public-gateway.mjs), inference relay (inference-relay.mjs) and backend relay (backend-relay.mjs) on Corten."
 
 [dependencies]
 pool-core = { path = "../pool-core" }
@@ -13,8 +13,9 @@ pool-core = { path = "../pool-core" }
 corten = { git = "https://github.com/todd-skelton/corten", rev = "6b86352", features = ["json"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "net"] }
 futures-util = { version = "0.3", default-features = false }
-# The pool and the service, over plain HTTP on loopback, bodies streamed both ways.
-reqwest = { version = "0.12", default-features = false, features = ["stream"] }
+# The pool and the service, over plain HTTP on loopback, bodies streamed both ways; the backend
+# relay's upstream (chatgpt.com) over TLS, and its WebSocket handshake switched (Response::upgrade).
+reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls"] }
 serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
 sha2 = "0.10"
 hmac = "0.12"
