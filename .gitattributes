@@ -1,2 +1,4 @@
 * text=auto eol=lf
 *.gz binary
+# Line endings and byte-order marks are what these fixtures test.
+golden/inputs/routing-attempts/** -text
