@@ -41,6 +41,8 @@ use futures_util::StreamExt;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
+pub mod inference;
+
 /// A registered machine (state/remote-clients.json): its name and the SHA-256 of its key.
 #[derive(Clone, Debug)]
 pub struct Client {
@@ -246,6 +248,7 @@ pub enum Out {
     Relay(Relay),
     Page(corten::HtmlResponse),
     Own(Response),
+    Switch(corten::upgrade::Switch),
 }
 
 impl IntoResponse for Out {
@@ -254,6 +257,7 @@ impl IntoResponse for Out {
             Out::Relay(r) => r.into_response(),
             Out::Page(p) => p.into_response(),
             Out::Own(r) => r,
+            Out::Switch(s) => s.into_response(),
         }
     }
 }
@@ -465,7 +469,7 @@ impl Gw {
 
 /// A stream fed by `produce` through a channel of one, so each piece goes on as it arrives and
 /// `produce` stops (dropping the upstream) when the client's side is dropped.
-fn async_stream<T: Send + 'static, F: std::future::Future<Output = ()> + Send + 'static>(
+pub(crate) fn async_stream<T: Send + 'static, F: std::future::Future<Output = ()> + Send + 'static>(
     produce: impl FnOnce(tokio::sync::mpsc::Sender<T>) -> F,
 ) -> impl futures_util::Stream<Item = T> + Send + 'static {
     let (send, receive) = tokio::sync::mpsc::channel(1);

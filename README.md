@@ -23,7 +23,8 @@ Plan:
    sample, toast, save, hook call and final state (`node golden/refresh-traces.mjs`, then
    `cargo test -p pool-core --test refresh`). `pools-shadow run-copy` runs that cycle, the
    capacity publisher, the routing ladders and a manual refresh on a copied state directory
-   (below). The public gateway is ported (`gateway/`, below) on Corten's `Relay`.
+   (below). The public gateway and the inference relay are ported (`gateway/`, below) on
+   Corten's `Relay` and `Upgrade`; the backend relay is not yet.
 5. Cutover: only with Todd's go-ahead.
 
 ## The shadow
@@ -177,6 +178,21 @@ Where it differs, by design or because of Corten:
 4. A relayed dashboard page gets Corten's CSP in place of its own, which blocks its scripts:
    [corten#164 A Relay loses the upstream's Content-Security-Policy, so a relayed page's own scripts are blocked](https://github.com/todd-skelton/corten/issues/164).
    Until that is fixed, the dashboard does not work through the gateway; the JSON routes do.
+
+### The inference relay
+
+`gateway::inference` is inference-relay.mjs (with inference-auth.mjs's `fileCredentials`): Codex
+on this machine sends `/v1/responses` over HTTP or a WebSocket (Corten's `Upgrade`, frames by
+tokio-tungstenite) with its own sign-in. The relay checks the sign-in and sends the request on
+with the pool's key. Every WebSocket frame is admitted again, so signing out ends an open socket.
+A refused connect is retried while the pool restarts. `cargo test -p pools-gateway --test
+inference` runs Agent Pools' 22 relay tests over real sockets (its 5 tests of Codex's config
+file are not the relay's). Disabling the per-frame admission check fails the sign-out test.
+
+Differences: Corten's 426, 404, 405 and 421 where Agent Pools answers 404 or 403 (`src/inference.rs`
+lists them), and no setting for the server's connection cap or header timeout. On Windows a
+refused loopback connect takes about 2 s (measured 2,076 ms), so the restart test brings the pool
+up after 3 s rather than Agent Pools' 0.6 s.
 
 ## Golden outputs
 

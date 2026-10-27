@@ -5,7 +5,7 @@ edition = "2024"
 rust-version.workspace = true
 license.workspace = true
 publish = false
-description = "Agent Pools' public gateway (public-gateway.mjs) on Corten: machine keys for inference, a signed session for the dashboard, everything else closed."
+description = "Agent Pools' public gateway (public-gateway.mjs) and inference relay (inference-relay.mjs) on Corten."
 
 [dependencies]
 pool-core = { path = "../pool-core" }
@@ -20,5 +20,11 @@ sha2 = "0.10"
 hmac = "0.12"
 base64 = "0.22"
 form_urlencoded = "1"
+# The inference relay: WebSocket frames both ways (Corten hands over the connection), and zstd
+# request bodies as Codex sends them.
+tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect", "handshake"] }
+zstd = "0.13"
 
 [dev-dependencies]
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
