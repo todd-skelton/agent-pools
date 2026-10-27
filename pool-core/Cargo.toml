@@ -18,6 +18,9 @@ ryu-js = "1"
 sha2 = "0.10"
 # routing.mjs redemptionId(): a name-based UUID from SHA-1, kept so a retried Codex claim keeps its id.
 sha1 = "0.10"
+# model-registry.mjs reads each family's version with the family's own pattern (named groups);
+# model-admission.mjs reads the pool's log lines.
+regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
 # The refresh cycle reads accounts concurrently and bounds a plan read (join_all, select, an
 # async lock); no runtime.
 futures-util = { version = "0.3", default-features = false, features = ["std"] }

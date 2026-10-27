@@ -1,0 +1,77 @@
+{
+  "$comment": "Model lineage policy. Each family maps to exactly one current exact model. A higher listed version is promoted only after fresh admission at every requiredEffort, and promotion is monotonic: the registry never demotes automatically. requiredEfforts are the efforts routing uses for that family.",
+  "format": 2,
+  "families": [
+    {
+      "family": "astra",
+      "provider": "codex",
+      "pattern": "^gpt-(?<version>\\d+(?:\\.\\d+)?)-astra$",
+      "minVersion": "6",
+      "requiredEfforts": [
+        "high"
+      ]
+    },
+    {
+      "family": "sol",
+      "provider": "codex",
+      "pattern": "^gpt-(?<version>\\d+(?:\\.\\d+)?)-sol$",
+      "minVersion": "6",
+      "requiredEfforts": [
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    {
+      "family": "luna",
+      "provider": "codex",
+      "pattern": "^gpt-(?<version>\\d+(?:\\.\\d+)?)-luna$",
+      "minVersion": "6",
+      "requiredEfforts": [
+        "low",
+        "medium"
+      ]
+    },
+    {
+      "family": "fable",
+      "provider": "claude",
+      "pattern": "^claude-fable-(?<major>\\d+)(?:-(?<minor>\\d{1,2}))?(?:-\\d{8})?$",
+      "minVersion": "5",
+      "requiredEfforts": [
+        "medium",
+        "high"
+      ]
+    },
+    {
+      "family": "opus",
+      "provider": "claude",
+      "pattern": "^claude-opus-(?<major>\\d+)(?:-(?<minor>\\d{1,2}))?(?:-\\d{8})?$",
+      "minVersion": "5",
+      "requiredEfforts": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    {
+      "family": "sonnet",
+      "provider": "claude",
+      "pattern": "^claude-sonnet-(?<major>\\d+)(?:-(?<minor>\\d{1,2}))?(?:-\\d{8})?$",
+      "minVersion": "5",
+      "requiredEfforts": [
+        "medium",
+        "high"
+      ]
+    },
+    {
+      "family": "haiku",
+      "provider": "claude",
+      "pattern": "^claude-haiku-(?<major>\\d+)(?:-(?<minor>\\d{1,2}))?(?:-\\d{8})?$",
+      "minVersion": "5.5",
+      "requiredEfforts": [
+        "low",
+        "medium"
+      ]
+    }
+  ]
+}

@@ -24,7 +24,13 @@ Plan:
    `cargo test -p pool-core --test refresh`). `pools-shadow run-copy` runs that cycle, the
    capacity publisher, the routing ladders and a manual refresh on a copied state directory
    (below). The public gateway, the inference relay and the backend relay with its usage
-   overlay are ported (`gateway/`, below) on Corten's `Relay` and `Upgrade`.
+   overlay are ported (`gateway/`, below) on Corten's `Relay` and `Upgrade`. The model registry's
+   build (`pool-core::registry`, model-registry.mjs: versions, lineage, efforts, the probe plan,
+   the admission judges and the routing view) matches every call Agent Pools' own registry tests
+   make (50), and `pools-shadow check-registry` rebuilds the live `state/model-registry.json`
+   from its inputs, reading only (measured 2026-10-27: 20 models, generation 7, the same document
+   and digest). The hourly refresh that probes models is not ported: its probes run the real
+   `codex` and `claude` tools.
 5. Cutover: only with Todd's go-ahead.
 
 ## The shadow
@@ -377,6 +383,7 @@ reference never reads the clock, `Date.now` throws while it runs). Node 24.
 | `routing/rank-accounts.json` | `rankAccounts`, with and without drain-first | 16 |
 | `quota/usage.json` | `quotaWindows` and `normalizeUsage` on payloads and edge cases | 33 |
 | `quota/banks.json` | `availableCredits` (Codex) and `claudeBank` | 42 |
+| `registry/cases.json` | every `model-registry.mjs` call in `model-registry.test.mjs` (`TZ=UTC node --import ./golden/registry-hook.mjs reference/agent-pools/model-registry.test.mjs`; the hook records each call, Sets as arrays) | 50 |
 | `js/semantics.json` | `localeCompare`, `Date.parse` (every timestamp shape in the inputs) and number-to-string, as Node 24 answers them | 13,074 / 1,597 / 520 |
 
 Case files hold `input` and `result` per case. In them, a non-finite number is

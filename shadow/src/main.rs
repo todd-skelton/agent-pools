@@ -51,6 +51,7 @@ fn main() -> std::io::Result<()> {
     match std::env::args().nth(1).as_deref() {
         Some("check-value") => return check_value_once(),
         Some("check-attempts") => return check_attempts_once(),
+        Some("check-registry") => return check_registry_once(),
         Some("render-dash") => return render_dash(),
         Some("make-copy") => return make_copy(),
         Some("run-copy") => {
@@ -233,7 +234,85 @@ fn check_attempts_once() -> std::io::Result<()> {
     Ok(())
 }
 
-/// `pools-shadow check-status`: asks the live service for `/api/status` once and checks it.
+/// \`pools-shadow check-registry\`: rebuilds the live \`state/model-registry.json\` with
+/// \`pool_core::registry::build_registry\` from the live inputs model-refresh.mjs read for it
+/// (\`model-families.json\`, \`state/live-models.json\`, \`state/model-admission.jsonl\` up to its
+/// \`generatedAt\`, \`state/model-lineage.json\`, its \`harnessVersions\`, at its \`generatedAt\`,
+/// then \`registry.benchmarks\` from \`state/benchmarks/latest.json\`) and says whether it is the
+/// same document. Reads only. The pool's \`/api/status\` at that moment was not kept, so it is
+/// taken from what the registry recorded of it: each account's routing, status, disabled flag and
+/// list time. The saved lineage is the build's output, which is its input again unless that run
+/// promoted a model (then the check says so).
+fn check_registry_once() -> std::io::Result<()> {
+    use serde_json::{Value, json};
+    let install = sources::Install::new(env_or("AGENT_POOLS_ROOT", LIVE_ROOT));
+    let read = |rel: &str| -> std::io::Result<Value> {
+        let text = std::fs::read_to_string(install.root().join(rel))?;
+        serde_json::from_str(text.strip_prefix('\u{feff}').unwrap_or(&text)).map_err(|e| std::io::Error::other(format!("{rel}: {e}")))
+    };
+    let live = read("state/model-registry.json")?;
+    let lineage = read("state/model-lineage.json")?;
+    let generated = live["generatedAt"].as_str().unwrap_or_default().to_string();
+    let now = pool_core::js::date_parse(&generated).ok_or_else(|| std::io::Error::other("model-registry.json has no generatedAt"))?;
+    if pool_core::js::values(lineage.get("events")).iter().any(|e| e.get("at").and_then(Value::as_str) == Some(generated.as_str())) {
+        println!("the run at {generated} promoted a model: the saved lineage is not its input; not compared");
+        return Ok(());
+    }
+    let probes: Vec<Value> = std::fs::read_to_string(install.root().join("state/model-admission.jsonl"))
+        .unwrap_or_default()
+        .lines()
+        .filter(|l| !l.is_empty())
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .filter(|p| pool_core::js::date_parse_value(p.get("at")) <= now)
+        .collect();
+    // The pool's status as the registry recorded it, per account.
+    let mut accounts: Vec<(String, Value)> = Vec::new();
+    for (id, m) in pool_core::js::entries(live.get("models")) {
+        for row in pool_core::js::values(m.get("accounts")) {
+            let account = pool_core::js::to_string(row.get("account"));
+            let pos = accounts.iter().position(|(a, _)| *a == account).unwrap_or_else(|| {
+                let mut a = json!({ "id": account, "disabled": row["disabled"], "status": row["accountStatus"], "routingModels": {} });
+                if let Some(at) = row.get("fetchedAt").filter(|v| v.is_string()) {
+                    a["modelList"] = json!({ "source": "live", "fetchedAt": at });
+                }
+                accounts.push((account.clone(), a));
+                accounts.len() - 1
+            });
+            if !row["routing"].is_null() {
+                accounts[pos].1["routingModels"][&id] = json!({ "status": row["routing"] });
+            }
+        }
+    }
+    let status = json!({ "checkedAt": live["source"]["statusCheckedAt"], "accounts": accounts.into_iter().map(|(_, a)| a).collect::<Vec<_>>() });
+    let input = json!({
+        "liveModels": read("state/live-models.json")?,
+        "status": status,
+        "families": read("model-families.json")?,
+        "probes": probes,
+        "lineage": lineage,
+        "harnessVersions": live["harnessVersions"],
+        "now": now,
+    });
+    let built = pool_core::registry::build_registry(&input).map_err(std::io::Error::other)?;
+    let mut port = built["registry"].clone();
+    port["benchmarks"] = read("state/benchmarks/latest.json").unwrap_or(Value::Null);
+    let (a, b) = (pool_core::js::stringify(&port), pool_core::js::stringify(&live));
+    let count = |v: &Value| pool_core::js::entries(v.get("models")).len();
+    println!(
+        "live {} models at {generated} (generation {}, digest {}), port {} models (generation {}, digest {}), same document: {}",
+        count(&live), live["generation"], live["authorityDigest"], count(&port), port["generation"], port["authorityDigest"], a == b
+    );
+    println!("same lineage: {}", pool_core::js::stringify(&built["lineage"]) == pool_core::js::stringify(&input["lineage"]));
+    if a != b {
+        let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+        let at = a.iter().zip(&b).position(|(x, y)| x != y).unwrap_or(a.len().min(b.len()));
+        let around = |s: &[char]| s[at.saturating_sub(160).min(s.len())..(at + 160).min(s.len())].iter().collect::<String>();
+        println!("port: {}\nlive: {}", around(&a), around(&b));
+    }
+    Ok(())
+}
+
+/// \`pools-shadow check-status\`: asks the live service for \`/api/status\` once and checks it.
 async fn check_status_once() -> std::io::Result<()> {
     let install = sources::Install::new(env_or("AGENT_POOLS_ROOT", r"D:\Users\ToddS\AgentPools"));
     let url = format!(
