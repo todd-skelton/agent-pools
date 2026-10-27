@@ -1,0 +1,21 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  line-height: 1.4;
+}
+body { margin: 0 auto; max-width: 78rem; padding: 0 1rem 2rem; }
+header nav { display: flex; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent); }
+header nav a[aria-current="page"] { font-weight: 600; }
+section { margin-block: 1.5rem; }
+dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.25rem 1rem; }
+dl div { display: flex; flex-direction: column; }
+dt { font-size: 0.8rem; opacity: 0.75; }
+dd { margin: 0; font-variant-numeric: tabular-nums; }
+table { border-collapse: collapse; width: 100%; margin-block: 0.75rem; font-variant-numeric: tabular-nums; }
+caption { text-align: left; font-weight: 600; padding-block: 0.25rem; }
+th, td { text-align: left; vertical-align: top; padding: 0.3rem 0.5rem; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); }
+td small { opacity: 0.7; }
+tr[data-outcome="differs"] td { background: color-mix(in srgb, #d33 18%, transparent); }
+tr[data-outcome="match"] td:first-child { border-left: 3px solid #2a2; }
+tr[data-status^="exhausted"] td, tr[data-status*="not routable"] td { opacity: 0.7; }
+p[role="alert"] { color: #d33; }

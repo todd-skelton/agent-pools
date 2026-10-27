@@ -14,8 +14,42 @@ Plan:
    usage (deployed and short windows, plus quota increments, pricing and settings), and
    `/api/summary` (now and five other times or missing documents).
 3. A read-only shadow dashboard on Corten, compared with the live `/api/summary` over days.
+   In progress: `shadow/` (below) runs beside the live service and checks every summary,
+   forecast and value report it publishes; the evidence is collecting.
 4. Writes and the public gateway, in the port only.
 5. Cutover: only with Todd's go-ahead.
+
+## The shadow
+
+`shadow/` (`pools-shadow`) is the dashboard and `/api/summary` on Corten, built by `pool-core`
+from the live install's files. It only reads: `state/pool-state.json`, the forecast, the value
+report, the four `install.json` settings the port uses (`capacityForecast`, `resetPolicy`,
+`expectedAccounts`, `usageLedger`), `model-prices.json`, the model registry, the sample logs
+and the usage ledger. It never opens `auth/` or secrets, and calls the live service with
+`GET /api/summary` only.
+
+```powershell
+cargo build --release -p pools-shadow
+target\release\pools-shadow.exe   # http://localhost:8320 (PORT), settings in shadow/src/main.rs
+```
+
+| Route | |
+|---|---|
+| `/` | the dashboard |
+| `/parity`, `/api/parity` | the parity checks: counts per kind, the last difference, the recent checks |
+| `/api/summary` | `agent-pools-summary/v1`, written as `JSON.stringify` writes it |
+
+Three checks run, each appended to `shadow-state/parity.jsonl`:
+
+| Check | Live document | Shadow's build | Aligned when |
+|---|---|---|---|
+| summary (every 60 s) | `GET /api/summary` | `build_summary` over the files read just after, at the live `generatedAt` | the answer names the pool state's `checkedAt`, the forecast and the value report on disk |
+| forecast (each one published) | `state/capacity-forecast.json` | `build_forecast` with the document before it as memory | the shadow saw the one before, and a pool state saved in the same refresh cycle |
+| value (each report) | `state/usage-value.json` | `build_usage_reports` over the ledger, with the pool state and forecast on disk at its `generatedAt` | the shadow was watching before the report was built |
+
+An unaligned check (the live service read its inputs at another moment than the files show) is
+counted apart and never as a match. The shadow's tests (`cargo test --release -p pools-shadow`)
+run each check over an install laid out from the golden inputs and require a match.
 
 ## Golden outputs
 

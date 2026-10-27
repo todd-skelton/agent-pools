@@ -1,0 +1,23 @@
+[package]
+name = "pools-shadow"
+version = "0.1.0"
+edition = "2024"
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Agent Pools' dashboard and /api/summary on Corten, read-only beside the live service, with a running parity check against it."
+
+[dependencies]
+pool-core = { path = "../pool-core" }
+# main after "Answer only localhost, IP addresses and listed host names" (corten#124) and
+# "App::task" (corten#127).
+corten = { git = "https://github.com/todd-skelton/corten", rev = "cf8ac0f989ef5cd1c0589cf6803698837d68418d", features = ["json"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
+# The live service's /api/summary, over plain HTTP on loopback (no TLS stack).
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
+[dev-dependencies]
+flate2 = "1"
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }
