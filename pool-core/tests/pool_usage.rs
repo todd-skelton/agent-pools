@@ -6,17 +6,41 @@
 mod common;
 
 use common::{diff, golden};
-use pool_core::{js, pool_usage};
+use pool_core::{js, pool_usage, summary};
 
 #[test]
 fn every_pool_usage_call_in_agent_pools_tests_matches() {
     let doc = golden("pool-usage/cases.json");
     let cases = doc["cases"].as_array().expect("cases");
     assert!(cases.len() >= 30, "recorded {} calls", cases.len());
+    replay(cases);
+}
+
+/// Real accounts, when `AP_USAGE_LIVE` names a file from `node golden/usage-live.mjs` (not
+/// committed: the accounts are not scrubbed). Each case keeps the raw accounts, and the port
+/// applies its own `current_account` first, as the service does before the overlay.
+#[test]
+fn real_accounts_match_when_recorded() {
+    let Ok(path) = std::env::var("AP_USAGE_LIVE") else {
+        eprintln!("AP_USAGE_LIVE not set; skipped");
+        return;
+    };
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
+    let doc: serde_json::Value = serde_json::from_str(&text).unwrap();
+    replay(doc["cases"].as_array().expect("cases"));
+}
+
+fn replay(cases: &[serde_json::Value]) {
     let mut failures = Vec::new();
     for (i, case) in cases.iter().enumerate() {
         let at = case["at"].as_str().unwrap_or("?");
-        let accounts = case["accounts"].as_array().cloned().unwrap_or_default();
+        let accounts = match case.get("rawAccounts") {
+            Some(raw) => {
+                let now = case["now"].as_f64().unwrap_or(f64::NAN);
+                raw.as_array().unwrap().iter().map(|a| summary::current_account(a, now)).collect()
+            }
+            None => case["accounts"].as_array().cloned().unwrap_or_default(),
+        };
         let got = pool_usage::pool_usage(
             &case["upstream"],
             &accounts,
