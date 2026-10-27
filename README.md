@@ -133,6 +133,10 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
 - the refresh loop: `pool-core::refresh` every 120 s, 30 s after a degraded or follow-up cycle
   (`SHADOW_COPY_REFRESH_SECS` overrides the normal delay), saving `pool-state.json`, events and
   usage samples into the copy;
+- reset claims (refresh.mjs `processReset`) within each cycle: a claim is journaled and saved
+  before it is sent, and the stand-in refuses it (`no_credit` for Codex, `ineligible` for
+  Claude), so the credit is backed off for 30 minutes and the next one is tried; nothing is
+  spent (`an_exhausted_pool_claims_a_reset_on_the_copy_and_the_refusal_backs_that_credit_off`);
 - the capacity publisher after each save: the forecast rebuilt and published, then the routing
   ladders (`pool-core::ladder`, routing-ladder.mjs with model-calibrate.mjs's scores) from it,
   their file inputs read again after an hour, published to `state/routing-ladders.json` and

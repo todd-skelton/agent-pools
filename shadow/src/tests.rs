@@ -529,6 +529,64 @@ async fn a_busy_desktop_relay_port_is_said_once_and_retried_until_it_frees() {
     }
 }
 
+/// The claim path on a copy (refresh.mjs's processReset through the stand-in): with every Codex
+/// account out, a cycle journals a claim, sends it, and the stand-in refuses it (no_credit), so
+/// the credit is backed off and the next cycle claims a different one. Nothing is ever spent.
+#[tokio::test]
+async fn an_exhausted_pool_claims_a_reset_on_the_copy_and_the_refusal_backs_that_credit_off() {
+    let t = snapshot("copy-claims", false);
+    let file = t.dir.join("state/pool-state.json");
+    let mut saved: Value = serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    for a in saved["accounts"].as_array_mut().unwrap().iter_mut().filter(|a| a["provider"] == "codex") {
+        for key in ["windows", "quotaWindows"] {
+            for w in a[key].as_array_mut().unwrap() {
+                w["used"] = Value::from(100);
+            }
+        }
+    }
+    std::fs::write(&file, saved.to_string()).unwrap();
+    let key = "test-key".to_string();
+    let proxy = crate::writer::fake_proxy::start(t.dir.clone(), key.clone(), None).await.unwrap();
+    let io = crate::writer::io::FileIo::new(t.dir.clone(), proxy, key);
+    let mut state = crate::writer::load_state(&t.dir);
+    let mut refresh = pool_core::refresh::Refresh::new(Default::default(), &state);
+
+    let first = refresh.refresh(&mut state, &io).await;
+    assert!(first.follow_up, "an answered claim asks for a follow-up read");
+    let slot = &state["resets"]["codex"];
+    assert_eq!((&slot["pending"], &slot["last"]["outcome"]), (&Value::Null, &Value::from("no_credit")), "{slot}");
+    let claimed = |slot: &Value| js::to_string(slot["last"].get("creditId"));
+    let once = claimed(slot);
+    assert_eq!(slot["refused"].as_object().unwrap().len(), 1, "{slot}");
+    let saved: Value = serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    assert_eq!(saved["resets"]["codex"]["last"]["outcome"], "no_credit", "the outcome is saved");
+
+    refresh.refresh(&mut state, &io).await;
+    let slot = &state["resets"]["codex"];
+    assert_eq!(slot["last"]["outcome"], "no_credit");
+    assert_ne!(claimed(slot), once, "the refused credit is skipped while it is backed off");
+    assert_eq!(slot["refused"].as_object().unwrap().len(), 2, "{slot}");
+
+    let events = std::fs::read_to_string(t.dir.join("logs/pool-events.jsonl")).unwrap();
+    let kinds: Vec<Value> = events.lines().map(|l| serde_json::from_str::<Value>(l).unwrap()).filter(|e| e["type"].as_str().is_some_and(|k| k.starts_with("reset-"))).collect();
+    let summary: Vec<(String, String)> = kinds.iter().map(|e| (js::to_string(e.get("type")), js::to_string(e.get("outcome")))).collect();
+    let expected: Vec<(String, String)> = [("reset-attempt", "undefined"), ("reset-result", "no_credit")].repeat(2).into_iter().map(|(a, b)| (a.into(), b.into())).collect();
+    assert_eq!(summary, expected, "{events}");
+    let log = std::fs::read_to_string(t.dir.join("logs/fake-proxy.jsonl")).unwrap();
+    let consumes: Vec<Value> = log
+        .lines()
+        .map(|l| serde_json::from_str::<Value>(l).unwrap())
+        .filter(|l| l["body"]["url"].as_str().is_some_and(|u| u.ends_with("/consume")))
+        .collect();
+    assert_eq!(consumes.len(), 2, "one claim per cycle, each answered by the stand-in");
+    let sent: Value = serde_json::from_str(consumes[0]["body"]["data"].as_str().unwrap()).unwrap();
+    assert_eq!(sent["credit_id"], Value::from(once), "{sent}");
+
+    for f in ["logs/pool-events.jsonl", "logs/toasts.jsonl", "logs/fake-proxy.jsonl", "state/pool-state.json.tmp"] {
+        let _ = std::fs::remove_file(t.dir.join(f));
+    }
+}
+
 #[tokio::test]
 async fn the_read_only_shadow_serves_documents_but_no_writes() {
     let t = snapshot("ro-api", false);
