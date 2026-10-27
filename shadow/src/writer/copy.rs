@@ -68,6 +68,32 @@ pub fn make_copy(live: &Install, dest: &Path) -> std::io::Result<Vec<PathBuf>> {
             put(rel, &text)?;
         }
     }
+    // The routing ladders' inputs (capacity-publisher.mjs readLadderInputs, model-calibrate.mjs
+    // loadInputs) and the last ladders published.
+    let mut ladder_inputs: Vec<String> = [
+        "calibration-rules.json",
+        "state/routing-policy.json",
+        "state/model-registry.json",
+        "state/benchmarks/latest.json",
+        "state/benchmarks/latest-arena.json",
+        "state/benchmarks/manual-scores.json",
+        "state/routing-attempts.json",
+        "state/session-usage.json",
+        "state/routing-ladders.json",
+    ]
+    .map(String::from)
+    .to_vec();
+    for pointer in ["state/benchmarks/latest.json", "state/benchmarks/latest-arena.json"] {
+        let file = live.json(pointer).and_then(|p| p.get("file").and_then(Value::as_str).map(String::from));
+        if let Some(name) = file.as_deref().and_then(|f| Path::new(f).file_name()).and_then(|n| n.to_str()) {
+            ladder_inputs.push(format!("state/benchmarks/{name}"));
+        }
+    }
+    for rel in &ladder_inputs {
+        if let Ok(text) = std::fs::read_to_string(live.root().join(rel)) {
+            put(rel, &text)?;
+        }
+    }
     let state = live.json("state/pool-state.json").unwrap_or(Value::Null);
     for a in pool_core::js::values(state.get("accounts")) {
         let id = a.get("id").and_then(Value::as_str).unwrap_or_default();

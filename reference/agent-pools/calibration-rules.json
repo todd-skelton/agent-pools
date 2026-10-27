@@ -1,0 +1,30 @@
+{
+  "format": "calibration-rules/v1",
+  "$comment": "How model-calibrate.mjs judges a routing slot. Edit freely; every preview records this file's digest. Default source aa: metrics are Artificial Analysis API fields, 0-1 values scaled to 0-100, parity within parityTolerance points. source arena: one board from the LMArena leaderboard dataset (config/category), exact model and effort only; better needs non-overlapping intervals, parity needs overlap and a gap within arenaParityElo, and ratings under arenaMinVotes votes are ignored. Cost is always AA weighted USD per task. --apply refuses when the registry is older than maxRegistryAgeHours or a benchmark snapshot older than maxBenchmarkAgeHours. A row with no metrics or protected=true is reported but never proposed.",
+  "parityTolerance": 1.0,
+  "considerMaxCostRatio": 2,
+  "arenaMinVotes": 300,
+  "quotaPriceFloor": 0.1,
+  "arenaParityElo": 10,
+  "maxBenchmarkAgeHours": 48,
+  "maxRegistryAgeHours": 3,
+  "laneBinding": { "codex": ["astra", "sol", "luna"], "claude": ["fable", "opus", "sonnet", "haiku"] },
+  "noGeneralExpansion": ["fable"],
+  "rows": {
+    "1":  { "metrics": ["lcr", "artificial_analysis_intelligence_index"], "failureMultiple": 1 },
+    "2":  { "metrics": ["terminalbench_v4_0", "scicode", "artificial_analysis_intelligence_index"], "failureMultiple": 3 },
+    "3":  { "metrics": ["terminalbench_v4_0", "scicode", "artificial_analysis_intelligence_index"], "failureMultiple": 3 },
+    "4":  { "metrics": ["terminalbench_v4_0", "artificial_analysis_intelligence_index"], "failureMultiple": 10 },
+    "5":  { "metrics": ["terminalbench_v4_0", "lcr", "artificial_analysis_intelligence_index"], "failureMultiple": 3 },
+    "6":  { "metrics": [], "fixed": ["opus/high", "astra/high", "sol/high"], "failureMultiple": 3, "reason": "governing benchmark OSWorld is not in the AA API" },
+    "7":  { "metrics": ["terminalbench_v4_0", "scicode", "artificial_analysis_intelligence_index"], "failureMultiple": 10, "proxy": "Todd 2026-10-11: core is routed on measured execution data, not a standing Astra/Fable override" },
+    "8":  { "metrics": ["artificial_analysis_intelligence_index", "hle"], "failureMultiple": 10 },
+    "9":  { "protected": true, "fixed": ["sol/high", "opus/high"], "reason": "operator-selected orchestrator host" },
+    "10": { "metrics": ["terminalbench_v4_0", "scicode", "artificial_analysis_intelligence_index"], "failureMultiple": 3, "excludeFamilies": ["fable"] },
+    "11": { "metrics": ["artificial_analysis_intelligence_index", "hle"], "failureMultiple": 10, "proxy": "no public review-recall benchmark; general reasoning proxy", "excludeFamilies": ["fable"] },
+    "12": { "metrics": ["artificial_analysis_intelligence_index", "hle"], "failureMultiple": 3, "proxy": "no public review-precision benchmark; general reasoning proxy", "excludeFamilies": ["luna"] },
+    "13": { "metrics": ["lcr", "artificial_analysis_intelligence_index"], "failureMultiple": 1 },
+    "14": { "source": "arena", "board": "text_style_control/creative_writing", "failureMultiple": 3, "incumbentEffortProxy": true, "proxy": "Arena creative writing (style controlled) stands in for copy and public prose" },
+    "15": { "source": "manual", "board": "designarena/all", "failureMultiple": 3, "incumbentEffortProxy": true, "proxy": "Design Arena all-categories (human design preference) stands in for design-system and novel UI; Todd 2026-10-11 chose taste data over WebDev execution data" }
+  }
+}

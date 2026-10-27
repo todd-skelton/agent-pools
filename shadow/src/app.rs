@@ -111,6 +111,9 @@ pub mod url {
     #[route("/api/status", get = status_json)]
     pub struct Status;
 
+    #[route("/api/ladders", get = ladders_json)]
+    pub struct Ladders;
+
     #[route("/api/parity", get = parity_json)]
     pub struct ParityJson;
 }
@@ -143,6 +146,36 @@ async fn refresh_now(req: Req, State(shadow): State<Shared>) -> HtmlResult {
     };
     trigger.request();
     req.redirect(&url::Overview)
+}
+
+/// `/api/ladders`: the routing ladders last published, as the service keeps them (the file it
+/// wrote: the live install's for the read-only shadow, the copy's own on `run-copy`), or 503
+/// with the live service's body before there are any.
+async fn ladders_json(State(shadow): State<Shared>) -> JsonStatus {
+    let s = shadow.clone();
+    let doc = tokio::task::spawn_blocking(move || s.install.json("state/routing-ladders.json"))
+        .await
+        .ok()
+        .flatten()
+        .filter(|d| d.get("format").and_then(Value::as_str) == Some("routing-ladders/v1"));
+    match doc {
+        Some(doc) => JsonStatus(StatusCode::OK, JsJson(doc)),
+        None => JsonStatus(StatusCode::SERVICE_UNAVAILABLE, JsJson(serde_json::json!({ "error": "No routing ladders yet" }))),
+    }
+}
+
+/// A JSON body with a status of its own, as pool-service.mjs `send(res, status, doc)` answers.
+pub struct JsonStatus(StatusCode, JsJson);
+
+impl corten::axum::response::IntoResponse for JsonStatus {
+    fn into_response(self) -> corten::axum::response::Response {
+        (self.0, Json(self.1)).into_response()
+    }
+}
+
+impl corten::answer::Answer for JsonStatus {
+    const FORMAT: corten::answer::Format = corten::answer::Format::Json;
+    type Inputs = corten::answer::AnyInputs;
 }
 
 async fn summary_json(State(shadow): State<Shared>) -> JsonResult<JsJson> {

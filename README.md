@@ -132,13 +132,26 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
 - the refresh loop: `pool-core::refresh` every 120 s, 30 s after a degraded or follow-up cycle
   (`SHADOW_COPY_REFRESH_SECS` overrides the normal delay), saving `pool-state.json`, events and
   usage samples into the copy;
-- the capacity publisher after each save (forecast rebuild and atomic publish; routing ladders
-  are not ported yet);
+- the capacity publisher after each save: the forecast rebuilt and published, then the routing
+  ladders (`pool-core::ladder`, routing-ladder.mjs with model-calibrate.mjs's scores) from it,
+  their file inputs read again after an hour, published to `state/routing-ladders.json` and
+  served at `/api/ladders` (503 before there are any, as the live service answers);
 - the dashboard, where Refresh is a form posting to `/refresh` (Corten's cross-site check
   applies: a cross-site POST gets 403). The read-only shadow keeps it disabled and answers 404.
 
 Measured on 2026-10-27: a POST at 13:11:12.40Z started a cycle at 13:11:12.58Z; cycles saved the
 copy's pool state and forecast, and appended usage samples only for windows whose use changed.
+The ladders the copy published at 14:01:41.935Z were byte for byte what Agent Pools' own
+`buildLadders` makes from the copy's files at that moment
+(`node golden/ladder-live.mjs shadow-state\copy 2026-10-27T14:01:41.935Z`).
+
+The ladders are held to every `buildLadders` call in Agent Pools' routing-ladder.test.mjs (36,
+recorded by `node --import ./golden/ladder-hook.mjs reference/agent-pools/routing-ladder.test.mjs`);
+12 of its 13 tests pass there, the other reads pool-service.mjs, which is not copied, and makes
+no `buildLadders` call)
+and, when `AP_LADDER_LIVE` names a file from `node golden/ladder-live.mjs`, to the live
+install's own inputs (398 rungs; not committed, since its inputs are not scrubbed):
+`cargo test -p pool-core --test ladder`.
 
 ## Golden outputs
 

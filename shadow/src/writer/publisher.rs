@@ -1,7 +1,8 @@
 //! The capacity forecast's publisher (capacity-publisher.mjs): the usage-sample history in
 //! memory, a forecast rebuilt on every refresh and published atomically to
 //! `state/capacity-forecast.json`, whose last document is the forecast's hysteresis memory and
-//! the credit planner's input. Routing ladders (routing-ladder.mjs) are not ported yet.
+//! the credit planner's input; then the routing ladders (routing-ladder.mjs) from that forecast,
+//! published to `state/routing-ladders.json`.
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -16,11 +17,94 @@ pub struct Publisher {
     inner: Mutex<Inner>,
 }
 
-#[derive(Default)]
 struct Inner {
     samples: Option<Vec<Value>>,
     previous: Option<Value>,
     last_problem: String,
+    /// The ladders' file inputs, read again after an hour.
+    ladder_inputs: Option<Value>,
+    ladder_inputs_at: f64,
+    last_ladder_problem: String,
+}
+
+impl Default for Inner {
+    fn default() -> Inner {
+        Inner {
+            samples: None,
+            previous: None,
+            last_problem: String::new(),
+            ladder_inputs: None,
+            ladder_inputs_at: f64::NEG_INFINITY,
+            last_ladder_problem: String::new(),
+        }
+    }
+}
+
+/// model-store.mjs `readJSON(file, fallback)`: a missing file is `fallback` when there is one;
+/// anything else unreadable is an error. A byte-order mark is not skipped, as `JSON.parse`
+/// does not skip it.
+fn read_json(path: &std::path::Path, fallback: Option<Value>) -> Result<Value, String> {
+    match std::fs::read_to_string(path) {
+        Ok(text) => serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display())),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound && fallback.is_some() => Ok(fallback.unwrap_or_default()),
+        Err(e) => Err(format!("{}: {e}", path.display())),
+    }
+}
+
+/// capacity-publisher.mjs `readLadderInputs(root)`, with model-calibrate.mjs `loadInputs`.
+pub fn read_ladder_inputs(root: &std::path::Path) -> Result<Value, String> {
+    let bench = root.join("state/benchmarks");
+    let base = |v: &Value| -> Option<String> {
+        let f = v.get("file").and_then(Value::as_str)?;
+        std::path::Path::new(f).file_name().and_then(|n| n.to_str()).map(String::from)
+    };
+    let latest = read_json(&bench.join("latest.json"), None)?;
+    let arena_latest = read_json(&bench.join("latest-arena.json"), Some(Value::Null))?;
+    let snapshot_file = base(&latest).ok_or("latest.json names no file")?;
+    let arena_file = if arena_latest.is_null() { None } else { Some(base(&arena_latest).ok_or("latest-arena.json names no file")?) };
+    let manual = read_json(&bench.join("manual-scores.json"), Some(Value::Null))?;
+    if !manual.is_null() {
+        pool_core::ladder::validate_manual_scores(&manual)?;
+    }
+    let mut m = Map::new();
+    m.insert("rules".into(), read_json(&root.join("calibration-rules.json"), None)?);
+    // loadInputs reads the policy too (and fails without it); the ladders never use it.
+    read_json(&root.join("state/routing-policy.json"), None)?;
+    m.insert("registry".into(), read_json(&root.join("state/model-registry.json"), None)?);
+    m.insert("snapshot".into(), read_json(&bench.join(&snapshot_file), None)?);
+    m.insert("arena".into(), match &arena_file { Some(f) => read_json(&bench.join(f), None)?, None => Value::Null });
+    m.insert("manual".into(), manual);
+    m.insert("snapshotFile".into(), json!(snapshot_file));
+    m.insert("arenaFile".into(), json!(arena_file));
+    m.insert("value".into(), read_json(&root.join("state/usage-value.json"), None)?);
+    m.insert("attempts".into(), read_json(&root.join("state/routing-attempts.json"), Some(json!({ "attempts": [] })))?);
+    m.insert("sessionUsage".into(), read_json(&root.join("state/session-usage.json"), Some(Value::Null))?);
+    Ok(Value::Object(m))
+}
+
+/// model-store.mjs `writeJSONAtomic`: a unique temporary file, then a rename, retried while a
+/// reader holds the file open on Windows.
+fn write_json_atomic(file: &std::path::Path, doc: &Value) -> std::io::Result<()> {
+    let tmp = file.with_extension(format!("json.{}.{:08x}.tmp", std::process::id(), rand_u32()));
+    std::fs::write(&tmp, js::stringify_pretty(doc, 2) + "\n")?;
+    let mut i = 0u64;
+    loop {
+        match std::fs::rename(&tmp, file) {
+            Ok(()) => return Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied && i < 20 => {
+                i += 1;
+                std::thread::sleep(std::time::Duration::from_millis(100 * i));
+            }
+            Err(e) => {
+                let _ = std::fs::remove_file(&tmp);
+                return Err(e);
+            }
+        }
+    }
+}
+
+fn rand_u32() -> u32 {
+    uuid::Uuid::new_v4().as_u128() as u32
 }
 
 /// An event the publisher logs, for the caller to write.
@@ -34,6 +118,42 @@ impl Publisher {
             .and_then(|t| serde_json::from_str::<Value>(t.trim_start_matches('\u{feff}')).ok())
             .filter(|d| d.get("format").and_then(Value::as_str) == Some(forecast::FORECAST_FORMAT));
         Publisher { root, inner: Mutex::new(Inner { previous, ..Inner::default() }) }
+    }
+
+    /// `rebuildLadders(forecast, t)`: the ladders from this forecast, the file inputs read again
+    /// after an hour; a problem is logged once until it changes.
+    fn rebuild_ladders(&self, forecast: &Value, now: f64, logged: &mut Logged) {
+        let result = (|| -> Result<Value, String> {
+            let cached = {
+                let inner = self.inner.lock().unwrap();
+                inner.ladder_inputs.clone().filter(|_| now - inner.ladder_inputs_at < HOUR)
+            };
+            let mut inputs = match cached {
+                Some(i) => i,
+                None => {
+                    let i = read_ladder_inputs(&self.root)?;
+                    let mut inner = self.inner.lock().unwrap();
+                    inner.ladder_inputs = Some(i.clone());
+                    inner.ladder_inputs_at = now;
+                    i
+                }
+            };
+            inputs["forecast"] = forecast.clone();
+            let doc = pool_core::ladder::build_ladders(&inputs, now)?;
+            write_json_atomic(&self.root.join("state/routing-ladders.json"), &doc).map_err(|e| e.to_string())?;
+            Ok(doc)
+        })();
+        let mut inner = self.inner.lock().unwrap();
+        match result {
+            // `/api/ladders` answers from the file written.
+            Ok(_) => inner.last_ladder_problem.clear(),
+            Err(problem) => {
+                if problem != inner.last_ladder_problem {
+                    inner.last_ladder_problem = problem.clone();
+                    logged.push(("routing-ladder-problem".into(), json!({ "problem": problem })));
+                }
+            }
+        }
     }
 
     pub fn plan(&self, provider: &str, now: f64) -> Option<std::collections::HashSet<String>> {
@@ -125,13 +245,16 @@ impl Publisher {
         if let Err(e) = self.publish(&doc) {
             problem = [problem, format!("write failed: {e}")].into_iter().filter(|p| !p.is_empty()).collect::<Vec<_>>().join("; ");
         }
-        let mut inner = self.inner.lock().unwrap();
-        if problem != inner.last_problem {
-            inner.last_problem = problem.clone();
-            if !problem.is_empty() {
-                logged.push(("capacity-forecast-problem".into(), json!({ "problem": problem })));
+        {
+            let mut inner = self.inner.lock().unwrap();
+            if problem != inner.last_problem {
+                inner.last_problem = problem.clone();
+                if !problem.is_empty() {
+                    logged.push(("capacity-forecast-problem".into(), json!({ "problem": problem })));
+                }
             }
         }
+        self.rebuild_ladders(&doc, now, &mut logged);
         (Some(doc), logged)
     }
 }
