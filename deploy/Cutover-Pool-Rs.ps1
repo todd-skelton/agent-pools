@@ -61,7 +61,7 @@ function Start-Task([string]$name) {
 }
 
 function Stop-Processes($procs, [string]$what) {
-  foreach ($p in @($procs)) {
+  foreach ($p in @($procs | Where-Object { $_ })) {
     if ($PSCmdlet.ShouldProcess("$($p.ProcessId) $($p.CommandLine)", 'stop')) { Stop-Process -Id $p.ProcessId -Force; Say "stopped $what $($p.ProcessId)" }
   }
 }
@@ -71,7 +71,7 @@ function Owner-Name {
   $o = Get-PortOwner $port
   if (-not $o) { return 'nobody' }
   if ($o.Name -eq 'node.exe') { return "node $([IO.Path]::GetFileName(($o.CommandLine -split '"' | Where-Object { $_ -like '*.mjs' } | Select-Object -First 1)))" }
-  if ($o.Name -eq 'pools-shadow.exe') { return "pools-shadow $(($o.CommandLine -split ' ')[1]) pid $($o.ProcessId)" }
+  if ($o.Name -eq 'pools-shadow.exe' -and $o.CommandLine -match '^"[^"]+"\s+(\S+)') { return "pools-shadow $($Matches[1]) pid $($o.ProcessId)" }
   return "$($o.Name) pid $($o.ProcessId)"
 }
 
@@ -103,8 +103,11 @@ Say "$Step $(if ($Undo) { 'back to Node' } else { 'to the port' }) on $Root; por
 $proxyBefore = Proxy-Record
 if ($Step -eq 'service') { Say "proxy record pid $proxyBefore, alive $([bool](Get-Process -Id $proxyBefore -ErrorAction SilentlyContinue))" }
 
+$newOwner = "pools-shadow $(if ($Step -eq 'service') { $serviceCommand } else { $new.Command })*"
+$oldOwner = if ($Step -eq 'service') { 'node pool-service.mjs' } else { "node $script" }
 if (-not $Undo) {
   Set-TaskEnabled $oldTask $false
+  if ((Owner-Name) -like $newOwner) { Say 'the port already holds it' } else {
   if ($Step -eq 'service') {
     Stop-Guardian { Get-NodeProcess $Root 'pool-guardian.mjs' }
   } else {
@@ -113,11 +116,13 @@ if (-not $Undo) {
   }
   if ($WhatIfPreference) { return }
   Wait-Until { -not (Get-PortOwner $port) } 30 "port $port to be free"
+  }
   Set-TaskEnabled $new.Name $true
-  Start-Task $new.Name
-  Wait-Until { (Owner-Name) -like "pools-shadow $(if ($Step -eq 'service') { $serviceCommand } else { $new.Command })*" } 60 'the port to listen'
+  if ((Owner-Name) -notlike $newOwner) { Start-Task $new.Name }
+  Wait-Until { (Owner-Name) -like $newOwner } 60 'the port to listen'
 } else {
   Set-TaskEnabled $new.Name $false
+  if ((Owner-Name) -eq $oldOwner) { Say 'Node already holds it' } else {
   if ($Step -eq 'service') {
     Stop-Guardian { Get-PoolRsProcess $Root 'guardian' }
   } else {
@@ -126,10 +131,10 @@ if (-not $Undo) {
   }
   if ($WhatIfPreference) { return }
   Wait-Until { -not (Get-PortOwner $port) } 30 "port $port to be free"
+  }
   Set-TaskEnabled $oldTask $true
-  Start-Task $oldTask
-  $want = if ($Step -eq 'service') { 'node pool-service.mjs' } else { "node $script" }
-  Wait-Until { (Owner-Name) -eq $want } 60 'Node to listen'
+  if ((Owner-Name) -ne $oldOwner) { Start-Task $oldTask }
+  Wait-Until { (Owner-Name) -eq $oldOwner } 60 'Node to listen'
 }
 Wait-Until { $h = Health; $h -and $h -ne '000' -and $h -ne 'down' } 30 'the health check'
 Say "port $port held by $(Owner-Name); health $(Health)"

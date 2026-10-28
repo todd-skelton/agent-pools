@@ -39,8 +39,9 @@ function Get-PoolRsTasks([string]$Prefix) {
 
 # The port's processes the wrapper started for $Root with $Command.
 function Get-PoolRsProcess([string]$Root, [string]$Command) {
-  $want = "$Command `"$Root`""
-  Get-CimInstance Win32_Process -Filter "Name='pools-shadow.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($want, [StringComparison]::OrdinalIgnoreCase) -ge 0 }
+  # The wrapper quotes the root; the guardian's child (Rust's argument quoting) only when it must.
+  $want = '(^|\s)' + [regex]::Escape($Command) + '\s+"?' + [regex]::Escape($Root) + '"?(\s|$)'
+  Get-CimInstance Win32_Process -Filter "Name='pools-shadow.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine -imatch $want }
 }
 
 # Agent Pools' node processes running $Root\$Script.
@@ -49,9 +50,11 @@ function Get-NodeProcess([string]$Root, [string]$Script) {
   Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($path, [StringComparison]::OrdinalIgnoreCase) -ge 0 }
 }
 
+# The process listening on 127.0.0.1:$Port, from netstat (Get-NetTCPConnection took 27 s here).
 function Get-PortOwner([int]$Port) {
-  $id = Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty OwningProcess
-  if ($id) { Get-CimInstance Win32_Process -Filter "ProcessId=$id" }
+  foreach ($line in (netstat -ano -p tcp)) {
+    if ($line -match ('^\s*TCP\s+127\.0\.0\.1:' + $Port + '\s+\S+\s+LISTENING\s+(\d+)\s*$')) { return Get-CimInstance Win32_Process -Filter "ProcessId=$($Matches[1])" }
+  }
 }
 
 function Wait-Until([scriptblock]$Test, [int]$Seconds, [string]$What) {
