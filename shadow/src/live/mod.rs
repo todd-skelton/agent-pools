@@ -21,6 +21,7 @@
 pub mod guardian;
 pub mod machine;
 pub mod notify;
+pub mod ops;
 pub mod proxy;
 pub mod rehearsal;
 pub mod services;

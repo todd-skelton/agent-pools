@@ -7,6 +7,18 @@ license.workspace = true
 publish = false
 description = "Agent Pools' dashboard and /api/summary on Corten, read-only beside the live service, with a running parity check against it."
 
+[lib]
+name = "pools_shadow"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pools-shadow"
+path = "src/main.rs"
+
+[[bin]]
+name = "pools-rs"
+path = "src/bin/pools-rs.rs"
+
 [dependencies]
 pool-core = { path = "../pool-core" }
 # The desktop relay on a copy (backend-relay.mjs), on the same Corten revision.
@@ -32,10 +44,14 @@ reqwest = { version = "0.12", default-features = false, features = ["json"] }
 hyper = { version = "1", default-features = false, features = ["http1", "server"] }
 hyper-util = { version = "0.1", default-features = false, features = ["tokio"] }
 tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect", "handshake"] }
+# Backups (live::ops): the zip's deflate and CRC (already in Corten's tree for compress).
+flate2 = "1"
 # Live mode's process checks (alive, kill, priority), as Node's process.kill and os.setPriority do
 # them; already in the tree through tokio.
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_NetworkManagement_IpHelper", "Win32_Networking_WinSock"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_Time", "Wdk_System_Threading", "Win32_System_Diagnostics_ToolHelp", "Win32_Security_Cryptography", "Win32_NetworkManagement_IpHelper", "Win32_Networking_WinSock"] }
+# Toasts (live::notify) through WinRT, as Agent Pools showed them through Windows PowerShell.
+windows = { version = "0.62", features = ["UI_Notifications", "Data_Xml_Dom", "Win32_System_WinRT"] }
 
 [dev-dependencies]
 # The refresh loop's tests run on a paused clock.

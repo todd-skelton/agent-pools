@@ -1,14 +1,8 @@
-//! notifications.mjs `toast(title, body)`: a Windows toast through Windows PowerShell 5.1, which
-//! loads the WinRT types without extra modules. The XML travels in an environment variable (with
-//! `-Command`, PowerShell would read a trailing argument as script). Best effort, 10 s.
+//! notifications.mjs `toast(title, body)`: a Windows toast as `Agent Pools`, shown through
+//! WinRT's `ToastNotificationManager` from this process (Agent Pools started Windows PowerShell
+//! for each one). Best effort, 10 s.
 
 use std::time::Duration;
-
-const SCRIPT: &str = "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; \
-[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null; \
-$xml = New-Object Windows.Data.Xml.Dom.XmlDocument; \
-$xml.LoadXml($env:AGENT_POOLS_TOAST); \
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Agent Pools').Show([Windows.UI.Notifications.ToastNotification]::new($xml))";
 
 fn escape(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
@@ -19,14 +13,31 @@ pub fn payload(title: &str, body: &str) -> String {
     format!(r#"<toast><visual><binding template="ToastGeneric"><text>{}</text><text>{}</text></binding></visual></toast>"#, escape(title), escape(body))
 }
 
+#[cfg(windows)]
+fn show(xml: &str) -> windows::core::Result<()> {
+    use windows::Data::Xml::Dom::XmlDocument;
+    use windows::UI::Notifications::{ToastNotification, ToastNotificationManager};
+    use windows::Win32::System::WinRT::{RO_INIT_MULTITHREADED, RoInitialize};
+    use windows::core::HSTRING;
+    // SAFETY: joins this (blocking-pool) thread to the multithreaded apartment; an already
+    // initialized thread answers S_FALSE or RPC_E_CHANGED_MODE, and either way WinRT works.
+    let _ = unsafe { RoInitialize(RO_INIT_MULTITHREADED) };
+    let doc = XmlDocument::new()?;
+    doc.LoadXml(&HSTRING::from(xml))?;
+    let toast = ToastNotification::CreateToastNotification(&doc)?;
+    ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from("Agent Pools"))?.Show(&toast)
+}
+
+#[cfg(not(windows))]
+fn show(_: &str) -> Result<(), String> {
+    Err("toasts are Windows only".into())
+}
+
 /// Shows the toast; an error says why it did not show.
 pub async fn toast(title: &str, body: &str) -> Result<(), String> {
-    let mut cmd = tokio::process::Command::new("powershell.exe");
-    cmd.args(["-NoProfile", "-NonInteractive", "-Command", SCRIPT]).env("AGENT_POOLS_TOAST", payload(title, body)).kill_on_drop(true);
-    super::machine::hide_window(&mut cmd);
-    match tokio::time::timeout(Duration::from_secs(10), cmd.output()).await {
-        Ok(Ok(out)) if out.status.success() => Ok(()),
-        Ok(Ok(out)) => Err(format!("toast: powershell exited with {}", out.status)),
+    let xml = payload(title, body);
+    match tokio::time::timeout(Duration::from_secs(10), tokio::task::spawn_blocking(move || show(&xml).map_err(|e| e.to_string()))).await {
+        Ok(Ok(shown)) => shown.map_err(|e| format!("toast: {e}")),
         Ok(Err(e)) => Err(format!("toast: {e}")),
         Err(_) => Err("toast: timed out".into()),
     }

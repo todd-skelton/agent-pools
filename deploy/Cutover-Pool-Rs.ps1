@@ -17,13 +17,17 @@ backwards.
              same proxy process from state\process-proxy.json. With -Tailnet, tailscale serve's
              :8443 moves from the tailnet proxy (8327) to the service, and "<OldPrefix> - tailnet
              dashboard proxy" is disabled.
+  tunnel     "<OldPrefix> - cloudflare tunnel" -> "<TaskPrefix> - cloudflare tunnel". The port's command
+             waits while the old cloudflared runs, so the new one starts as the old one is stopped
+             (the public hostname is unreachable for a few seconds).
+  backup     "<OldPrefix> - backup" -> "<TaskPrefix> - backup" (no process: the next 03:30 run).
 
 The live install is refused without -Live. -WhatIf says what would be done and does nothing.
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
   [Parameter(Mandatory)][string]$Root,
-  [Parameter(Mandatory)][ValidateSet('gateway', 'inference', 'service')][string]$Step,
+  [Parameter(Mandatory)][ValidateSet('gateway', 'inference', 'service', 'tunnel', 'backup')][string]$Step,
   [switch]$Undo,
   [switch]$Tailnet,
   [string]$TaskPrefix = 'Agent Pools (rs)',
@@ -38,6 +42,30 @@ $install = Read-Json (Join-Path $Root 'state\install.json')
 $new = Get-PoolRsTasks $TaskPrefix | Where-Object Key -eq $Step
 if (-not (Get-ScheduledTask -TaskName $new.Name -ErrorAction SilentlyContinue)) { throw "task '$($new.Name)' is not registered: run Install-Pool-Rs.ps1 -RegisterTasks first" }
 
+function Say([string]$s) { "$((Get-Date).ToUniversalTime().ToString('HH:mm:ss'))Z $s" }
+
+# The two jobs with no port: the tunnel's cloudflared and the daily backup.
+if ($Step -in 'tunnel', 'backup') {
+  $oldTask = "$OldPrefix - $(if ($Step -eq 'tunnel') { 'cloudflare tunnel' } else { 'backup' })"
+  $config = Join-Path $Root 'statecloudflaredconfig.yml'
+  function Tunnels { @(Get-CimInstance Win32_Process -Filter "Name='cloudflared.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($config, [StringComparison]::OrdinalIgnoreCase) -ge 0 }) }
+  function Parent-Name($p) { (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.ParentProcessId)").Name }
+  $from, $to = if ($Undo) { $new.Name, $oldTask } else { $oldTask, $new.Name }
+  if ($Step -eq 'tunnel') { Say "cloudflared now: $(@(Tunnels | ForEach-Object { "$($_.ProcessId) under $(Parent-Name $_)" }) -join ', ')" }
+  if (-not $PSCmdlet.ShouldProcess("$from -> $to", 'move')) { return }
+  Enable-ScheduledTask -TaskName $to | Out-Null; Say "enabled '$to'"
+  if ($Step -eq 'tunnel') { Start-ScheduledTask -TaskName $to; Say "started '$to' (it waits while the old cloudflared runs)" }
+  Disable-ScheduledTask -TaskName $from | Out-Null; Say "disabled '$from'"
+  if ($Step -eq 'tunnel') {
+    Stop-ScheduledTask -TaskName $from -ErrorAction SilentlyContinue
+    $old = Tunnels
+    foreach ($p in $old) { Stop-Process -Id $p.ProcessId -Force; Say "stopped cloudflared $($p.ProcessId)" }
+    Wait-Until { @(Tunnels | Where-Object { $old.ProcessId -notcontains $_.ProcessId }).Count -gt 0 } 60 'the new cloudflared'
+    Say "cloudflared now: $(@(Tunnels | ForEach-Object { "$($_.ProcessId) under $(Parent-Name $_)" }) -join ', ')"
+  }
+  return
+}
+
 switch ($Step) {
   'gateway' { $oldTask = "$OldPrefix - public gateway"; $script = 'public-gateway-service.mjs'; $port = if ($install.publicGateway.port) { [int]$install.publicGateway.port } else { 8330 } }
   'inference' { $oldTask = "$OldPrefix - inference relay"; $script = 'inference-service.mjs'; $port = if ($install.inferenceRelayPort) { [int]$install.inferenceRelayPort } else { 8319 } }
@@ -45,8 +73,6 @@ switch ($Step) {
 }
 $tailnetTask = "$OldPrefix - tailnet dashboard proxy"
 $serviceCommand = 'serve-service'
-
-function Say([string]$s) { "$((Get-Date).ToUniversalTime().ToString('HH:mm:ss'))Z $s" }
 
 function Set-TaskEnabled([string]$name, [bool]$on) {
   if (-not (Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue)) { Say "no task '$name'"; return }
@@ -71,7 +97,7 @@ function Owner-Name {
   $o = Get-PortOwner $port
   if (-not $o) { return 'nobody' }
   if ($o.Name -eq 'node.exe') { return "node $([IO.Path]::GetFileName(($o.CommandLine -split '"' | Where-Object { $_ -like '*.mjs' } | Select-Object -First 1)))" }
-  if ($o.Name -eq 'pools-shadow.exe' -and $o.CommandLine -match '^"[^"]+"\s+(\S+)') { return "pools-shadow $($Matches[1]) pid $($o.ProcessId)" }
+  if ($o.Name -in 'pools-shadow.exe', 'pools-rs.exe' -and $o.CommandLine -match '^"[^"]+"\s+(\S+)') { return "pools-shadow $($Matches[1]) pid $($o.ProcessId)" }
   return "$($o.Name) pid $($o.ProcessId)"
 }
 

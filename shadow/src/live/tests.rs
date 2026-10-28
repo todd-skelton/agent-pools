@@ -162,12 +162,22 @@ fn the_stand_in_runs_only_on_a_rehearsals_config() {
 fn a_running_process_reads_with_its_identity() {
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
     let pid = std::process::id();
-    assert_eq!(rt.block_on(super::machine::powershell("Write-Output hello")).unwrap().trim(), "hello");
     let info = rt.block_on(super::machine::process_info(pid)).unwrap().expect("this process is running");
     assert_eq!(info["ProcessId"], json!(pid));
     assert!(pool_core::js::date_parse_value(info.get("CreationDate")).is_finite(), "{info}");
     assert!(info["ExecutablePath"].as_str().is_some_and(|p| p.ends_with(".exe")), "{info}");
     assert!(super::machine::alive(pid));
+    // The same record CIM gives, field for field: the proxy's record (pid and creationDate) is
+    // compared against it, so a millisecond or an offset apart would retire an adopted proxy.
+    let cim = std::process::Command::new("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &format!("Get-CimInstance Win32_Process -Filter \"ProcessId={pid}\" | Select-Object ProcessId, @{{n='CreationDate';e={{$_.CreationDate.ToString('yyyy-MM-ddTHH:mm:ss.fffK')}}}}, ExecutablePath, CommandLine | ConvertTo-Json -Compress")])
+        .output()
+        .unwrap();
+    let cim: Value = serde_json::from_slice(&cim.stdout).unwrap();
+    assert_eq!(info, cim);
+    // No such process: none; process 4 (System) is another user's: its id, nothing else.
+    assert_eq!(rt.block_on(super::machine::process_info(u32::MAX - 3)).unwrap(), None);
+    assert_eq!(rt.block_on(super::machine::process_info(4)).unwrap().unwrap()["ProcessId"], json!(4));
 
     // A listener of this process's is found by its port, with the same details.
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();

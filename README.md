@@ -321,9 +321,13 @@ config. The model refresh stays with Agent Pools' scheduled tasks.
 The proxy child keeps Node's record format (`state/process-proxy.json`, `{pid, creationDate}`),
 so either supervisor adopts what the other started. The port's `portOwner` reads the TCP
 table (`GetExtendedTcpTable`); `Get-NetTCPConnection` took 27 s here, past the 20 s lookup
-limit, and a takeover without a record then waited forever (`port-held-unidentified`). Its
-`powershell` pipes the child's output; without that the CIM lookups read nothing, every spawn
-logged `process-record-error`, and `a_running_process_reads_with_its_identity` caught it.
+limit, and a takeover without a record then waited forever (`port-held-unidentified`). A
+process's record (`ProcessId`, `CreationDate`, `ExecutablePath`, `CommandLine`) is read with
+the process's own calls (`GetProcessTimes`, `QueryFullProcessImageNameW`,
+`NtQueryInformationProcess`), not Windows PowerShell's CIM, which took about a second each and
+once read nothing for want of a piped output; `a_running_process_reads_with_its_identity`
+checks it field for field against CIM. Toasts go through WinRT from the process, not a
+PowerShell child. Nothing the port runs starts PowerShell or wscript.
 
 Rehearsed on 2026-10-28 (`shadow-state/rehearsal`, scripts `target/rehearse-*.ps1`):
 
@@ -355,29 +359,40 @@ and the port serves the rehearsal with no outside traffic, so CPU is not like fo
 
 ### Install and cutover
 
-`deploy/` holds three scripts and the wrapper:
+`deploy/` holds three scripts. The build makes two programs from one source:
+`pools-shadow.exe` (a console program, for commands by hand) and `pools-rs.exe` (the same with
+no console window). The scheduled tasks start `pools-rs.exe` directly; until 0.2 they went
+through wscript and `Run-Pool-Rs.vbs`, as Agent Pools' own tasks still do.
 
 1. `Install-Pool-Rs.ps1 -Root <install> -Exe <pools-shadow.exe> -Version <v> [-RegisterTasks]`
-   copies the build and its static files into `<install>\pool-rs\<v>` (with `build.json`: SHA-256
-   and commit). A version is never replaced. It writes `pool-rs\Run-Pool-Rs.vbs` and
-   `pool-rs\pool-rs.json` (`current`, `previous`, `tailnet`), and registers
-   "Agent Pools (rs) - subscriptions", "- inference relay" and "- public gateway" as Agent Pools
-   registers its own (logon plus a 5-minute keepalive, IgnoreNew; the relays restart on
-   failure, the gateway at priority 4). New tasks start disabled. `-Use <v>` points
-   `current` back at an installed version. Agent Pools' own files are not changed; the
-   service reads its tailnet view from `pool-rs.json`, not tailnet-dashboard-proxy.mjs.
-2. `Run-Pool-Rs.vbs <command>` starts `pool-rs\<current>\pools-shadow.exe <command> <install>`
-   through wscript with no console, waiting, as Run-Pool-Guardian.vbs starts node. It adds
-   `--live` unless the install is a rehearsal.
-3. `Cutover-Pool-Rs.ps1 -Root <install> -Step gateway|inference|service [-Undo] [-Tailnet]`
-   moves one job between the Node task and the port's. It disables the Node task (never deletes
-   it) and stops the Node process: for the service through `state\guardian-stop.request`, which
-   leaves the proxy running. It then enables and starts the port's task and waits for the port
-   to listen, the health check to pass and, for the service, the same proxy PID to be adopted.
-   `-Undo` is the same step backwards. A step that is already done is safe to run again.
-   `-WhatIf` changes nothing.
+   copies both programs and the static files into `<install>\pool-rs\<v>` (with `build.json`:
+   SHA-256s and commit). A version is never replaced. It writes `pool-rs\pool-rs.json`
+   (`current`, `previous`, `tailnet`) and points every registered task of the port's at
+   `pool-rs\<v>\pools-rs.exe`. With `-RegisterTasks` it registers "Agent Pools (rs) -
+   subscriptions", "- inference relay", "- public gateway", "- cloudflare tunnel" (logon plus a
+   5-minute keepalive, IgnoreNew; all but the guardian restart on failure; the gateway and
+   tunnel at priority 4) and "- backup" (03:30 daily and at logon). New tasks start disabled.
+   `-Use <v>` points `current` and the tasks back at an installed version of 0.2 or later.
+   Agent Pools' own files are not changed.
+2. `Restart-Pool-Rs.ps1 -Root <install> -Step service|inference|gateway|tunnel|all` starts a
+   command again on the current version: the service through `state\guardian-stop.request`
+   (the proxy is adopted, not restarted), the others by stopping and starting their task.
+3. `Cutover-Pool-Rs.ps1 -Root <install> -Step gateway|inference|service|tunnel|backup [-Undo] [-Tailnet]`
+   moves one job between the Agent Pools task and the port's. It disables the old task (never
+   deletes it) and stops its process: for the service through `state\guardian-stop.request`,
+   which leaves the proxy running; for the tunnel the port's command waits while the old
+   cloudflared runs and starts as it is stopped. It then enables and starts the port's task and
+   waits for the port to listen, the health check to pass and, for the service, the same proxy
+   PID to be adopted. `-Undo` is the same step backwards. A step that is already done is safe
+   to run again. `-WhatIf` changes nothing.
 
-Both scripts refuse the live install without `-Live`, and any other root that is not a rehearsal.
+The jobs Agent Pools ran through wscript and Windows PowerShell are commands of the program
+(`shadow/src/live/ops.rs`): `tunnel <install>` (Run-Cloudflare-Tunnel.vbs), `backup <install>`
+(Backup-Pool-Secrets.ps1: the same zip, protected with DPAPI for this account, the newest 14
+kept) and `restore [<backup>] [--target <dir>] [--list]` (Restore-Pool-Secrets.ps1, into a new
+directory only). Each restores the other's backups.
+
+The scripts refuse the live install without `-Live`, and any other root that is not a rehearsal.
 Installed programs find their static files beside themselves (`static\shadow`,
 `static\gateway`). Corten has no way to build them in:
 [corten#268 Static files are a directory found at run time, so a built program cannot be deployed by itself and each app writes its own lookup](https://github.com/todd-skelton/corten/issues/268).

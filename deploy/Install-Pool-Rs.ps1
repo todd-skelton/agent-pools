@@ -6,14 +6,15 @@ Installs a build of the port into <Root>\pool-rs\<Version>\ and points the wrapp
 1. Copies pools-shadow.exe and its static files (shadow\static, gateway\static) into
    <Root>\pool-rs\<Version>\, with build.json (its SHA-256 and the commit). A version is never
    replaced: the same version again must be the same file.
-2. Writes <Root>\pool-rs\Run-Pool-Rs.vbs and pool-rs.json ("current", "previous", "tailnet").
-   Agent Pools' own files are not changed.
-3. With -RegisterTasks, registers "<TaskPrefix> - subscriptions", "- inference relay" and
-   "- public gateway" as Agent Pools registers its own. A task registered here for the first time
-   is left Disabled; Cutover-Pool-Rs.ps1 enables it. An existing one keeps its state.
+2. Writes pool-rs.json ("current", "previous", "tailnet"). Agent Pools' own files are not changed.
+3. Points each of the port's tasks that is registered at the new version's pools-rs.exe (the
+   action only). With -RegisterTasks, registers "<TaskPrefix> - subscriptions", "- inference
+   relay", "- public gateway", "- cloudflare tunnel" and "- backup" as Agent Pools registers its
+   own; a task registered here for the first time is left Disabled (Cutover-Pool-Rs.ps1 enables
+   it). An existing task keeps its triggers, settings and state; only its action changes.
 
--Use <Version> points "current" at a version already installed (a rollback) and changes nothing
-else. A running command keeps its version until it is started again.
+-Use <Version> points "current" and the tasks at a version already installed (a rollback).
+Either way a running command keeps its version until Restart-Pool-Rs.ps1 starts it again.
 
 The live install is refused without -Live, as the program refuses it.
 #>
@@ -49,7 +50,8 @@ function Set-Current([string]$v) {
 if ($PSCmdlet.ParameterSetName -eq 'Use') {
   Set-Current $Use
   Write-Json $settingsFile $settings
-  "current: $Use (previous: $($settings.previous)); restart the tasks to run it"
+  foreach ($t in Get-PoolRsTasks $TaskPrefix) { Set-PoolRsTask $Root $Use $t $target.Live -ActionOnly }
+  "current: $Use (previous: $($settings.previous)); Restart-Pool-Rs.ps1 runs it"
   return
 }
 
@@ -63,6 +65,10 @@ if (Test-Path -LiteralPath $dir) {
 } else {
   New-Item -ItemType Directory -Path $dir | Out-Null
   Copy-Item -LiteralPath $Exe -Destination (Join-Path $dir 'pools-shadow.exe')
+  # The same program with no console window, for the tasks (built beside it).
+  $windowless = Join-Path (Split-Path -Parent $Exe) 'pools-rs.exe'
+  if (-not (Test-Path -LiteralPath $windowless)) { throw "$windowless is missing: build both binaries (cargo build -p pools-shadow --release)" }
+  Copy-Item -LiteralPath $windowless -Destination (Join-Path $dir 'pools-rs.exe')
   foreach ($s in @(@('shadow', "$repo\shadow\static"), @('gateway', "$repo\gateway\static"))) {
     $to = Join-Path $dir "static\$($s[0])"
     New-Item -ItemType Directory -Force -Path $to | Out-Null
@@ -70,10 +76,10 @@ if (Test-Path -LiteralPath $dir) {
   }
   $commit = (& git -C $repo rev-parse HEAD 2>$null)
   $dirty = [bool](& git -C $repo status --porcelain 2>$null)
-  Write-Json (Join-Path $dir 'build.json') ([ordered]@{ version = $Version; sha256 = $hash; commit = $commit; dirty = $dirty; installedAt = (Get-Date).ToUniversalTime().ToString('o') })
+  $windowlessHash = (Get-FileHash -LiteralPath $windowless -Algorithm SHA256).Hash.ToLowerInvariant()
+  Write-Json (Join-Path $dir 'build.json') ([ordered]@{ version = $Version; sha256 = $hash; windowlessSha256 = $windowlessHash; commit = $commit; dirty = $dirty; installedAt = (Get-Date).ToUniversalTime().ToString('o') })
   "installed $Version in $dir"
 }
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Run-Pool-Rs.vbs') -Destination (Join-Path $homeDir 'Run-Pool-Rs.vbs') -Force
 Set-Current $Version
 if ($TailnetOrigin -or $TailnetOwner) {
   if (-not ($TailnetOrigin -and $TailnetOwner)) { throw 'pass both -TailnetOrigin and -TailnetOwner, or neither' }
@@ -82,21 +88,15 @@ if ($TailnetOrigin -or $TailnetOwner) {
 Write-Json $settingsFile $settings
 "current: $($settings.current) (previous: $($settings.previous))"
 
-if ($RegisterTasks) {
-  $user = "$env:USERDOMAIN\$env:USERNAME"
-  $wscript = "$env:SystemRoot\System32\wscript.exe"
-  $wrapper = Join-Path $homeDir 'Run-Pool-Rs.vbs'
-  foreach ($t in Get-PoolRsTasks $TaskPrefix) {
-    $existing = Get-ScheduledTask -TaskName $t.Name -ErrorAction SilentlyContinue
-    $action = New-ScheduledTaskAction -Execute $wscript -Argument ('//B //Nologo "' + $wrapper + '" ' + $t.Command) -WorkingDirectory $Root
-    $keepalive = New-ScheduledTaskTrigger -Daily -At '00:00'
-    $keepalive.Repetition = (New-ScheduledTaskTrigger -Once -At '00:00' -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 1)).Repetition
-    $opts = @{ ExecutionTimeLimit = [TimeSpan]::Zero; MultipleInstances = 'IgnoreNew'; DontStopIfGoingOnBatteries = $true; AllowStartIfOnBatteries = $true; StartWhenAvailable = $true }
-    if ($t.Restart) { $opts.RestartCount = 999; $opts.RestartInterval = New-TimeSpan -Minutes 1 }
-    if ($t.Priority) { $opts.Priority = $t.Priority }
-    $settingsSet = New-ScheduledTaskSettingsSet @opts
-    $settingsSet.Enabled = if ($existing) { $existing.Settings.Enabled } else { $false }
-    Register-ScheduledTask -TaskName $t.Name -Action $action -Trigger @((New-ScheduledTaskTrigger -AtLogOn -User $user), $keepalive) -Settings $settingsSet -Description $t.Description -Force | Out-Null
-    "task '$($t.Name)': $(if ($settingsSet.Enabled) { 'enabled' } else { 'disabled' }) ($($t.Command))"
-  }
+foreach ($t in Get-PoolRsTasks $TaskPrefix) {
+  # An existing task gets the new action only (a running instance carries on until restarted).
+  $exists = [bool](Get-ScheduledTask -TaskName $t.Name -ErrorAction SilentlyContinue)
+  if ($RegisterTasks -and -not $exists) { Set-PoolRsTask $Root $Version $t $target.Live } else { Set-PoolRsTask $Root $Version $t $target.Live -ActionOnly }
+}
+
+# The wrapper older versions' tasks started (Run-Pool-Rs.vbs), once no task names it.
+$wrapper = Join-Path $homeDir 'Run-Pool-Rs.vbs'
+if ((Test-Path -LiteralPath $wrapper) -and -not (Get-ScheduledTask | Where-Object { $_.Actions.Arguments -like "*$wrapper*" })) {
+  Remove-Item -LiteralPath $wrapper -ErrorAction SilentlyContinue
+  if (Test-Path -LiteralPath $wrapper) { "left $wrapper (still open); the next install removes it" } else { "removed $wrapper (no task starts it)" }
 }
