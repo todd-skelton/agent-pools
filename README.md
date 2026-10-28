@@ -16,7 +16,7 @@ Plan:
 3. A read-only shadow dashboard on Corten, compared with the live `/api/summary` over days.
    In progress: `shadow/` (below) runs beside the live service and checks every summary,
    forecast and value report it publishes; the evidence is collecting.
-4. Writes and the public gateway, in the port only. In progress: the refresh cycle
+4. Writes and the public gateway, in the port only. Done on a copy, short of cutover (2026-10-28): the refresh cycle
    (`pool-core::refresh`, refresh.mjs with usage.mjs, quota-recovery.mjs, reset-lifecycle.mjs,
    notifications.mjs, projection.mjs and both adapters) takes its I/O through a trait and matches
    Agent Pools' own cycle on 42 scripted scenarios (61 cycles): every result, proxy call, event,
