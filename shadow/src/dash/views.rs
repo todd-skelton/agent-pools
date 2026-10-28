@@ -78,10 +78,12 @@ const READ_ONLY: &str = "Done on the live dashboard (port 8318): the shadow only
 
 /// The document around every dashboard page: the top bar with its tabs and freshness, and the
 /// sign-in banner. On a copy (`run-copy`, `writable`) Refresh posts to `/refresh` and "Add
-/// account" opens the sign-in steps; the read-only shadow shows both disabled. `view` is the
-/// tab marked current (none on the sign-in page).
+/// account" opens the sign-in steps; the read-only shadow shows both disabled. The tabs are
+/// the shell's nav (`req.nav`): Corten marks the one for this page's path current, here and
+/// after each swap, so none is current on the sign-in page.
 #[component]
-pub fn Dash<'a>(req: &'a Req, title: &'a str, view: Option<View>, header: &'a Header, writable: bool, children: impl Render) -> impl Document {
+pub fn Dash<'a>(req: &'a Req, title: &'a str, header: &'a Header, writable: bool, children: impl Render) -> impl Document {
+    let accounts = url::Accounts { filter: None, open: None };
     html! {
         <!DOCTYPE html>
         <html lang="en">
@@ -97,20 +99,20 @@ pub fn Dash<'a>(req: &'a Req, title: &'a str, view: Option<View>, header: &'a He
                     <div class="bar-in">
                         <div class="brand"><span class="logo"></span>"Agent pools"<span class="shadow-tag" title="Corten shadow: built from the live install's files, read only">"shadow"</span></div>
                         <nav class="tabs">
-                            <a href={url::Overview} data-nav aria-current={(view == Some(View::Overview)).then_some("page")}>
+                            <a {..req.nav(&url::Overview)}>
                                 "Overview "
                                 {count(header.count)}
                             </a>
-                            <a href={url::Accounts { filter: None, open: None }} data-nav aria-current={(view == Some(View::Accounts)).then_some("page")}>"Accounts"</a>
-                            <a href={url::Usage} data-nav aria-current={(view == Some(View::Usage)).then_some("page")}>"Usage & value"</a>
-                            <a href={url::Policy} data-nav aria-current={(view == Some(View::Policy)).then_some("page")}>"Automation"</a>
+                            <a {..req.nav(&accounts)}>"Accounts"</a>
+                            <a {..req.nav(&url::Usage)}>"Usage & value"</a>
+                            <a {..req.nav(&url::Policy)}>"Automation"</a>
                         </nav>
                         <div class="bar-right">
                             {fresh(header)}
-                            <a class="btn ghost" href={url::Parity} data-nav>"Parity"</a>
+                            <a class="btn ghost" href={url::Parity}>"Parity"</a>
                             if writable {
                                 <form class="inline" method="post" action={url::RefreshNow}><button type="submit" class="btn" title="Run a refresh cycle on this copy now">"Refresh"</button></form>
-                                <a class="btn primary" href={url::Signin { provider: None, account: None }} data-nav>"Add account"</a>
+                                <a class="btn primary" href={url::Signin { provider: None, account: None }}>"Add account"</a>
                             } else {
                                 <button type="button" class="btn" disabled title={READ_ONLY}>"Refresh"</button>
                                 <button type="button" class="btn primary" disabled title={READ_ONLY}>"Add account"</button>
@@ -148,7 +150,7 @@ pub fn finish(h: &Header) -> impl Render + '_ {
                             <p><b>"Finish "{signin_name(p)}" sign-in."</b>" "<span class="mut">"On this PC it finishes by itself. Signed in on another device? Paste the localhost link it opened."</span></p>
                         </div>
                         <div class="acts">
-                            <a class="btn sm primary" href={url::Signin { provider: None, account: None }} data-nav>"Finish sign-in"</a>
+                            <a class="btn sm primary" href={url::Signin { provider: None, account: None }}>"Finish sign-in"</a>
                             <form class="inline" method="post" action={url::SigninCancel}><button type="submit" class="btn sm">"Cancel"</button></form>
                         </div>
                     </div>
@@ -170,15 +172,13 @@ pub fn act(a: &Act, sm: bool) -> impl Render + '_ {
     let base = if sm { "btn sm" } else { "btn" };
     html! {
         match a {
-            Act::Account { text, id } => <a class={base} href={url::Accounts { filter: None, open: Some(id) }.at(AcctId(id))} data-nav>{text}</a>,
-            Act::Credits { text, open: Some(id) } => <a class={base} href={url::Accounts { filter: Some("credits"), open: Some(id) }.at(AcctId(id))} data-nav>{text}</a>,
-            Act::Credits { text, open: None } => <a class={base} href={url::Accounts { filter: Some("credits"), open: None }} data-nav>{text}</a>,
-            Act::Go { text, view: View::Overview, anchor: Some(_) } => <a class={base} href={url::Overview.at(TlAnchorId)} data-nav>{text}</a>,
-            Act::Go { text, view: View::Policy, anchor: Some(_) } => <a class={base} href={url::Policy.at(ConfigId)} data-nav>{text}</a>,
-            Act::Go { text, view: View::Overview, anchor: None } => <a class={base} href={url::Overview} data-nav>{text}</a>,
-            Act::Go { text, view: View::Accounts, .. } => <a class={base} href={url::Accounts { filter: None, open: None }} data-nav>{text}</a>,
-            Act::Go { text, view: View::Usage, .. } => <a class={base} href={url::Usage} data-nav>{text}</a>,
-            Act::Go { text, view: View::Policy, anchor: None } => <a class={base} href={url::Policy} data-nav>{text}</a>,
+            Act::Account { text, id } => <a class={base} href={url::Accounts { filter: None, open: Some(id) }.at(AcctId(id))}>{text}</a>,
+            Act::Credits { text, open: Some(id) } => <a class={base} href={url::Accounts { filter: Some("credits"), open: Some(id) }.at(AcctId(id))}>{text}</a>,
+            Act::Credits { text, open: None } => <a class={base} href={url::Accounts { filter: Some("credits"), open: None }}>{text}</a>,
+            Act::Go { text, view: View::Overview, anchor: Some(_) } => <a class={base} href={url::Overview.at(TlAnchorId)}>{text}</a>,
+            Act::Go { text, view: View::Policy, anchor: Some(_) } => <a class={base} href={url::Policy.at(ConfigId)}>{text}</a>,
+            Act::Go { text, view: View::Overview, anchor: None } => <a class={base} href={url::Overview}>{text}</a>,
+            Act::Go { text, view: View::Policy, anchor: None } => <a class={base} href={url::Policy}>{text}</a>,
             Act::Live { text, primary, writable: false, .. } => <button type="button" class={(base, if *primary { " primary" } else { "" })} disabled title={READ_ONLY}>{text}</button>,
             Act::Live { text, primary, does: Does::Refresh { open }, .. } => {
                 <form class="inline" method="post" action={url::RefreshNow}>
@@ -187,7 +187,7 @@ pub fn act(a: &Act, sm: bool) -> impl Render + '_ {
                 </form>
             }
             Act::Live { text, primary, does: Does::Signin { provider, account }, .. } => {
-                <a class={(base, if *primary { " primary" } else { "" })} href={url::Signin { provider: provider.as_deref(), account: account.as_deref() }} data-nav>{text}</a>
+                <a class={(base, if *primary { " primary" } else { "" })} href={url::Signin { provider: provider.as_deref(), account: account.as_deref() }}>{text}</a>
             }
         }
     }
@@ -374,7 +374,7 @@ fn cell<'a>(c: &'a Cell, filter: Filter, open: bool, id: &'a str) -> impl Render
             Cell::Who { tone: t, status, name, email, next, notes, reauth } => {
                 <div class="who">
                     <span class={("sdot ", tone(*t))} title={*status}></span>
-                    <a class="nm" href={toggle.at(AcctId(id))} title={email} aria-expanded={if open { "true" } else { "false" }} data-nav>{name}</a>
+                    <a class="nm" href={toggle.at(AcctId(id))} title={email} aria-expanded={if open { "true" } else { "false" }}>{name}</a>
                     if *next { <b class="next" title="New sessions route here: soonest weekly reset among available accounts">"next"</b> }
                     if *t != Tone::Ok { <span class={("chip ", tone(*t))}>{*status}</span> }
                 </div>
@@ -441,7 +441,7 @@ pub fn accounts(v: &AccountsView) -> impl Render + '_ {
         <div class="toolbar">
             <div class="seg">
                 for (f, key, label) in Filter::ALL {
-                    <a href={url::Accounts { filter: (f != Filter::All).then_some(key), open: None }} data-nav aria-current={(v.filter == f).then_some("page")}>{label}</a>
+                    <a href={url::Accounts { filter: (f != Filter::All).then_some(key), open: None }} aria-current={(v.filter == f).then_some("page")}>{label}</a>
                 }
             </div>
             <span class="mut fs13">{&v.shown}</span>

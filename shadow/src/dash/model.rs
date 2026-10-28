@@ -16,12 +16,10 @@ pub enum Tone {
     Neutral,
 }
 
-/// A page of the dashboard.
+/// A page of the dashboard an action goes to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum View {
     Overview,
-    Accounts,
-    Usage,
     Policy,
 }
 

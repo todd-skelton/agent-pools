@@ -20,7 +20,7 @@ use corten::axum::http::StatusCode;
 use corten::prelude::*;
 use serde_json::{Value, json};
 
-use super::model::{Ctx, Tone, View};
+use super::model::{Ctx, Tone};
 use super::views::{Dash, Header};
 use crate::app::url;
 use crate::tailnet::Owner;
@@ -323,7 +323,7 @@ fn draw(req: Req, _shadow: &Shared, d: &super::Data, steps: &Steps) -> HtmlResul
     let header = Header { count: c.attention_count(&items), fresh, bad, finish: None };
     let title = if steps.account.is_some() { "Sign in again · Agent pools (shadow)" } else { "Connect an account · Agent pools (shadow)" };
     req.page(html! {
-        <Dash req={&req} title={title} view={None::<View>} header={&header} writable={true}>
+        <Dash req={&req} title={title} header={&header} writable={true}>
             {view(steps)}
         </Dash>
     })
@@ -341,7 +341,7 @@ pub fn view(s: &Steps) -> impl Render + '_ {
         <div class="card signin">
             <div class="card-h">
                 <h2>if s.account.is_some() { "Sign in again" } else { "Connect an account" }</h2>
-                <div class="right"><a class="btn ghost" href={url::Overview} data-nav>"Close"</a></div>
+                <div class="right"><a class="btn ghost" href={url::Overview}>"Close"</a></div>
             </div>
             <div class="card-b">
                 <ol class="steps">
@@ -352,7 +352,7 @@ pub fn view(s: &Steps) -> impl Render + '_ {
                             <div class="body">
                                 <div class="choice">
                                     for (id, pname, count) in &s.choices {
-                                        <a href={url::Signin { provider: Some(id), account: None }} data-nav aria-current={(p == Some(id.as_str())).then_some("true")}>
+                                        <a href={url::Signin { provider: Some(id), account: None }} aria-current={(p == Some(id.as_str())).then_some("true")}>
                                             <span class={("pdot ", id.as_str())}></span>" "{pname}<small>{count}" connected"</small>
                                         </a>
                                     }

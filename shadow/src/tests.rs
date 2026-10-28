@@ -400,11 +400,11 @@ async fn a_copys_dashboard_signs_in_and_refreshes_through_the_stand_in() {
 
     let (status, home) = get(app.clone(), "/").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(home.contains(r#"<a class="btn primary" href="/signin" data-nav>Add account</a>"#), "{home}");
+    assert!(home.contains(r#"<a class="btn primary" href="/signin">Add account</a>"#), "{home}");
     assert!(!home.contains(" disabled "), "no action is disabled on a copy");
     assert!(home.contains(r#"<main><div id="finish" class="finish" hidden></div>"#), "in <main>, which a navigation swaps");
     let (_, accounts) = get(app.clone(), "/accounts").await;
-    assert!(accounts.contains(r#"href="/signin?provider=codex" data-nav>Connect Codex</a>"#), "{accounts}");
+    assert!(accounts.contains(r#"href="/signin?provider=codex">Connect Codex</a>"#), "{accounts}");
 
     let (status, page) = get(app.clone(), "/signin").await;
     assert_eq!(status, StatusCode::OK);

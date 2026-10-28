@@ -655,8 +655,8 @@ fn Layout<'a>(req: &'a Req, title: &'a str, children: impl Render) -> impl Docum
                 <header>
                     <nav>
                         <a href={url::Overview}>"Dashboard"</a>
-                        <a href={url::SummaryPage} data-nav aria-current={req.current(&url::SummaryPage)}>"Summary"</a>
-                        <a href={url::Parity} data-nav aria-current={req.current(&url::Parity)}>"Parity"</a>
+                        <a {..req.nav(&url::SummaryPage)}>"Summary"</a>
+                        <a {..req.nav(&url::Parity)}>"Parity"</a>
                         <a href={url::Summary}>"/api/summary"</a>
                     </nav>
                 </header>

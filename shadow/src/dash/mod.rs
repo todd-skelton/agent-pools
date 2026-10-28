@@ -24,7 +24,7 @@ use corten::{LiveResponse, LiveSince};
 
 use crate::app::url;
 use crate::watch::{Shared, now_ms};
-use model::{Ctx, Filter, View};
+use model::{Ctx, Filter};
 use views::{Dash, Header};
 
 /// What every tab is drawn from: `S`, `V` and `NOW` of the live page.
@@ -123,15 +123,6 @@ impl Tab {
             Tab::Accounts => "accounts",
             Tab::Usage => "usage",
             Tab::Policy => "policy",
-        }
-    }
-
-    fn view(self) -> View {
-        match self {
-            Tab::Overview => View::Overview,
-            Tab::Accounts => View::Accounts,
-            Tab::Usage => View::Usage,
-            Tab::Policy => View::Policy,
         }
     }
 
@@ -252,7 +243,7 @@ async fn page(req: Req, shadow: Shared, tab: Tab, q: DashQuery) -> HtmlResult {
     let since = cursor(&fragment(&body, &header));
     let src = url::Live { tab: Some(tab.key()), filter: q.filter.as_deref(), open: q.open.as_deref() };
     req.page(html! {
-        <Dash req={&req} title={tab.title()} view={Some(tab.view())} header={&header} writable={d.writable}>
+        <Dash req={&req} title={tab.title()} header={&header} writable={d.writable}>
             <corten-live src={src} since={&since}>{views::body(&body)}</corten-live>
         </Dash>
     })
