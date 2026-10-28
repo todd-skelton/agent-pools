@@ -268,6 +268,26 @@ CPU per request, the copy before and after, then live `pool-service.mjs`):
 | `/api/ladders` | 3.70 ms | 0.10 ms | 0.63 ms |
 | `/api/value` | 0.42 ms | 0.10 ms | 0.78 ms |
 
+#### Compression
+
+The shadow builds Corten with `compress`. Pages and JSON are compressed per request (zstd 1,
+brotli 2 or gzip 1, by the client's `Accept-Encoding`). The dashboard's live stream is compressed
+as one stream per connection, so a redraw that repeats the last one costs only what changed.
+pool-service.mjs compresses nothing. Measured on 2026-10-28:
+
+1. `/api/status` is 30,229 bytes as it is and 4,547 with zstd.
+2. A `/live?tab=overview` stream over 120 s received 8 patches, 149,769 bytes uncompressed.
+   Ten zstd streams in the same window received 8.2 to 8.3 KB each.
+3. The process's working set rose from 45.0 MB idle to 54.3 MB with the eleven streams open
+   (Corten holds a 480 KiB zstd context per stream). Server CPU was 578 ms per 120 s idle and
+   1,859 ms per 120 s with the streams; a refresh cycle can fall in either window.
+
+Cargo features are unified per build, so the gateway and relays in the same binary compress
+too. A relayed `/v1/responses` stream asked for with `Accept-Encoding: zstd` comes back
+`content-encoding: zstd` (314 bytes against 726), where Agent Pools' relays pass the stream as
+it is. Corten has no per-App or per-`Relay` opt-out other than `Cache-Control: no-transform`:
+[corten#205 With compress on, a Relay's answer is re-encoded per connection, so a gateway holds a 480 KiB coder for every relayed model stream and cannot opt out](https://github.com/todd-skelton/corten/issues/205).
+
 ### The tailnet view
 
 `shadow/src/tailnet.rs` is tailnet-dashboard-proxy.mjs without a proxy. Agent Pools runs a
