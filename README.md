@@ -30,7 +30,11 @@ Plan:
    make (50), and `pools-shadow check-registry` rebuilds the live `state/model-registry.json`
    from its inputs, reading only (measured 2026-10-27: 20 models, generation 7, the same document
    and digest). The hourly refresh and the recheck run on the copy, probing through the stand-in
-   rather than the real `codex` and `claude` tools (below).
+   rather than the real `codex` and `claude` tools (below). The supervisor's decisions
+   (`pool-core::supervise`: health-policy.mjs's restart policies and process identity,
+   proxy-takeover.mjs's adopt, spawn or wait plan) pass Agent Pools' own tests of them
+   (`cargo test -p pool-core --test supervise`, 12, from platform.test.mjs and
+   proxy-takeover.test.mjs, copied to `reference/agent-pools/`).
 5. Cutover: only with Todd's go-ahead.
 
 ## The shadow

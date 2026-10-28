@@ -47,6 +47,7 @@ pub mod providers;
 pub mod quota;
 pub mod refresh;
 pub mod registry;
+pub mod supervise;
 pub mod resets;
 pub mod routing;
 pub mod status;
