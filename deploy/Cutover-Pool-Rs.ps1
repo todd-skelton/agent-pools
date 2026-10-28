@@ -47,7 +47,7 @@ function Say([string]$s) { "$((Get-Date).ToUniversalTime().ToString('HH:mm:ss'))
 # The two jobs with no port: the tunnel's cloudflared and the daily backup.
 if ($Step -in 'tunnel', 'backup') {
   $oldTask = "$OldPrefix - $(if ($Step -eq 'tunnel') { 'cloudflare tunnel' } else { 'backup' })"
-  $config = Join-Path $Root 'statecloudflaredconfig.yml'
+  $config = Join-Path $Root 'state\cloudflared\config.yml'
   function Tunnels { @(Get-CimInstance Win32_Process -Filter "Name='cloudflared.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($config, [StringComparison]::OrdinalIgnoreCase) -ge 0 }) }
   function Parent-Name($p) { (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.ParentProcessId)").Name }
   $from, $to = if ($Undo) { $new.Name, $oldTask } else { $oldTask, $new.Name }
@@ -58,7 +58,8 @@ if ($Step -in 'tunnel', 'backup') {
   Disable-ScheduledTask -TaskName $from | Out-Null; Say "disabled '$from'"
   if ($Step -eq 'tunnel') {
     Stop-ScheduledTask -TaskName $from -ErrorAction SilentlyContinue
-    $old = Tunnels
+    # The side being left: cloudflared not started by the port (forward) or started by it (-Undo).
+    $old = @(Tunnels | Where-Object { ((Parent-Name $_) -eq 'pools-rs.exe') -eq [bool]$Undo })
     foreach ($p in $old) { Stop-Process -Id $p.ProcessId -Force; Say "stopped cloudflared $($p.ProcessId)" }
     Wait-Until { @(Tunnels | Where-Object { $old.ProcessId -notcontains $_.ProcessId }).Count -gt 0 } 60 'the new cloudflared'
     Say "cloudflared now: $(@(Tunnels | ForEach-Object { "$($_.ProcessId) under $(Parent-Name $_)" }) -join ', ')"
