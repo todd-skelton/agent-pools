@@ -349,10 +349,21 @@ async fn tunnel(b: Backend, req: Request) -> Out {
         Ok(u) => u,
         Err(e) => return reply(StatusCode::BAD_GATEWAY, json!({ "error": format!("Backend unreachable: {}", chain(&e)) })),
     };
+    // The path only: a query may carry an id or a token.
+    let path = parts.uri.path().to_string();
     Out::Switch(upgrade.switch(switched, move |mut stream, signal| async move {
-        tokio::select! {
-            _ = tokio::io::copy_bidirectional(&mut stream, &mut upstream) => {}
-            _ = signal.aborted() => {}
+        let began = std::time::Instant::now();
+        let ended = tokio::select! {
+            r = tokio::io::copy_bidirectional(&mut stream, &mut upstream) => match r {
+                Ok((up, down)) => json!({ "up": up, "down": down }),
+                Err(e) => json!({ "error": chain(&e) }),
+            },
+            _ = signal.aborted() => json!({ "shutdown": true }),
+        };
+        let mut details = json!({ "path": path, "ms": began.elapsed().as_millis() as u64 });
+        if let (Some(d), Some(e)) = (details.as_object_mut(), ended.as_object()) {
+            d.extend(e.clone());
         }
+        b.emit("backend-switch-closed", details);
     }))
 }

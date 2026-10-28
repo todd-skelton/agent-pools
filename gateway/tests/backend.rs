@@ -274,7 +274,9 @@ async fn switch(port: u16, path: &str, host: &str, extra: &str) -> (String, TcpS
 #[tokio::test]
 async fn relay_tunnels_websocket_upgrades_and_refuses_others() {
     let (up, seen, _task) = fake_upstream(Duration::from_millis(20)).await;
-    let port = front(up, |_| {}).await;
+    let events: Events = Arc::default();
+    let observe = recorder(&events);
+    let port = front(up, |c| c.observe = observe).await;
     let host = format!("127.0.0.1:{port}");
     let (head, mut tcp) = switch(port, "/backend-api/wham/remote/control/server?x=1", &host, "Authorization: Bearer t\r\n").await;
     assert!(head.starts_with("HTTP/1.1 101"), "{head}");
@@ -288,6 +290,18 @@ async fn relay_tunnels_websocket_upgrades_and_refuses_others() {
     tokio::time::timeout(Duration::from_secs(5), tcp.read_exact(&mut buf)).await.unwrap().unwrap();
     assert_eq!(&buf, b"ping");
     drop(tcp);
+    // When a tunnel ends it is said, with how long it lasted and the bytes each way; the path
+    // only, never the query.
+    let started = std::time::Instant::now();
+    let closed = loop {
+        if let Some(e) = events.lock().unwrap().iter().find(|e| e["type"] == "backend-switch-closed").cloned() {
+            break e;
+        }
+        assert!(started.elapsed() < Duration::from_secs(5), "no backend-switch-closed event");
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    };
+    assert_eq!((&closed["path"], &closed["up"], &closed["down"]), (&json!("/backend-api/wham/remote/control/server"), &json!(4), &json!(4)), "{closed}");
+    assert!(closed["ms"].is_u64());
 
     // Agent Pools drops these connections (ECONNRESET); here they are answered, and never reach the upstream.
     let before = seen.lock().unwrap().len();
