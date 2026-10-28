@@ -203,7 +203,7 @@ checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 [[package]]
 name = "corten"
 version = "0.1.0"
-source = "git+https://github.com/todd-skelton/corten?rev=87ea670#87ea670f861d841ab8efa41a13781b0461268e93"
+source = "git+https://github.com/todd-skelton/corten?rev=f6d940e#f6d940e24352e8f5f13b96e320e28c30c0f0b56d"
 dependencies = [
  "axum",
  "brotli",
@@ -229,7 +229,7 @@ dependencies = [
 [[package]]
 name = "corten-macros"
 version = "0.1.0"
-source = "git+https://github.com/todd-skelton/corten?rev=87ea670#87ea670f861d841ab8efa41a13781b0461268e93"
+source = "git+https://github.com/todd-skelton/corten?rev=f6d940e#f6d940e24352e8f5f13b96e320e28c30c0f0b56d"
 
 [[package]]
 name = "cpufeatures"

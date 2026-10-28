@@ -270,7 +270,7 @@ CPU per request, the copy before and after, then live `pool-service.mjs`):
 
 #### Compression
 
-The shadow builds Corten with `compress`. Pages and JSON are compressed per request (zstd 1,
+The shadow builds Corten (`f6d940e`) with `compress`. Pages and JSON are compressed per request (zstd 1,
 brotli 2 or gzip 1, by the client's `Accept-Encoding`). The dashboard's live stream is compressed
 as one stream per connection, so a redraw that repeats the last one costs only what changed.
 pool-service.mjs compresses nothing. Measured on 2026-10-28:
@@ -337,7 +337,7 @@ install's own inputs (398 rungs; not committed, since its inputs are not scrubbe
 
 ### The public gateway
 
-`gateway/` (`pools-gateway`; `run-copy` serves it in front of the stand-in) is public-gateway.mjs on Corten (`87ea670`, with
+`gateway/` (`pools-gateway`; `run-copy` serves it in front of the stand-in) is public-gateway.mjs on Corten (`f6d940e`, with
 [corten#162 Upgrade and Relay](https://github.com/todd-skelton/corten/pull/162)). Inference routes
 take a machine key and relay the pool's answer as it streams, sent with the pool's key. The
 dashboard routes take a session cookie signed as Agent Pools signs it (the same secret keeps
