@@ -43,8 +43,15 @@ pub async fn serve_service(install: Install) -> std::io::Result<()> {
     let relay_tls = tls::load(&install.certs())?;
     let relay = writer::desktop::start_with(io.clone(), &install.backend_upstream(), install.port("desktopRelayPort", 8000), writer::desktop::RETRY, relay_tls).await?;
     let shadow = crate::watch::Shadow::new(crate::sources::Install::new(root.clone()), "(the service: not compared)".into(), root.join("logs/parity.jsonl"));
+    // The environment's (as the shadow takes it), else the install's pool-rs.json.
     crate::set_tailnet(&shadow)?;
-    let assets = std::env::var_os("STATIC_DIR").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"));
+    if shadow.tailnet.get().is_none()
+        && let Some(t) = install.tailnet().map_err(std::io::Error::other)?
+    {
+        println!("tailnet: {} answered; writes there only as {}", t.origin, t.owner);
+        let _ = shadow.tailnet.set(t);
+    }
+    let assets = std::env::var_os("STATIC_DIR").map(PathBuf::from).unwrap_or_else(|| super::assets("shadow", &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static")));
     let copy = writer::Copy::new(io).with_management_key(key);
     let supervisor = super::proxy::Supervisor::new(install.clone(), copy.closing.clone());
     let copy = Arc::new(copy.with_supervisor(supervisor.clone()));
@@ -149,6 +156,7 @@ pub async fn serve_gateway(install: Install) -> std::io::Result<()> {
     let port = publish.and_then(|p| p.get("port")).and_then(Value::as_u64).and_then(|p| u16::try_from(p).ok()).unwrap_or(8330);
     let tcp = tokio::net::TcpListener::bind(("127.0.0.1", port)).await.map_err(|e| in_use(port, e))?;
     let mut config = pools_gateway::Config::new(&hostname, &install.proxy_url(), &install.service_url());
+    config.assets = Some(super::assets("gateway", &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../gateway/static")));
     let machines = Arc::new(Cached::new(install.clone(), "state/remote-clients.json", clients));
     let secrets = Arc::new(Cached::new(install.clone(), "state/secrets.json", secrets_doc));
     config.clients = Arc::new(move || machines.get());

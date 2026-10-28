@@ -163,6 +163,31 @@ impl Install {
     }
 }
 
+/// The port's own settings in an install, `pool-rs/pool-rs.json` (`Install-Pool-Rs.ps1` writes it):
+/// `current`, the version the wrappers start, and `tailnet` (`origin`, `owner`), the tailnet view
+/// tailnet-dashboard-proxy.mjs serves today. Agent Pools' own files are not changed for the port.
+pub const PORT_SETTINGS: &str = "pool-rs/pool-rs.json";
+
+impl Install {
+    /// The tailnet view from `pool-rs/pool-rs.json`, when it names one.
+    pub fn tailnet(&self) -> Result<Option<crate::tailnet::Tailnet>, String> {
+        let Ok(doc) = read_json(&self.root.join(PORT_SETTINGS)) else { return Ok(None) };
+        let field = |k: &str| doc.get("tailnet").and_then(|t| t.get(k)).and_then(Value::as_str).map(str::to_string);
+        match (field("origin"), field("owner")) {
+            (Some(origin), Some(owner)) => crate::tailnet::Tailnet::new(&origin, &owner).map(Some),
+            (None, None) => Ok(None),
+            _ => Err(format!("{PORT_SETTINGS}: tailnet needs both origin and owner")),
+        }
+    }
+}
+
+/// A static directory of the program's: `static/<name>` beside the executable when it is
+/// installed (`pool-rs/<version>/static`), else the source tree's `<crate>/static`.
+pub fn assets(name: &str, source: &Path) -> PathBuf {
+    let installed = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join("static").join(name)));
+    installed.filter(|d| d.is_dir()).unwrap_or_else(|| source.to_path_buf())
+}
+
 /// `p` without Windows' verbatim prefix (`\\?\D:\...` as `D:\...`), as a process's
 /// `ExecutablePath` and command line name it: the proxy's identity is compared on those.
 pub fn plain(p: PathBuf) -> PathBuf {

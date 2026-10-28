@@ -179,6 +179,21 @@ fn a_running_process_reads_with_its_identity() {
 }
 
 #[test]
+fn the_tailnet_view_comes_from_the_ports_own_settings_both_fields_or_none() {
+    let base = scratch("tailnet");
+    let live = live_install(&base);
+    let install = Install::open(&live, &live, true).unwrap();
+    assert!(install.tailnet().unwrap().is_none(), "no pool-rs.json");
+    put(&live.join(super::PORT_SETTINGS), r#"{"current":"0.1.0-x"}"#);
+    assert!(install.tailnet().unwrap().is_none(), "no tailnet in it");
+    put(&live.join(super::PORT_SETTINGS), r#"{"current":"0.1.0-x","tailnet":{"origin":"https://box.example.ts.net:8443","owner":"me@example.com"}}"#);
+    let t = install.tailnet().unwrap().expect("named");
+    assert_eq!((t.origin.as_str(), t.owner.as_str()), ("https://box.example.ts.net:8443", "me@example.com"));
+    put(&live.join(super::PORT_SETTINGS), r#"{"tailnet":{"origin":"https://box.example.ts.net:8443"}}"#);
+    assert!(install.tailnet().is_err(), "one field without the other");
+}
+
+#[test]
 fn the_gateway_takes_enabled_named_machines_with_a_full_hash() {
     let hash = "a".repeat(64);
     let doc: Value = json!({ "clients": [

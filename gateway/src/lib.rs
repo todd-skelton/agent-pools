@@ -80,6 +80,8 @@ pub struct Config {
     pub failure_window_ms: f64,
     /// Milliseconds since the epoch.
     pub now: Hook<f64>,
+    /// The sign-in page's static files (`login.css`); `gateway/static` in the source tree when unset.
+    pub assets: Option<std::path::PathBuf>,
 }
 
 impl Config {
@@ -97,6 +99,7 @@ impl Config {
             max_failures: 30,
             failure_window_ms: 15.0 * 60_000.0,
             now: Arc::new(now_ms),
+            assets: None,
         }
     }
 }
@@ -156,7 +159,7 @@ pub fn app(config: Config) -> Result<App<Headers>, String> {
     }));
     let policy = corten::security::Policy::new().host(&config.hostname).proxy("127.0.0.0/8");
     Ok(App::new(url::router(gw.clone()))
-        .assets(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"))
+        .assets(config.assets.clone().unwrap_or_else(|| std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static")))
         .policy(policy)
         // Streams run for many minutes; a model may think long before its first byte.
         .deadline(None)
