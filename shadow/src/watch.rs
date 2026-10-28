@@ -87,6 +87,11 @@ pub struct Shadow {
     pub signin: crate::dash::signin::Signins,
     /// The tailnet view, when it is set (`SHADOW_TAILNET_*`).
     pub tailnet: std::sync::OnceLock<crate::tailnet::Tailnet>,
+    /// `/api/status` and `/api/summary` as last built, kept while they hold.
+    pub answers: crate::served::Answers,
+    /// `/api/capacity` and `/api/ladders` as last written out.
+    pub capacity_bytes: crate::served::Serialized,
+    pub ladders_bytes: crate::served::Serialized,
     http: reqwest::Client,
 }
 
@@ -119,6 +124,9 @@ impl Shadow {
             copy: std::sync::OnceLock::new(),
             signin: Default::default(),
             tailnet: std::sync::OnceLock::new(),
+            answers: Default::default(),
+            capacity_bytes: Default::default(),
+            ladders_bytes: Default::default(),
             http,
         })
     }
@@ -177,6 +185,35 @@ impl Shadow {
             Some(c) => pool_core::status::Live { holds: c.health.holds(), usage_ledger: Some(c.ledger.stats()), ..Default::default() },
             None => self.live_memory(),
         }
+    }
+
+    /// What `/api/status`, `/api/summary` and the dashboard are built from: on a copy, its
+    /// write side's memory; otherwise the live install's files (each parsed once per save).
+    /// `None` when there is no pool state. Blocking on the read-only shadow (it may read files).
+    pub fn inputs(&self) -> Option<crate::served::Inputs> {
+        let live = self.memory();
+        if let Some(c) = self.copy.get() {
+            return Some(c.io.memory.inputs(live));
+        }
+        let pool = self.install.doc("state/pool-state.json")?;
+        let settings = self.install.settings();
+        let forecast = self
+            .install
+            .doc("state/capacity-forecast.json")
+            .filter(|d| d.get("format").and_then(Value::as_str) == Some(pool_core::forecast::FORECAST_FORMAT));
+        Some(crate::served::Inputs {
+            pool,
+            forecast,
+            value: self.install.doc("state/usage-value.json"),
+            expected: settings.get("expectedAccounts").cloned(),
+            policies: pool_core::resets::reset_policies(&settings),
+            live,
+        })
+    }
+
+    /// The answers for the inputs now, at `now`.
+    pub fn built(&self, now: f64) -> Option<Arc<crate::served::Built>> {
+        Some(self.answers.at(self.inputs()?, now))
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -461,6 +498,19 @@ pub async fn notice_saves(shadow: Shared, every: Duration, signal: Signal) {
             seen = now;
             shadow.changed_inputs();
         }
+    }
+}
+
+/// On a copy: tells open pages whenever the write side's memory changes, until the app stops.
+pub async fn notice_memory(shadow: Shared, signal: Signal) {
+    let Some(copy) = shadow.copy.get().cloned() else { return };
+    let mut version = copy.io.memory.version.subscribe();
+    loop {
+        tokio::select! {
+            r = version.changed() => if r.is_err() { return },
+            _ = signal.aborted() => return,
+        }
+        shadow.changed_inputs();
     }
 }
 

@@ -17,7 +17,6 @@ pub mod model;
 pub mod signin;
 pub mod views;
 
-use corten::axum::http::StatusCode;
 use corten::prelude::*;
 use serde_json::Value;
 
@@ -30,8 +29,8 @@ use views::{Dash, Header};
 
 /// What every tab is drawn from: `S`, `V` and `NOW` of the live page.
 pub struct Data {
-    pub s: Value,
-    pub v: Option<Value>,
+    pub s: std::sync::Arc<Value>,
+    pub v: Option<std::sync::Arc<Value>>,
     pub now: f64,
     pub z: fmt::Zone,
     /// Whether the actions work (a copy).
@@ -42,30 +41,35 @@ pub struct Data {
 
 impl Data {
     pub fn ctx(&self) -> Ctx<'_> {
-        Ctx { s: &self.s, v: self.v.as_ref(), now: self.now, z: self.z, writable: self.writable }
+        Ctx { s: &self.s, v: self.v.as_deref(), now: self.now, z: self.z, writable: self.writable }
     }
 }
 
 /// The status as the shadow builds it (the service's memory, `processes`, `holds` and
 /// `usageLedger`: the live service's last `/api/status` answer, or a copy's own) and the value
-/// report.
+/// report: the answers kept for the inputs ([`crate::served`]), so every open page shares one
+/// build.
 pub async fn load(shadow: &Shared) -> corten::Result<Data> {
-    let s = shadow.clone();
-    let live = shadow.memory();
-    let (status, value, now) = tokio::task::spawn_blocking(move || {
-        let now = now_ms();
-        (crate::parity::status_now(&s.install, &live, now), s.install.json("state/usage-value.json"), now)
-    })
-    .await?;
-    let s = status.ok_or_else(|| {
-        corten::Error::new("state/pool-state.json did not read").with_status(StatusCode::SERVICE_UNAVAILABLE)
-    })?;
+    let now = now_ms();
+    let built = crate::app::built(shadow, now).await?;
+    let s = built.status(now);
+    let value = built.inputs.value.clone();
     let writable = shadow.copy.get().is_some();
     if writable && shadow.signin.observe(&s, now).is_some() {
         shadow.changed_inputs();
     }
     let banner = shadow.signin.banner(now).filter(|_| writable);
     Ok(Data { s, v: value.filter(|v| v.is_object()), now, z: fmt::Zone::from_env(), writable, signin: banner })
+}
+
+/// Between changes, a copy's open page takes the status kept for this moment (the same one
+/// until an account's reading turns stale), so a reading that goes stale shows at once.
+fn restatus(shadow: &Shared, d: &mut Data) {
+    if shadow.copy.get().is_some()
+        && let Some(b) = shadow.built(d.now)
+    {
+        d.s = b.status(d.now);
+    }
 }
 
 /// Each part of the dashboard as the live page fills its containers (`#attention`,
@@ -305,6 +309,7 @@ pub async fn live(State(shadow): State<Shared>, Query(q): Query<DashQuery>, Live
             }
             let Some(d) = st.data.as_mut() else { continue };
             d.now = now_ms();
+            restatus(&st.shadow, d);
             let (body, header) = draw(d, tab, st.q.filter.as_deref(), st.q.open.as_deref());
             let html = fragment(&body, &header);
             let c = cursor(&html);

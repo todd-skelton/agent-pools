@@ -22,9 +22,17 @@ const NOTES: [&str; 6] = [
 
 /// `isFresh(timestamp, now)`: read within the last five minutes, and not in the future.
 pub fn is_fresh(timestamp: Option<&Value>, now: f64) -> bool {
-    let observed = js::date_parse_value(timestamp);
+    fresh_at(js::date_parse_value(timestamp), now)
+}
+
+/// The same, for a reading already parsed to milliseconds.
+pub fn fresh_at(observed: f64, now: f64) -> bool {
     observed.is_finite() && observed <= now && now - observed <= STATUS_MAX_AGE_MS
 }
+
+/// The readings [`current_account`] judges by `now`, in the order it reads them. Two moments
+/// at which each is equally fresh give the same account.
+pub const READINGS: [&str; 3] = ["usageUpdatedAt", "routingCheckedAt", "creditsUpdatedAt"];
 
 /// `currentAccount(account, now)`: a copy with stale usage, routing and credits marked unknown.
 pub fn current_account(account: &Value, now: f64) -> Value {

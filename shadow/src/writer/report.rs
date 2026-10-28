@@ -21,7 +21,13 @@ pub const FIRST: Duration = Duration::from_secs(120);
 
 /// `writeValueReport(root, now)`: builds the reports from the copy's files and writes them.
 /// Returns the report's ledger row count, or why it could not be built or written.
+#[cfg(test)]
 pub fn write_value_report(root: &Path, now: f64) -> Result<f64, String> {
+    write_report(root, now).map(|(rows, _, _)| rows)
+}
+
+/// The same, with the value report and the text written for it.
+fn write_report(root: &Path, now: f64) -> Result<(f64, Value, String), String> {
     let install = Install::new(root);
     // usage-value.mjs reads the price table without a fallback: no table, no report.
     install.json("model-prices.json").ok_or("model-prices.json did not read")?;
@@ -40,13 +46,14 @@ pub fn write_value_report(root: &Path, now: f64) -> Result<f64, String> {
     let attempts = super::attempts::build(&reports.session_usage, orchestrator.as_deref())?;
     write_atomic(&root.join("state/session-usage.json"), &reports.session_usage)?;
     write_atomic(&root.join("state/routing-attempts.json"), &attempts)?;
-    write_atomic(&root.join("state/usage-value.json"), &reports.value_report)?;
-    Ok(js::finite(reports.value_report.pointer("/coverage/ledgerRows")).unwrap_or(0.0))
+    let written = write_atomic(&root.join("state/usage-value.json"), &reports.value_report)?;
+    let rows = js::finite(reports.value_report.pointer("/coverage/ledgerRows")).unwrap_or(0.0);
+    Ok((rows, reports.value_report, written))
 }
 
 /// `writeAtomic(file, report)`: `JSON.stringify(report, null, 2)` to a temporary file, renamed
-/// over the file; one retry.
-fn write_atomic(file: &Path, doc: &Value) -> Result<(), String> {
+/// over the file; one retry. Returns the text written.
+fn write_atomic(file: &Path, doc: &Value) -> Result<String, String> {
     let tmp = file.with_extension(format!("json.{}.tmp", std::process::id()));
     let text = js::stringify_pretty(doc, 2);
     let attempt = || std::fs::write(&tmp, &text).and_then(|_| std::fs::rename(&tmp, file));
@@ -55,7 +62,8 @@ fn write_atomic(file: &Path, doc: &Value) -> Result<(), String> {
             std::thread::sleep(Duration::from_millis(250));
             attempt()
         })
-        .map_err(|e| format!("{}: {e}", file.display()))
+        .map_err(|e| format!("{}: {e}", file.display()))?;
+    Ok(text)
 }
 
 /// `scheduleValueReport`: the first report after `first`, then one `reportIntervalMinutes` (read
@@ -69,9 +77,11 @@ pub async fn run(io: std::sync::Arc<super::io::FileIo>, first: Duration, signal:
             _ = signal.aborted() => return,
         }
         let root = io.root.clone();
-        let built = tokio::task::spawn_blocking(move || write_value_report(&root, super::io::now_ms())).await;
+        let built = tokio::task::spawn_blocking(move || write_report(&root, super::io::now_ms())).await;
         let problem = match built {
-            Ok(Ok(rows)) => {
+            Ok(Ok((rows, doc, written))) => {
+                // `/api/value` and `/api/summary` answer from the report as written.
+                io.memory.set_value(doc, written);
                 println!("usage-value: {rows} ledger rows");
                 String::new()
             }

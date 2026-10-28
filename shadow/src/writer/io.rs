@@ -28,6 +28,9 @@ pub struct FileIo {
     key: String,
     http: reqwest::Client,
     pub publisher: Arc<Publisher>,
+    /// What the routes answer from: the state as last saved, the forecast and ladders as last
+    /// published, the value report as last written.
+    pub memory: Arc<super::memory::Memory>,
     zone: Zone,
     versions: Mutex<(f64, HashMap<String, String>)>,
     policies: Mutex<(Option<Vec<ResetPolicy>>, String)>,
@@ -42,8 +45,10 @@ pub fn now_ms() -> f64 {
 impl FileIo {
     pub fn new(root: PathBuf, proxy: String, key: String) -> FileIo {
         let http = reqwest::Client::builder().no_proxy().build().expect("an HTTP client with no TLS and no proxy builds");
+        let memory = Arc::new(super::memory::Memory::load(&root));
         FileIo {
-            publisher: Arc::new(Publisher::new(root.clone())),
+            publisher: Arc::new(Publisher::new(root.clone(), memory.clone())),
+            memory,
             root,
             proxy: proxy.trim_end_matches('/').to_string(),
             key,
@@ -159,6 +164,9 @@ impl Io for FileIo {
     async fn save(&self, state: &Value) -> Result<(), Failure> {
         let file = self.path("state/pool-state.json");
         let tmp = self.path("state/pool-state.json.tmp");
+        // The routes answer from the state the service holds, saved or not (pool-service.mjs
+        // answers from `state`, which a failed save leaves as it is).
+        self.memory.set_pool(state);
         std::fs::write(&tmp, js::stringify_pretty(state, 2))
             .and_then(|_| std::fs::rename(&tmp, &file))
             .map_err(|e| Failure::new(e.to_string()))
@@ -192,6 +200,7 @@ impl Io for FileIo {
         if report {
             let _ = self.append("logs/pool-events.jsonl", "reset-policy-invalid", json!({ "problems": problems }));
         }
+        self.memory.set_policies(&policies);
         policies
     }
 

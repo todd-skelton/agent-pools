@@ -18,6 +18,7 @@
 mod app;
 mod dash;
 mod parity;
+mod served;
 mod sources;
 mod tailnet;
 #[cfg(test)]
@@ -359,8 +360,8 @@ fn render_dash() -> std::io::Result<()> {
         return Err(std::io::Error::other("usage: pools-shadow render-dash <status.json> <value.json|-> <now ms> [filter] [open]"));
     };
     let data = dash::Data {
-        s: read(status)?,
-        v: if value == "-" { None } else { Some(read(value)?) },
+        s: std::sync::Arc::new(read(status)?),
+        v: if value == "-" { None } else { Some(std::sync::Arc::new(read(value)?)) },
         now: now.parse().map_err(std::io::Error::other)?,
         z: dash::fmt::Zone::from_env(),
         writable: false,

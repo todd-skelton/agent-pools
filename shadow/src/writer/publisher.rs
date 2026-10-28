@@ -15,6 +15,8 @@ use serde_json::{Map, Value, json};
 pub struct Publisher {
     root: PathBuf,
     inner: Mutex<Inner>,
+    /// Where `current()` and `ladders()` are answered from.
+    memory: std::sync::Arc<super::memory::Memory>,
 }
 
 struct Inner {
@@ -111,19 +113,16 @@ fn rand_u32() -> u32 {
 pub type Logged = Vec<(String, Value)>;
 
 impl Publisher {
-    /// Seeded with the last published document, when it is a forecast.
-    pub fn new(root: PathBuf) -> Publisher {
-        let previous = std::fs::read_to_string(root.join("state/capacity-forecast.json"))
-            .ok()
-            .and_then(|t| serde_json::from_str::<Value>(t.trim_start_matches('\u{feff}')).ok())
-            .filter(|d| d.get("format").and_then(Value::as_str) == Some(forecast::FORECAST_FORMAT));
-        Publisher { root, inner: Mutex::new(Inner { previous, ..Inner::default() }) }
+    /// Seeded with the last published document, when it is a forecast (as `memory` loaded it).
+    pub fn new(root: PathBuf, memory: std::sync::Arc<super::memory::Memory>) -> Publisher {
+        let previous = memory.forecast().map(|d| (*d).clone());
+        Publisher { root, inner: Mutex::new(Inner { previous, ..Inner::default() }), memory }
     }
 
     /// `rebuildLadders(forecast, t)`: the ladders from this forecast, the file inputs read again
     /// after an hour; a problem is logged once until it changes.
     fn rebuild_ladders(&self, forecast: &Value, now: f64, logged: &mut Logged) {
-        let result = (|| -> Result<Value, String> {
+        let result = (|| -> Result<(), String> {
             let cached = {
                 let inner = self.inner.lock().unwrap();
                 inner.ladder_inputs.clone().filter(|_| now - inner.ladder_inputs_at < HOUR)
@@ -141,7 +140,9 @@ impl Publisher {
             inputs["forecast"] = forecast.clone();
             let doc = pool_core::ladder::build_ladders(&inputs, now)?;
             write_json_atomic(&self.root.join("state/routing-ladders.json"), &doc).map_err(|e| e.to_string())?;
-            Ok(doc)
+            // `ladders = doc` once written.
+            self.memory.set_ladders(std::sync::Arc::new(doc));
+            Ok(())
         })();
         let mut inner = self.inner.lock().unwrap();
         match result {
@@ -233,6 +234,8 @@ impl Publisher {
         let digest = |d: Option<&Value>| d.and_then(|d| d.get("decisionDigest")).cloned();
         let changed = digest(previous.as_ref()) != digest(Some(&doc));
         self.inner.lock().unwrap().previous = Some(doc.clone());
+        // Memory advances even if the file write fails (`previous = forecast`).
+        self.memory.set_forecast(std::sync::Arc::new(doc.clone()));
         if changed {
             let mut e = Map::new();
             e.insert("digest".into(), doc.get("decisionDigest").cloned().unwrap_or(Value::Null));

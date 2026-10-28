@@ -241,6 +241,33 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   the relay accepts and the registered machine `copy-test`'s key). The desktop's
   `~/.codex/auth.json`, `state/secrets.json` and `state/remote-clients.json` are never read.
 
+#### Answering from memory
+
+A copy answers as pool-service.mjs does, from what it holds (`writer::memory`): the pool state as
+the refresh cycle last saved it, the forecast and routing ladders as last published, the value
+report as last written, and install.json as read at the start (reset policies as the last cycle
+loaded them). No request reads a file. Each change tells open dashboard pages to redraw
+(`notice-memory`), so a copy no longer looks at file times. The desktop relay's usage overlay reads
+the same accounts.
+
+`/api/status` and `/api/summary` depend on the moment only through each account's three readings
+(usage, routing, credits: fresh for five minutes), so they are built once per change and kept
+(`served::Answers`) until an input changes or a reading turns stale; `/api/summary`'s
+`generatedAt` is set into the kept bytes per request. `/api/capacity` and `/api/ladders` are
+written out once per publication, and `/api/value` sends the bytes the report task wrote. The
+read-only shadow keeps the same answers over the live install's files, each parsed once per save
+(`sources::Install::doc`). Measured on 2026-10-28 (release build, 300 sequential requests, server
+CPU per request, the copy before and after, then live `pool-service.mjs`):
+
+| Route | Before (parse cache) | From memory | Live |
+|---|---|---|---|
+| `/api/summary` | 1.09 ms | 0.36 ms | 0.94 ms |
+| `/api/status` | 2.14 ms | 0.16 ms | 0.57 ms |
+| `/` | 2.24 ms | 0.63 ms | 0.78 ms (a static file) |
+| `/api/capacity` | 0.68 ms | 0.10 ms | 0.16 ms |
+| `/api/ladders` | 3.70 ms | 0.10 ms | 0.63 ms |
+| `/api/value` | 0.42 ms | 0.10 ms | 0.78 ms |
+
 ### The tailnet view
 
 `shadow/src/tailnet.rs` is tailnet-dashboard-proxy.mjs without a proxy. Agent Pools runs a

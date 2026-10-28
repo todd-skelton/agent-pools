@@ -8,7 +8,7 @@ use serde_json::{json, Map, Value};
 pub const RESET_TRIGGERS: [&str; 2] = ["any", "weekly"];
 
 /// One provider's reset policy.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ResetPolicy {
     pub provider: String,
     pub redemption: &'static str,

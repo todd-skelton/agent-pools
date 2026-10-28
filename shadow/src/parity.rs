@@ -191,7 +191,9 @@ pub fn current_state(pool: &Value, now: f64) -> Value {
     )
 }
 
-/// `/api/summary` over the install's files at `now`: what the shadow serves.
+/// `/api/summary` over the install's files at `now`, built afresh: what the shadow's kept answers
+/// are checked against.
+#[cfg(test)]
 pub fn summary_now(install: &Install, now: f64) -> Option<Value> {
     let pool = install.doc("state/pool-state.json")?;
     let forecast = install

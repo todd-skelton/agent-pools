@@ -11,6 +11,7 @@ pub mod fake_proxy;
 pub mod health;
 pub mod io;
 pub mod ledger;
+pub mod memory;
 pub mod models;
 pub mod publisher;
 pub mod report;
@@ -47,7 +48,7 @@ pub struct Copy {
 impl Copy {
     /// The write side over `io`'s copy, starting from its saved state.
     pub fn new(io: Arc<io::FileIo>) -> Copy {
-        let state = load_state(&io.root);
+        let state = io.memory.pool();
         let ledger = Arc::new(ledger::Ledger::new(io.root.clone()));
         ledger.set_accounts(&state);
         Copy {
@@ -180,6 +181,8 @@ impl<F: Fn() + Send> Check for Cycle<F> {
         let outcome = self.refresh.refresh(&mut self.state, &*self.io).await;
         // The ledger attributes rows by the accounts the cycle left (`accounts: () => state.accounts`).
         self.ledger.set_accounts(&self.state);
+        // What the routes answer from: the state as the cycle left it (saved or not).
+        self.io.memory.set_pool(&self.state);
         (self.changed)();
         println!(
             "writer: cycle at {} degraded={} followUp={}",
@@ -195,7 +198,8 @@ impl<F: Fn() + Send> Check for Cycle<F> {
 /// (pool-service.mjs's `bootstrapped`: saved status is unverified after a start), then
 /// [`run_loop`]. `changed` is called after each cycle.
 pub async fn run(copy: Arc<Copy>, delays: Delays, options: Options, changed: impl Fn() + Send, signal: corten::Signal) {
-    let state = load_state(&copy.io.root);
+    // The state the service started with (pool-service.mjs's one `state`).
+    let state = (*copy.io.memory.pool()).clone();
     let refresh = Refresh::new(options, &state);
     // checkProxy: healthy when `auth-files` answers with a `files` list.
     let healthy = copy.io.call("auth-files", None, None).await.is_ok_and(|v| v.get("files").is_some_and(Value::is_array));

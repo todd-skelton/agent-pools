@@ -18,11 +18,10 @@ pub fn mode(install: Option<&Value>) -> &'static str {
     pool_usage::POOL_MODES.iter().copied().find(|m| Some(*m) == named).unwrap_or(pool_usage::POOL_MODES[0])
 }
 
-/// The copy's accounts as the service holds them, read from its latest save.
-fn accounts(io: &FileIo, now: f64) -> Result<Vec<Value>, String> {
-    let text = std::fs::read_to_string(io.root.join("state/pool-state.json")).map_err(|e| e.to_string())?;
-    let state: Value = serde_json::from_str(text.trim_start_matches('\u{feff}')).map_err(|e| e.to_string())?;
-    Ok(js::values(state.get("accounts")).into_iter().map(|a| summary::current_account(a, now)).collect())
+/// The copy's accounts as the service holds them (`state.accounts.map(currentAccount)`).
+fn accounts(io: &FileIo, now: f64) -> Vec<Value> {
+    let state = io.memory.pool();
+    js::values(state.get("accounts")).into_iter().map(|a| summary::current_account(a, now)).collect()
 }
 
 /// How long a busy port waits before the relay tries it again (pool-service.mjs: 30 s).
@@ -92,8 +91,9 @@ fn relay_app(io: Arc<FileIo>, upstream: &str, port: u16) -> std::io::Result<cort
     let (rewrite_io, event_io) = (io.clone(), io);
     config.rewrite_usage = Some(Arc::new(move |usage: Value| {
         let now = crate::watch::now_ms();
-        let mode = mode(rewrite_io.install().as_ref());
-        let accounts = accounts(&rewrite_io, now)?;
+        // `install.poolUsageMode` as read at the start.
+        let mode = mode(Some(rewrite_io.memory.install.as_ref()));
+        let accounts = accounts(&rewrite_io, now);
         Ok(pool_usage::pool_usage(&usage, &accounts, mode, now, true)?.unwrap_or(usage))
     }));
     config.observe = Arc::new(move |kind: &str, details: Value| event_io.log_event(kind, details));

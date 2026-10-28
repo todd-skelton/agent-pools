@@ -9,7 +9,7 @@ use crate::{js, providers, resets::ResetPolicy, summary};
 use serde_json::{json, Map, Value};
 
 /// What only the running service knows.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Live {
     pub processes: Option<Value>,
     pub holds: Option<Value>,
@@ -69,15 +69,26 @@ pub fn build_status(
     live: &Live,
     now: f64,
 ) -> Value {
-    let mut m = match state {
-        Value::Object(m) => m.clone(),
-        _ => Map::new(),
-    };
     let accounts: Vec<Value> = match state.get("accounts") {
         Some(Value::Array(a)) => a.iter().map(|a| status_account(a, now)).collect(),
         _ => Vec::new(),
     };
-    m.insert("accounts".into(), Value::Array(accounts));
+    // `{ ...state, accounts }`: each saved field once, the accounts (never copied as saved) in
+    // their place, or last when the state has none.
+    let mut accounts = Some(Value::Array(accounts));
+    let mut m: Map<String, Value> = match state {
+        Value::Object(fields) => fields
+            .iter()
+            .map(|(k, v)| match k.as_str() {
+                "accounts" => (k.clone(), accounts.take().unwrap_or(Value::Null)),
+                _ => (k.clone(), v.clone()),
+            })
+            .collect(),
+        _ => Map::new(),
+    };
+    if let Some(a) = accounts {
+        m.insert("accounts".into(), a);
+    }
     m.insert(
         "processes".into(),
         live.processes.clone().unwrap_or(Value::Null),

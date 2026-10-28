@@ -57,8 +57,10 @@ pub fn app_copy(
         .assets(assets)
         .policy(security)
         .shutdown_grace(std::time::Duration::from_secs(20))
-        .task("notice-saves", move |signal| {
-            crate::watch::notice_saves(n, SAVES_EVERY, signal)
+        // Open pages redraw when the write side's memory changes (a save, a publication, a
+        // report); no file is looked at.
+        .task("notice-memory", move |signal| {
+            crate::watch::notice_memory(n, signal)
         })
         .task("refresh", move |signal| {
             crate::writer::run(copy, delays, options, move || w.changed_inputs(), signal)
@@ -85,7 +87,10 @@ pub fn app_copy(
             crate::writer::models::run(
                 root,
                 prober,
-                move || crate::parity::status_now(&status.install, &status.memory(), now_ms()),
+                move || {
+                    let now = now_ms();
+                    status.built(now).map(|b| (*b.status(now)).clone())
+                },
                 move || changed.changed_inputs(),
                 delays,
                 signal,
@@ -210,30 +215,49 @@ fn error(status: StatusCode, message: &str) -> JsonStatus {
 }
 
 /// `/api/capacity`: the forecast as last published (`capacity.current()`), or 503.
-async fn capacity_json(State(shadow): State<Shared>) -> JsonStatus {
-    let s = shadow.clone();
-    let doc = tokio::task::spawn_blocking(move || s.install.json("state/capacity-forecast.json"))
-        .await
-        .ok()
-        .flatten()
-        .filter(|d| d.get("format").and_then(Value::as_str) == Some(pool_core::forecast::FORECAST_FORMAT));
+async fn capacity_json(State(shadow): State<Shared>) -> RawJson {
+    let doc = match shadow.copy.get() {
+        Some(c) => c.io.memory.forecast(),
+        None => {
+            let s = shadow.clone();
+            tokio::task::spawn_blocking(move || s.install.doc("state/capacity-forecast.json"))
+                .await
+                .ok()
+                .flatten()
+                .filter(|d| d.get("format").and_then(Value::as_str) == Some(pool_core::forecast::FORECAST_FORMAT))
+        }
+    };
     match doc {
-        Some(doc) => send(StatusCode::OK, doc),
-        None => error(StatusCode::SERVICE_UNAVAILABLE, "No capacity forecast yet"),
+        Some(doc) => RawJson(StatusCode::OK, shadow.capacity_bytes.bytes(&doc)),
+        None => RawJson::error(StatusCode::SERVICE_UNAVAILABLE, "No capacity forecast yet"),
     }
 }
 
-/// `/api/value`: `state/usage-value.json` as written, or 503.
+/// `/api/value`: `state/usage-value.json` as written (a copy's as its report task wrote it), or
+/// 503.
 async fn value_json(State(shadow): State<Shared>) -> RawJson {
+    if let Some(c) = shadow.copy.get() {
+        return match c.io.memory.value() {
+            Some((_, bytes)) => RawJson(StatusCode::OK, bytes),
+            None => RawJson::error(StatusCode::SERVICE_UNAVAILABLE, "No usage value report yet"),
+        };
+    }
     let path = shadow.install.root().join("state/usage-value.json");
     match tokio::fs::read(path).await {
-        Ok(bytes) => RawJson(StatusCode::OK, bytes),
-        Err(_) => RawJson(StatusCode::SERVICE_UNAVAILABLE, br#"{"error":"No usage value report yet"}"#.to_vec()),
+        Ok(bytes) => RawJson(StatusCode::OK, bytes.into()),
+        Err(_) => RawJson::error(StatusCode::SERVICE_UNAVAILABLE, "No usage value report yet"),
     }
 }
 
 /// A JSON body passed on as its bytes.
-pub struct RawJson(StatusCode, Vec<u8>);
+pub struct RawJson(StatusCode, corten::axum::body::Bytes);
+
+impl RawJson {
+    /// pool-service.mjs `send(res, status, { error })`.
+    fn error(status: StatusCode, message: &str) -> RawJson {
+        RawJson(status, js::stringify(&json!({ "error": message })).into())
+    }
+}
 
 impl corten::axum::response::IntoResponse for RawJson {
     fn into_response(self) -> corten::axum::response::Response {
@@ -388,14 +412,22 @@ impl corten::json::ToJson for JsJson {
     }
 }
 
+/// The answers for now: on a copy from its memory at once; on the read-only shadow off the
+/// async threads (its inputs may be read from files).
+pub async fn built(shadow: &Shared, now: f64) -> corten::Result<std::sync::Arc<crate::served::Built>> {
+    let b = if shadow.copy.get().is_some() {
+        shadow.built(now)
+    } else {
+        let s = shadow.clone();
+        tokio::task::spawn_blocking(move || s.built(now)).await?
+    };
+    b.ok_or_else(|| corten::Error::new("state/pool-state.json did not read").with_status(StatusCode::SERVICE_UNAVAILABLE))
+}
+
 async fn build_summary(shadow: &Shared) -> corten::Result<Value> {
-    let s = shadow.clone();
-    let doc =
-        tokio::task::spawn_blocking(move || parity::summary_now(&s.install, now_ms())).await?;
-    doc.ok_or_else(|| {
-        corten::Error::new("state/pool-state.json did not read")
-            .with_status(StatusCode::SERVICE_UNAVAILABLE)
-    })
+    let now = now_ms();
+    let bytes = built(shadow, now).await?.summary_bytes(now);
+    Ok(serde_json::from_slice(&bytes)?)
 }
 
 /// What a refresh form sends: the account whose row it was on, to go back to.
@@ -424,16 +456,21 @@ async fn refresh_now(req: Req, State(shadow): State<Shared>, _owner: Caller<Owne
 /// `/api/ladders`: the routing ladders last published, as the service keeps them (the file it
 /// wrote: the live install's for the read-only shadow, the copy's own on `run-copy`), or 503
 /// with the live service's body before there are any.
-async fn ladders_json(State(shadow): State<Shared>) -> JsonStatus {
-    let s = shadow.clone();
-    let doc = tokio::task::spawn_blocking(move || s.install.json("state/routing-ladders.json"))
-        .await
-        .ok()
-        .flatten()
-        .filter(|d| d.get("format").and_then(Value::as_str) == Some("routing-ladders/v1"));
+async fn ladders_json(State(shadow): State<Shared>) -> RawJson {
+    let doc = match shadow.copy.get() {
+        Some(c) => c.io.memory.ladders(),
+        None => {
+            let s = shadow.clone();
+            tokio::task::spawn_blocking(move || s.install.doc("state/routing-ladders.json"))
+                .await
+                .ok()
+                .flatten()
+                .filter(|d| d.get("format").and_then(Value::as_str) == Some("routing-ladders/v1"))
+        }
+    };
     match doc {
-        Some(doc) => JsonStatus(StatusCode::OK, JsJson(doc)),
-        None => JsonStatus(StatusCode::SERVICE_UNAVAILABLE, JsJson(serde_json::json!({ "error": "No routing ladders yet" }))),
+        Some(doc) => RawJson(StatusCode::OK, shadow.ladders_bytes.bytes(&doc)),
+        None => RawJson::error(StatusCode::SERVICE_UNAVAILABLE, "No routing ladders yet"),
     }
 }
 
@@ -451,25 +488,18 @@ impl corten::answer::Answer for JsonStatus {
     type Inputs = corten::answer::AnyInputs;
 }
 
-async fn summary_json(State(shadow): State<Shared>) -> JsonResult<JsJson> {
-    Ok(Json(JsJson(build_summary(&shadow).await?)))
+/// `/api/summary` at the request's moment, from the answers kept for the inputs.
+async fn summary_json(State(shadow): State<Shared>) -> corten::Result<RawJson> {
+    let now = now_ms();
+    Ok(RawJson(StatusCode::OK, built(&shadow, now).await?.summary_bytes(now)))
 }
 
 /// `/api/status` from the files. `processes`, `holds` and `usageLedger` are the live service's
 /// memory, so they are `null` here; on a copy, `holds` is its proxy watch's last reading and
 /// `usageLedger` its ledger's stats.
-async fn status_json(State(shadow): State<Shared>) -> JsonResult<JsJson> {
-    let s = shadow.clone();
-    let live = shadow.memory();
-    let doc = tokio::task::spawn_blocking(move || {
-        parity::status_now(&s.install, &live, now_ms())
-    })
-    .await?;
-    let doc = doc.ok_or_else(|| {
-        corten::Error::new("state/pool-state.json did not read")
-            .with_status(StatusCode::SERVICE_UNAVAILABLE)
-    })?;
-    Ok(Json(JsJson(doc)))
+async fn status_json(State(shadow): State<Shared>) -> corten::Result<RawJson> {
+    let now = now_ms();
+    Ok(RawJson(StatusCode::OK, built(&shadow, now).await?.status_bytes(now)))
 }
 
 async fn parity_json(State(shadow): State<Shared>) -> JsonResult<Value> {
