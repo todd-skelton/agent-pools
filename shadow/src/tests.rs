@@ -884,3 +884,24 @@ async fn a_copy_admits_models_through_the_stand_in_and_publishes_its_registry() 
         std::fs::remove_file(t.dir.join(f)).unwrap();
     }
 }
+
+
+/// A document is parsed once and served from memory while its file is unchanged; a save (a write
+/// and a rename, as the writer saves) is read again at once.
+#[test]
+fn a_document_is_kept_parsed_until_its_file_changes() {
+    let dir = std::env::temp_dir().join(format!("pools-shadow-parsed-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("state")).unwrap();
+    let file = dir.join("state/doc.json");
+    std::fs::write(&file, r#"{"n":1}"#).unwrap();
+    let install = crate::sources::Install::new(&dir);
+    let first = install.doc("state/doc.json").unwrap();
+    assert!(std::sync::Arc::ptr_eq(&first, &install.clone().doc("state/doc.json").unwrap()), "unchanged: the same parse, shared by clones");
+    std::fs::write(dir.join("state/doc.json.tmp"), r#"{"n":22}"#).unwrap();
+    std::fs::rename(dir.join("state/doc.json.tmp"), &file).unwrap();
+    assert_eq!(install.doc("state/doc.json").unwrap()["n"], 22, "a save is read again");
+    std::fs::remove_file(&file).unwrap();
+    assert_eq!(install.doc("state/doc.json"), None, "a removed file is gone, not served from memory");
+    std::fs::remove_dir(dir.join("state")).unwrap();
+    std::fs::remove_dir(&dir).unwrap();
+}

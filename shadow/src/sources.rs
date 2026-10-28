@@ -6,7 +6,9 @@
 use pool_core::{js, value::LedgerRow};
 use serde_json::{Map, Value};
 use std::io::{BufRead, BufReader};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 /// The install.json settings the port reads. Nothing else in that file (keys, paths) is read
@@ -19,14 +21,20 @@ pub const INSTALL_KEYS: [&str; 4] = [
 ];
 pub const DAY: f64 = 86_400_000.0;
 
+/// A parsed document and the file it was parsed from (its modified time and length).
+type Parsed = (SystemTime, u64, Arc<Value>);
+
 #[derive(Clone, Debug)]
 pub struct Install {
     root: PathBuf,
+    /// Each JSON document as last parsed, shared by every clone: a document is parsed again only
+    /// when its file changes (a save is a write and a rename, so a new modified time).
+    parsed: Arc<Mutex<HashMap<String, Parsed>>>,
 }
 
 impl Install {
     pub fn new(root: impl Into<PathBuf>) -> Self {
-        Install { root: root.into() }
+        Install { root: root.into(), parsed: Arc::default() }
     }
 
     pub fn root(&self) -> &Path {
@@ -39,8 +47,34 @@ impl Install {
 
     /// A JSON document (a leading byte-order mark allowed, as the service's `readJSON` allows).
     pub fn json(&self, rel: &str) -> Option<Value> {
-        let text = std::fs::read_to_string(self.path(rel)).ok()?;
-        serde_json::from_str(text.strip_prefix('\u{feff}').unwrap_or(&text)).ok()
+        self.doc(rel).map(|d| (*d).clone())
+    }
+
+    /// The same, shared: from memory while the file is unchanged since it was last parsed.
+    pub fn doc(&self, rel: &str) -> Option<Arc<Value>> {
+        let path = self.path(rel);
+        let stamp = std::fs::metadata(&path).ok().and_then(|m| Some((m.modified().ok()?, m.len())));
+        if let Some((at, len)) = stamp
+            && let Some((a, l, d)) = self.parsed.lock().unwrap_or_else(|e| e.into_inner()).get(rel)
+            && *a == at
+            && *l == len
+        {
+            return Some(d.clone());
+        }
+        let text = std::fs::read_to_string(&path).ok()?;
+        let doc: Value = serde_json::from_str(text.strip_prefix('\u{feff}').unwrap_or(&text)).ok()?;
+        let doc = Arc::new(doc);
+        let mut parsed = self.parsed.lock().unwrap_or_else(|e| e.into_inner());
+        match stamp {
+            // Kept only when the file did not change while it was read.
+            Some((at, len)) if std::fs::metadata(&path).ok().and_then(|m| Some((m.modified().ok()?, m.len()))) == Some((at, len)) => {
+                parsed.insert(rel.to_string(), (at, len, doc.clone()));
+            }
+            _ => {
+                parsed.remove(rel);
+            }
+        }
+        Some(doc)
     }
 
     pub fn modified(&self, rel: &str) -> Option<SystemTime> {
@@ -52,7 +86,7 @@ impl Install {
     /// install.json reduced to [`INSTALL_KEYS`].
     pub fn settings(&self) -> Value {
         let mut out = Map::new();
-        if let Some(Value::Object(m)) = self.json("state/install.json") {
+        if let Some(Value::Object(m)) = self.doc("state/install.json").as_deref() {
             for k in INSTALL_KEYS {
                 if let Some(v) = m.get(k) {
                     out.insert(k.into(), v.clone());

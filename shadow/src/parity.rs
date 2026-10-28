@@ -177,30 +177,32 @@ pub fn provider_names() -> Vec<(&'static str, &'static str)> {
 
 /// `{ ...state, accounts: state.accounts.map(currentAccount) }`.
 pub fn current_state(pool: &Value, now: f64) -> Value {
-    let mut state = pool.clone();
-    if let Some(Value::Array(accounts)) = pool.get("accounts") {
-        state["accounts"] = Value::Array(
-            accounts
-                .iter()
-                .map(|a| summary::current_account(a, now))
-                .collect(),
-        );
-    }
-    state
+    let Value::Object(fields) = pool else { return pool.clone() };
+    // Each field once: the accounts as currentAccount gives them, the rest as saved (the saved
+    // accounts are never copied only to be replaced).
+    Value::Object(
+        fields
+            .iter()
+            .map(|(k, v)| match (k.as_str(), v) {
+                ("accounts", Value::Array(accounts)) => (k.clone(), Value::Array(accounts.iter().map(|a| summary::current_account(a, now)).collect())),
+                _ => (k.clone(), v.clone()),
+            })
+            .collect(),
+    )
 }
 
 /// `/api/summary` over the install's files at `now`: what the shadow serves.
 pub fn summary_now(install: &Install, now: f64) -> Option<Value> {
-    let pool = install.json("state/pool-state.json")?;
+    let pool = install.doc("state/pool-state.json")?;
     let forecast = install
-        .json("state/capacity-forecast.json")
+        .doc("state/capacity-forecast.json")
         .filter(|d| d.get("format") == Some(&json!(forecast::FORECAST_FORMAT)));
-    let value = install.json("state/usage-value.json");
+    let value = install.doc("state/usage-value.json");
     Some(summary::build_summary(
         &current_state(&pool, now),
         &provider_names(),
-        forecast.as_ref(),
-        value.as_ref(),
+        forecast.as_deref(),
+        value.as_deref(),
         now,
     ))
 }
@@ -276,16 +278,16 @@ pub fn check_summary(
 /// `/api/status` over the install's files at `now`, with what only the live service knows
 /// (`live`) as given.
 pub fn status_now(install: &Install, live: &status::Live, now: f64) -> Option<Value> {
-    let pool = install.json("state/pool-state.json")?;
+    let pool = install.doc("state/pool-state.json")?;
     let settings = install.settings();
     let forecast = install
-        .json("state/capacity-forecast.json")
+        .doc("state/capacity-forecast.json")
         .filter(|d| d.get("format") == Some(&json!(forecast::FORECAST_FORMAT)));
     Some(status::build_status(
         &pool,
         settings.get("expectedAccounts"),
         &resets::reset_policies(&settings),
-        forecast.as_ref(),
+        forecast.as_deref(),
         live,
         now,
     ))
