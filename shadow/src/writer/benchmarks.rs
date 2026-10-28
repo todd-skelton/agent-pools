@@ -199,14 +199,30 @@ fn file_name(p: &Path) -> String {
 
 // ---------------------------------------------------------------- model-arena.mjs
 
-/// `matchArenaName(name, identities)`: "claude-opus-5.5-high" maps only when "<id>-<effort>"
-/// matches exactly one identity (dots and dashes compared alike); names are exact, not case-folded.
+/// `matchArenaName(name, identities)`: a name maps only when it matches exactly one identity (dots and
+/// dashes compared alike) and names one effort. Two forms:
+/// - dashed, exact and not case-folded: "claude-opus-5.5-high";
+/// - display, as the dataset writes since 2026-10-21: "Claude Opus 5.5 (Max)", "GPT-6.1 Sol (xHigh)".
+///   Case-folded, spaces read as dashes, and the parentheses hold the effort alone, so "(High, Codex
+///   Harness)", "(High, 32K, 20251101)" and a name with no effort (unknown effort) stay unmatched.
 pub fn match_arena_name(name: Option<&Value>, identities: &Value) -> Option<(String, &'static str)> {
-    static NAME: LazyLock<Regex> = LazyLock::new(|| Regex::new(&format!(r"^([a-z0-9][a-z0-9.-]*)-({})$", EFFORTS.join("|"))).unwrap());
+    static DASHED: LazyLock<Regex> = LazyLock::new(|| Regex::new(&format!(r"^([a-z0-9][a-z0-9.-]*)-({})$", EFFORTS.join("|"))).unwrap());
+    static DISPLAY: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^([A-Za-z0-9][A-Za-z0-9.-]*(?: [A-Za-z0-9][A-Za-z0-9.-]*)*) \(([A-Za-z]+)\)$").unwrap());
     let name = text(name);
-    let m = NAME.captures(&name)?;
-    let effort = EFFORTS.iter().find(|e| **e == &m[2])?;
-    one_identity(identities, &m[1].replace('.', "-")).map(|id| (id, *effort))
+    let (base, effort) = if let Some(m) = DASHED.captures(&name) {
+        (m[1].to_string(), m[2].to_string())
+    } else {
+        let m = DISPLAY.captures(&name)?;
+        (m[1].to_lowercase().replace(' ', "-"), m[2].to_lowercase())
+    };
+    let effort = EFFORTS.iter().find(|e| **e == effort)?;
+    one_identity(identities, &base.replace('.', "-")).map(|id| (id, *effort))
+}
+
+/// A Claude or GPT name either form could have meant, listed when it does not map.
+fn vendor_name(name: &str) -> bool {
+    let n = name.to_lowercase();
+    ["claude-", "claude ", "gpt-", "gpt "].iter().any(|p| n.starts_with(p))
 }
 
 /// `isoDate(v)`: a real UTC date as "YYYY-MM-DD" (2026-02-30 is not one), else none. Parquet dates
@@ -254,7 +270,7 @@ pub fn arena_snapshot(rows_by_config: &[(&str, Vec<Value>)], identities: &Value,
             }
             let Some((model, effort)) = match_arena_name(r.get("model_name"), identities) else {
                 let name = text(r.get("model_name"));
-                if name.starts_with("claude-") || name.starts_with("gpt-") {
+                if vendor_name(&name) {
                     unmatched.insert(name);
                 }
                 continue;

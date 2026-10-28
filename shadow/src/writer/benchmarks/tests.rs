@@ -37,6 +37,30 @@ fn arena_names_map_only_as_exact_id_and_effort() {
     assert_eq!(match_arena_name(Some(&json!("gpt-6.1-sol-high")), &json!({ "gpt-6.1-sol": {}, "gpt-6-1-sol": {} })), None, "two identities that normalise alike are ambiguous");
 }
 
+/// The display names the dataset has used since 2026-10-21, as both boards list them on 2026-10-28.
+#[test]
+fn arena_display_names_map_to_id_and_effort_only_when_the_parentheses_hold_one_effort() {
+    let ids = json!({ "claude-opus-5-5": {}, "claude-fable-5-1": {}, "claude-sonnet-5-5": {}, "claude-opus-4-8": {}, "claude-opus-4-5-20251101": {}, "gpt-6.1-sol": {}, "gpt-6-astra": {}, "gpt-5.6-sol": {} });
+    let at = |n: &str| match_arena_name(Some(&json!(n)), &ids);
+    assert_eq!(at("Claude Opus 5.5 (Max)"), m("claude-opus-5-5", "max"));
+    assert_eq!(at("Claude Opus 5.5 (High)"), m("claude-opus-5-5", "high"));
+    assert_eq!(at("Claude Fable 5.1 (Max)"), m("claude-fable-5-1", "max"));
+    assert_eq!(at("Claude Sonnet 5.5 (xHigh)"), m("claude-sonnet-5-5", "xhigh"));
+    assert_eq!(at("Claude Opus 4.8 (High)"), m("claude-opus-4-8", "high"));
+    assert_eq!(at("GPT-6.1 Sol (Max)"), m("gpt-6.1-sol", "max"));
+    assert_eq!(at("GPT-6 Astra (Max)"), m("gpt-6-astra", "max"));
+    assert_eq!(at("GPT-5.6 Sol (xHigh)"), m("gpt-5.6-sol", "xhigh"));
+    assert_eq!(at("GPT-5.6 Sol (xHigh, Codex Harness)"), None, "harness variants are a different configuration");
+    assert_eq!(at("Claude Opus 4.5 (High, 32K, 20251101)"), None, "a budget or date qualifier is a different configuration");
+    assert_eq!(at("Claude Opus 4.5 (20251101)"), None, "a date is not an effort");
+    assert_eq!(at("Claude Opus 4.8"), None, "no effort means unknown effort");
+    assert_eq!(at("Claude Opus 5 (High)"), None, "a different version never matches");
+    assert_eq!(at("Claude Opus 5.5 (Thinking)"), None, "only the registry's efforts");
+    assert_eq!(at("Claude  Opus 5.5 (Max)"), None);
+    assert_eq!(at("Claude Opus 5.5 (Max) "), None);
+    assert_eq!(match_arena_name(Some(&json!("GPT-6.1 Sol (Max)")), &json!({ "gpt-6.1-sol": {}, "gpt-6-1-sol": {} })), None, "two identities that normalise alike are ambiguous");
+}
+
 #[test]
 fn an_arena_snapshot_drops_bad_intervals_and_ambiguous_duplicates_and_lists_unmatched_vendor_names() {
     let ids = ids();
@@ -48,8 +72,11 @@ fn an_arena_snapshot_drops_bad_intervals_and_ambiguous_duplicates_and_lists_unma
                 arow("gpt-6-astra-max", "creative_writing", 1453.0, 1437.0, 1469.0, 1484.0),
                 arow("gpt-6-astra-max", "creative_writing", 1460.0, 1440.0, 1470.0, 10.0),
                 arow("claude-opus-4-8", "creative_writing", 1467.0, 1460.0, 1474.0, 100.0),
+                arow("GPT-6.1 Sol (Max)", "creative_writing", 1470.0, 1460.0, 1480.0, 900.0),
+                arow("GPT-5.6 Sol (xHigh, Codex Harness)", "creative_writing", 1400.0, 1390.0, 1410.0, 50.0),
+                arow("Gemini 3 Pro", "creative_writing", 1400.0, 1390.0, 1410.0, 50.0),
             ]),
-            ("webdev", vec![arow("claude-opus-5.5-max", "overall", 1826.0, 1808.0, 1845.0, 1607.0)]),
+            ("webdev", vec![arow("Claude Opus 5.5 (Max)", "overall", 1826.0, 1808.0, 1845.0, 1607.0)]),
         ],
         &ids,
         "t",
@@ -57,9 +84,10 @@ fn an_arena_snapshot_drops_bad_intervals_and_ambiguous_duplicates_and_lists_unma
     )
     .unwrap();
     let rows: Vec<String> = js::values(snap.get("rows")).iter().map(|r| format!("{}|{}|{}|{}", text(r.get("board")), text(r.get("model")), text(r.get("effort")), text(r.get("votes")))).collect();
-    assert_eq!(rows, ["text_style_control/creative_writing|claude-opus-5-5|high|487", "webdev/overall|claude-opus-5-5|max|1607"]);
+    assert_eq!(rows, ["text_style_control/creative_writing|claude-opus-5-5|high|487", "text_style_control/creative_writing|gpt-6.1-sol|max|900", "webdev/overall|claude-opus-5-5|max|1607"]);
     assert_eq!(snap["ambiguous"], json!(["gpt-6-astra|max|text_style_control/creative_writing"]));
-    assert_eq!(snap["unmatched"], json!(["claude-opus-4-8"]));
+    assert_eq!(snap["unmatched"], json!(["GPT-5.6 Sol (xHigh, Codex Harness)", "claude-opus-4-8"]));
+    assert_eq!(js::values(snap.get("rows")).last().unwrap()["arenaName"], json!("Claude Opus 5.5 (Max)"), "the row keeps the name the dataset wrote");
     assert_eq!((&snap["revision"], &snap["publishDate"]), (&json!(SHA), &json!("2026-09-25")));
     let bad = arena_snapshot(
         &[("webdev", vec![arow("claude-opus-5.5-max", "overall", 1826.0, 1808.0, 1845.0, 1607.0), arow("claude-opus-5.5-max", "overall", 1500.0, 1600.0, 1400.0, 10.0)])],
@@ -295,7 +323,7 @@ async fn the_arena_fetch_pins_every_download_to_the_sha_it_read() {
     let a = f.arena(&root, &ids, f64::INFINITY).await.unwrap();
     let b = f.arena(&root, &ids, f64::INFINITY).await.unwrap();
     assert_ne!(a["file"], b["file"]);
-    assert_eq!((&a["revision"], &a["rows"]), (&json!(SHA), &json!(0)), "the dataset names models by display name, so nothing matches");
+    assert_eq!((&a["revision"], &a["rows"]), (&json!(SHA), &json!(10)), "Claude Opus 5.5 (Max) on five WebDev categories, the file served for both configs");
     let calls = s.calls.lock().unwrap().clone();
     let downloads: Vec<&String> = calls.iter().filter(|c| c.starts_with("resolve ")).collect();
     assert_eq!(downloads.len(), 4, "latest files only, both configs, both fetches: {calls:?}");

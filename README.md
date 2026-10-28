@@ -351,9 +351,15 @@ low` with its model usage (29 s); `model-refresh <root> --live --no-probe` and N
 `model-refresh.mjs --no-probe` run one after the other wrote the same registry and lineage
 apart from their times (4.7 s and 9.4 s).
 
-Arena has published 0 rows since 2026-10-21 on both sides: the dataset now names models by
-display name ("Claude Opus 5.5 (Max)"), and the matching takes only "<id>-<effort>" (Node's
-rule, kept). Calibration's Arena row has had no data since.
+Arena published 0 rows from 2026-10-21 to 10-28 on both sides: the dataset began naming models
+by display name ("Claude Opus 5.5 (Max)") and the matching took only "<id>-<effort>". Both sides
+now also take a display name: case-folded, spaces as dashes, matched to exactly one identity,
+the parentheses holding one effort and nothing else. A name with a harness, a thinking budget
+or a date ("GPT-5.6 Sol (xHigh, Codex Harness)", "Claude Opus 4.5 (High, 32K, 20251101)") is a
+different configuration, and one with no effort ("Claude Opus 4.8") an unknown one; they stay
+in `unmatched`. A fetch of revision `6852ae7a` (2026-10-28, 7.6 s) published 555 rows over 34
+boards for 19 (model, effort) pairs, every pair of the last good snapshot (10-20, 253 rows) and
+ten more, with none ambiguous.
 
 The proxy child keeps Node's record format (`state/process-proxy.json`, `{pid, creationDate}`),
 so either supervisor adopts what the other started. The port's `portOwner` reads the TCP
