@@ -820,3 +820,67 @@ async fn the_read_only_shadow_serves_documents_but_no_writes() {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
+
+/// model-refresh.mjs on a copy: the plan's efforts probed through the stand-in (Codex with the
+/// pool log's routing evidence, Claude with its model usage), the evidence appended, the registry
+/// and lineage written under the lock; a second run finds fresh evidence and probes nothing.
+#[tokio::test]
+async fn a_copy_admits_models_through_the_stand_in_and_publishes_its_registry() {
+    use crate::writer::models;
+    let t = snapshot("copy-models", false);
+    let client = "client-key".to_string();
+    let proxy = crate::writer::fake_proxy::start(t.dir.clone(), "test-key".into(), Some(client.clone())).await.unwrap();
+    let families = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../reference/agent-pools/model-families.json")).unwrap();
+    std::fs::write(t.dir.join("model-families.json"), families).unwrap();
+    let (codex, claude) = ("codex-4a53e220-user1@example.invalid-pro.json", "claude-550c2ce1-user4@example.invalid.json");
+    let levels = r#"{"levels":["low","medium","high","xhigh","max"]}"#;
+    let at = pool_core::js::iso(now_ms());
+    let lists = serde_json::json!({ "format": 1, "lists": {
+        codex: { "provider": "codex", "account": codex, "fetched_at": at, "models": [{ "id": "gpt-6.1-sol", "thinking": levels }] },
+        claude: { "provider": "claude", "account": claude, "fetched_at": at, "models": [{ "id": "claude-opus-5-5", "thinking": levels }] },
+    } });
+    std::fs::write(t.dir.join("state/live-models.json"), lists.to_string()).unwrap();
+    let status = serde_json::json!({ "checkedAt": at, "accounts": [
+        { "id": codex, "disabled": false, "routingModels": { "gpt-6.1-sol": { "status": "ready" } } },
+        { "id": claude, "disabled": false, "routingModels": { "claude-opus-5-5": { "status": "ready" } } },
+    ] });
+    let mut prober = models::StandIn::new(t.dir.clone(), &proxy, client);
+    prober.flush = std::time::Duration::ZERO;
+    let lines = std::sync::Mutex::new(Vec::<String>::new());
+    let log = |l: &str| lines.lock().unwrap().push(l.to_string());
+
+    let registry = models::refresh(&t.dir, &prober, || Some(status.clone()), true, &log).await.unwrap();
+    let rows = models::read_probes(&t.dir).unwrap();
+    let tried: Vec<String> = rows.iter().map(|r| format!("{} {}", r["model"].as_str().unwrap(), r["effort"].as_str().unwrap())).collect();
+    assert_eq!(
+        tried,
+        ["gpt-6.1-sol medium", "gpt-6.1-sol high", "gpt-6.1-sol xhigh", "claude-opus-5-5 low", "claude-opus-5-5 medium", "claude-opus-5-5 high"],
+        "the required efforts of each family's model, in plan order"
+    );
+    for r in &rows {
+        assert_eq!((&r["ok"], &r["standIn"], &r["reason"]), (&Value::Bool(true), &Value::Bool(true), &Value::Null), "{r}");
+        if r["provider"] == "codex" {
+            assert_eq!(r["account"], codex, "the account the pool log bound it to: {r}");
+            assert!(r["poolRequestId"].as_str().is_some_and(|id| id.len() == 8), "{r}");
+        } else {
+            assert_eq!((&r["servedModel"], &r["account"]), (&Value::from("claude-opus-5-5"), &Value::Null), "{r}");
+        }
+    }
+    assert_eq!(registry["families"]["sol"]["current"], "gpt-6.1-sol");
+    assert_eq!(registry["families"]["opus"]["current"], "claude-opus-5-5");
+    assert_eq!(registry["models"]["gpt-6.1-sol"]["usableAccountsByEffort"]["high"], serde_json::json!([codex]));
+    let saved: Value = serde_json::from_str(&std::fs::read_to_string(t.dir.join("state/model-registry.json")).unwrap()).unwrap();
+    assert_eq!(pool_core::js::stringify(&saved), pool_core::js::stringify(&registry), "the registry written is the one built");
+    let lineage: Value = serde_json::from_str(&std::fs::read_to_string(t.dir.join("state/model-lineage.json")).unwrap()).unwrap();
+    assert_eq!(lineage["format"], "model-lineage/v1");
+    assert!(!t.dir.join("state/model-registry.json.lock").exists(), "the lock is released");
+    assert!(lines.lock().unwrap().iter().any(|l| l.starts_with("sol     current=gpt-6.1-sol")), "{:?}", lines.lock().unwrap());
+
+    // Fresh evidence: nothing to probe.
+    models::refresh(&t.dir, &prober, || Some(status.clone()), true, &log).await.unwrap();
+    assert_eq!(models::read_probes(&t.dir).unwrap().len(), 6);
+
+    for f in ["model-families.json", "state/live-models.json", "state/model-lineage.json", "state/model-admission.jsonl", "logs/main.log", "logs/fake-proxy.jsonl"] {
+        std::fs::remove_file(t.dir.join(f)).unwrap();
+    }
+}

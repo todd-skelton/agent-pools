@@ -169,7 +169,14 @@ async fn run_copy() -> std::io::Result<()> {
     let options = pool_core::refresh::Options { read_plans: true, ..Default::default() };
     let listeners = corten::listeners(8321).await?;
     println!("copy: listening on http://localhost:{}", listeners[0].local_addr()?.port());
-    let copy = std::sync::Arc::new(writer::Copy::new(io).with_management_key(keys.management_key.clone()));
+    // model-refresh.mjs on the copy, probing through the stand-in (never codex or claude).
+    let models = writer::models::StandIn::new(root.clone(), &proxy, keys.client_key.clone());
+    let model_delays = (
+        secs("SHADOW_COPY_MODEL_FIRST_SECS", writer::models::FIRST.as_secs()),
+        secs("SHADOW_COPY_MODEL_REFRESH_SECS", writer::models::EVERY.as_secs()),
+        secs("SHADOW_COPY_MODEL_RECHECK_SECS", writer::models::RECHECK_EVERY.as_secs()),
+    );
+    let copy = std::sync::Arc::new(writer::Copy::new(io).with_management_key(keys.management_key.clone()).with_models(models, model_delays));
     corten::serve_on(listeners, app::app_copy(shadow, assets, copy, delays, options)).await
 }
 
@@ -234,12 +241,12 @@ fn check_attempts_once() -> std::io::Result<()> {
     Ok(())
 }
 
-/// \`pools-shadow check-registry\`: rebuilds the live \`state/model-registry.json\` with
-/// \`pool_core::registry::build_registry\` from the live inputs model-refresh.mjs read for it
-/// (\`model-families.json\`, \`state/live-models.json\`, \`state/model-admission.jsonl\` up to its
-/// \`generatedAt\`, \`state/model-lineage.json\`, its \`harnessVersions\`, at its \`generatedAt\`,
-/// then \`registry.benchmarks\` from \`state/benchmarks/latest.json\`) and says whether it is the
-/// same document. Reads only. The pool's \`/api/status\` at that moment was not kept, so it is
+/// `pools-shadow check-registry`: rebuilds the live `state/model-registry.json` with
+/// `pool_core::registry::build_registry` from the live inputs model-refresh.mjs read for it
+/// (`model-families.json`, `state/live-models.json`, `state/model-admission.jsonl` up to its
+/// `generatedAt`, `state/model-lineage.json`, its `harnessVersions`, at its `generatedAt`,
+/// then `registry.benchmarks` from `state/benchmarks/latest.json`) and says whether it is the
+/// same document. Reads only. The pool's `/api/status` at that moment was not kept, so it is
 /// taken from what the registry recorded of it: each account's routing, status, disabled flag and
 /// list time. The saved lineage is the build's output, which is its input again unless that run
 /// promoted a model (then the check says so).
@@ -312,7 +319,7 @@ fn check_registry_once() -> std::io::Result<()> {
     Ok(())
 }
 
-/// \`pools-shadow check-status\`: asks the live service for \`/api/status\` once and checks it.
+/// `pools-shadow check-status`: asks the live service for `/api/status` once and checks it.
 async fn check_status_once() -> std::io::Result<()> {
     let install = sources::Install::new(env_or("AGENT_POOLS_ROOT", r"D:\Users\ToddS\AgentPools"));
     let url = format!(

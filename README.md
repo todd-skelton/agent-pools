@@ -29,8 +29,8 @@ Plan:
    the admission judges and the routing view) matches every call Agent Pools' own registry tests
    make (50), and `pools-shadow check-registry` rebuilds the live `state/model-registry.json`
    from its inputs, reading only (measured 2026-10-27: 20 models, generation 7, the same document
-   and digest). The hourly refresh that probes models is not ported: its probes run the real
-   `codex` and `claude` tools.
+   and digest). The hourly refresh and the recheck run on the copy, probing through the stand-in
+   rather than the real `codex` and `claude` tools (below).
 5. Cutover: only with Todd's go-ahead.
 
 ## The shadow
@@ -131,7 +131,9 @@ target\release\pools-shadow.exe run-copy shadow-state\copy    # http://localhost
 ```
 
 `make-copy` copies the state documents, the four `install.json` keys, the usage-sample logs and
-the public price table (`model-prices.json`), and writes stand-in Claude auth files that hold only a fake organization id. `run-copy` refuses
+the public price table (`model-prices.json`), the model refresh's inputs (`model-families.json`,
+the proxy's `state/live-models.json`, the lineage, the admission evidence and the calibration
+preview), and writes stand-in Claude auth files that hold only a fake organization id. `run-copy` refuses
 the live install and any directory with `state/secrets.json` (`writer::copy::guard`), starts a
 stand-in proxy on a free loopback port (answers from the copy's accounts, refuses every credit
 claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
@@ -199,6 +201,25 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   `pools-shadow check-attempts` rebuilds the live `state/routing-attempts.json` from the live
   `state/session-usage.json` and the orchestrator's log, reading only (measured 2026-10-27: 5,481
   attempts, the same document);
+- the model refresh (`writer::models`, model-refresh.mjs with model-store.mjs): three minutes
+  after the start and then hourly (`SHADOW_COPY_MODEL_FIRST_SECS`, `SHADOW_COPY_MODEL_REFRESH_SECS`),
+  under `state/model-registry.json.lock` (renewed while held, taken over only when stale, released
+  only by its holder), the registry built from the live model lists, the copy's own `/api/status`,
+  the families, the evidence and the lineage; the efforts the plan lacks probed (16 at most, least
+  recently tried first, none started after 20 minutes); built again and written atomically with
+  the lineage. Every five minutes (`SHADOW_COPY_MODEL_RECHECK_SECS`) the recheck rebuilds without
+  probes while a family reports an unavailable effort. Output goes to the copy's
+  `logs/model-refresh.log`. The probes never run `codex` or `claude` (Agent Pools' do, and that
+  is a provider call): `writer::models::StandIn` sends the admission prompt to the stand-in, which
+  answers it `OK`, queues it for the ledger and logs the pool's selector and status lines to the
+  copy's `logs/main.log`; the answer is judged as the tool's output with Agent Pools' judges and,
+  for Codex, its routing evidence from that log. Rows carry `standIn: true`, and the harness
+  versions are the ones the copied registry recorded, so copied evidence keeps counting. The
+  benchmark and arena fetches (external sites, one with a key) are not ported; the copy runs as
+  `benchmarks: false` and keeps the snapshot it was copied with. The stand-in's model lists are
+  re-read hourly and on `POST live-models/refresh` (which `/api/refresh` sends). Agent Pools'
+  lock and recheck tests are ported (`writer::models::tests`), and
+  `a_copy_admits_models_through_the_stand_in_and_publishes_its_registry` runs a refresh end to end;
 - the guardian's stop: `POST /api/shutdown` with the run's management key as a Bearer
   (`managementKey` in `stand-in/keys.json`; anything else is 403 `Unauthorized`) answers 202,
   logs `supervisor-stopping`, sets `closing` on `/api/health`, and begins Corten's graceful

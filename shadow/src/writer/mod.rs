@@ -11,6 +11,7 @@ pub mod fake_proxy;
 pub mod health;
 pub mod io;
 pub mod ledger;
+pub mod models;
 pub mod publisher;
 pub mod report;
 
@@ -38,6 +39,9 @@ pub struct Copy {
     /// Begins the app's graceful shutdown: `corten::shutdown`, or a test's stand-in for it (the
     /// real one stops every server in the process).
     begin_shutdown: Box<dyn Fn() + Send + Sync>,
+    /// The model refresh's prober, with the scheduled tasks' delays (first refresh, refresh,
+    /// recheck); none: the copy does not refresh its model registry.
+    pub models: Option<(Arc<models::StandIn>, (Duration, Duration, Duration))>,
 }
 
 impl Copy {
@@ -54,12 +58,20 @@ impl Copy {
             closing: AtomicBool::new(false),
             management_key: format!("management-{}", uuid::Uuid::new_v4().simple()),
             begin_shutdown: Box::new(corten::shutdown),
+            models: None,
         }
     }
 
     /// The same, with `key` as the management key.
     pub fn with_management_key(mut self, key: String) -> Copy {
         self.management_key = key;
+        self
+    }
+
+    /// The same, refreshing its model registry with `prober` on the schedule `delays` (first
+    /// refresh, then refresh and recheck intervals).
+    pub fn with_models(mut self, prober: models::StandIn, delays: (Duration, Duration, Duration)) -> Copy {
+        self.models = Some((Arc::new(prober), delays));
         self
     }
 

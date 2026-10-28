@@ -17,7 +17,14 @@
 //! key (not the management key): `/v1/messages` (and `count_tokens`), `/v1/responses` (and
 //! `compact`, and its WebSocket), `/v1/chat/completions` and `/v1/models`, each a short canned
 //! answer in the provider's shape (streamed when asked). Each answered request is queued as a
-//! usage record on the next account of its provider, so the ledger sees the traffic.
+//! usage record on the next account of its provider, so the ledger sees the traffic, and logged to
+//! the copy's `logs/main.log` as the proxy logs a request (its selector line binding the model to
+//! an account, then its status line), which the copy's admission probes read for routing evidence.
+//! The admission prompt (`Reply with exactly: OK`) is answered `OK`; anything else gets the canned
+//! answer.
+//!
+//! Its live model lists are re-read every hour and on `POST live-models/refresh`; each account's
+//! `live_models` time in `auth-files` is the last re-read.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -57,6 +64,10 @@ struct Fake {
     answered: std::sync::atomic::AtomicU64,
     /// Handlers run concurrently; one whole line per write, one writer at a time.
     log_lock: Mutex<()>,
+    /// When `live-models/refresh` last re-read the lists (else the hourly re-read since the start).
+    lists_at: Mutex<f64>,
+    /// The zone `logs/main.log`'s times are written in (the proxy writes local time).
+    zone: crate::dash::fmt::Zone,
 }
 
 type Shared = Arc<Fake>;
@@ -81,6 +92,8 @@ pub async fn start(root: PathBuf, key: String, client_key: Option<String>) -> st
         client_key,
         answered: std::sync::atomic::AtomicU64::new(0),
         log_lock: Mutex::new(()),
+        lists_at: Mutex::new(started),
+        zone: crate::dash::fmt::Zone::from_env(),
     });
     let app = Router::new()
         .route("/v0/management/auth-files", get(auth_files))
@@ -91,6 +104,7 @@ pub async fn start(root: PathBuf, key: String, client_key: Option<String>) -> st
         .route("/v0/management/oauth-callback", post(oauth_callback))
         .route("/v0/management/outage-holds", get(outage_holds))
         .route("/v0/management/usage-queue", get(usage_queue))
+        .route("/v0/management/live-models/refresh", post(live_models_refresh))
         .route("/v0/management/{endpoint}", get(other_get).post(other_post))
         .route("/v1/messages", post(inference))
         .route("/v1/messages/count_tokens", post(inference))
@@ -140,12 +154,35 @@ impl Fake {
         });
         // The proxy's read of the account's own model list: live, as many models as it routes.
         let models = a.get("routingModels").and_then(Value::as_object).map_or(1, |m| m.len().max(1));
-        let at = js::iso(self.started);
+        let at = js::iso(self.lists_at());
         f["live_models"] = json!({ "source": "live", "fetched_at": at, "checked_at": at, "models": models });
         if provider == "codex" {
             f["id_token"] = json!({ "chatgpt_account_id": a.get("accountId").cloned().unwrap_or(json!(format!("acct-{id}"))) });
         }
         f
+    }
+
+    /// The lists' last re-read: hourly from the start, or a requested one since.
+    fn lists_at(&self) -> f64 {
+        let hourly = self.started + ((crate::watch::now_ms() - self.started) / 3_600_000.0).floor() * 3_600_000.0;
+        hourly.max(*self.lists_at.lock().unwrap_or_else(|e| e.into_inner()))
+    }
+
+    /// Two lines in the copy's `logs/main.log` as the proxy writes them for a request: the selector
+    /// binding `model` to `account`, then the answer's status, under one 8-digit request id.
+    fn log_request(&self, account: &str, provider: &str, model: &str, path: &str) {
+        use std::io::Write;
+        let now = crate::watch::now_ms();
+        let local: String = js::iso(now + f64::from(self.zone.offset_hours(now)) * 3_600_000.0).chars().take(19).collect::<String>().replacen('T', " ", 1);
+        let id: String = uuid::Uuid::new_v4().simple().to_string().chars().take(8).collect();
+        let text = format!(
+            "[{local}] [{id}] [info ] [selector.go:1107] session-affinity: cache miss, new binding | session=stand-in auth={account} provider={provider} model={model}\n[{local}] [{id}] [info ] [gin_logger.go:103] 200 |        0.010s |       127.0.0.1 | POST    \"{path}\"\n"
+        );
+        let _ = std::fs::create_dir_all(self.root.join("logs"));
+        let _guard = self.log_lock.lock().unwrap_or_else(|e| e.into_inner());
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(self.root.join("logs/main.log")) {
+            let _ = f.write_all(text.as_bytes());
+        }
     }
 
     fn account(&self, auth_index: &str) -> Option<&Value> {
@@ -261,8 +298,9 @@ impl Fake {
         })
     }
 
-    /// Queues the record of an answered request on the next account of `provider` (none: not queued).
-    fn serve(&self, provider: &str, model: &str, tokens: (u64, u64, u64), user_agent: &str, session: &str) {
+    /// Queues the record of an answered request on the next account of `provider`, and logs it as
+    /// the proxy does. Returns that account (none: not queued).
+    fn serve(&self, provider: &str, model: &str, tokens: (u64, u64, u64), user_agent: &str, session: &str, path: &str) -> Option<String> {
         let n = self.answered.fetch_add(1, std::sync::atomic::Ordering::SeqCst) as usize;
         let of: Vec<&Value> = self
             .accounts
@@ -270,10 +308,14 @@ impl Fake {
             .filter(|a| a.get("provider").and_then(Value::as_str) == Some(provider) && !js::truthy(a.get("disabled")))
             .collect();
         if of.is_empty() {
-            return;
+            return None;
         }
-        let r = self.record(of[n % of.len()], crate::watch::now_ms(), model, tokens, user_agent, session);
+        let a = of[n % of.len()];
+        let r = self.record(a, crate::watch::now_ms(), model, tokens, user_agent, session);
         self.served.lock().unwrap_or_else(|e| e.into_inner()).push_back(r);
+        let id = js::to_string(a.get("id"));
+        self.log_request(&id, provider, model, path);
+        Some(id)
     }
 
     /// The pool's client key, as `x-api-key` or a Bearer.
@@ -461,6 +503,16 @@ async fn other_get(State(f): State<Shared>, headers: HeaderMap, Path(endpoint): 
     Err(StatusCode::NOT_FOUND)
 }
 
+/// `POST live-models/refresh`: every account's model list re-read now.
+async fn live_models_refresh(State(f): State<Shared>, headers: HeaderMap) -> Result<AxumJson<Value>, StatusCode> {
+    if !f.allowed(&headers) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    f.log("live-models/refresh", &Value::Null);
+    *f.lists_at.lock().unwrap_or_else(|e| e.into_inner()) = crate::watch::now_ms();
+    Ok(AxumJson(json!({ "ok": true })))
+}
+
 async fn other_post(State(f): State<Shared>, headers: HeaderMap, Path(endpoint): Path<String>) -> Result<AxumJson<Value>, StatusCode> {
     if !f.allowed(&headers) {
         return Err(StatusCode::UNAUTHORIZED);
@@ -526,6 +578,16 @@ async fn outage_holds(State(f): State<Shared>, headers: HeaderMap) -> Result<Axu
 // ---------------------------------------------------------------- Inference (the copy's gateway and relay)
 
 const ANSWER: &str = "stand-in: no model was called";
+/// What model-admission.mjs asks every model it probes.
+pub const ADMISSION_PROMPT: &str = "Reply with exactly: OK";
+
+/// The answer to a request: `OK` to the admission prompt (as a string `input`, or the last
+/// message's string content), else the canned answer.
+fn answer_to(body: &[u8]) -> &'static str {
+    let v: Value = serde_json::from_slice(body).unwrap_or(Value::Null);
+    let prompt = v.get("input").and_then(Value::as_str).or_else(|| js::values(v.get("messages")).last().and_then(|m| m.get("content")).and_then(Value::as_str));
+    if prompt.map(str::trim) == Some(ADMISSION_PROMPT) { "OK" } else { ANSWER }
+}
 
 /// What a request's body says: its model (else the provider's default), whether it asks for a
 /// stream, and a rough input token count (four bytes a token).
@@ -553,12 +615,12 @@ fn json_answer(status: StatusCode, body: Value) -> axum::response::Response {
 }
 
 /// A Responses API answer's events: created, one text delta, completed with usage.
-fn responses_events(model: &str, input: u64) -> Vec<(&'static str, Value)> {
+fn responses_events(model: &str, input: u64, text: &str) -> Vec<(&'static str, Value)> {
     let id = format!("resp_standin_{}", uuid::Uuid::new_v4().simple());
-    let item = json!({ "type": "message", "role": "assistant", "content": [{ "type": "output_text", "text": ANSWER }] });
+    let item = json!({ "type": "message", "role": "assistant", "content": [{ "type": "output_text", "text": text }] });
     vec![
         ("response.created", json!({ "type": "response.created", "response": { "id": id, "model": model, "status": "in_progress" } })),
-        ("response.output_text.delta", json!({ "type": "response.output_text.delta", "delta": ANSWER })),
+        ("response.output_text.delta", json!({ "type": "response.output_text.delta", "delta": text })),
         ("response.completed", json!({ "type": "response.completed", "response": {
             "id": id, "model": model, "status": "completed", "output": [item],
             "usage": { "input_tokens": input, "input_tokens_details": { "cached_tokens": 0 }, "output_tokens": 8, "output_tokens_details": { "reasoning_tokens": 0 }, "total_tokens": input + 8 },
@@ -581,14 +643,15 @@ async fn inference(State(f): State<Shared>, uri: axum::http::Uri, headers: Heade
     if path == "/v1/messages/count_tokens" {
         return json_answer(StatusCode::OK, json!({ "input_tokens": input }));
     }
-    f.serve(if claude { "claude" } else { "codex" }, &model, (input, 0, 8), user_agent, session);
+    f.serve(if claude { "claude" } else { "codex" }, &model, (input, 0, 8), user_agent, session, path);
+    let text = answer_to(&body);
     match path {
         "/v1/messages" if stream => {
             let id = format!("msg_standin_{}", uuid::Uuid::new_v4().simple());
             sse(&[
                 ("message_start", json!({ "type": "message_start", "message": { "id": id, "type": "message", "role": "assistant", "model": model, "content": [], "usage": { "input_tokens": input, "output_tokens": 0 } } })),
                 ("content_block_start", json!({ "type": "content_block_start", "index": 0, "content_block": { "type": "text", "text": "" } })),
-                ("content_block_delta", json!({ "type": "content_block_delta", "index": 0, "delta": { "type": "text_delta", "text": ANSWER } })),
+                ("content_block_delta", json!({ "type": "content_block_delta", "index": 0, "delta": { "type": "text_delta", "text": text } })),
                 ("content_block_stop", json!({ "type": "content_block_stop", "index": 0 })),
                 ("message_delta", json!({ "type": "message_delta", "delta": { "stop_reason": "end_turn" }, "usage": { "output_tokens": 8 } })),
                 ("message_stop", json!({ "type": "message_stop" })),
@@ -596,14 +659,14 @@ async fn inference(State(f): State<Shared>, uri: axum::http::Uri, headers: Heade
         }
         "/v1/messages" => json_answer(StatusCode::OK, json!({
             "id": format!("msg_standin_{}", uuid::Uuid::new_v4().simple()), "type": "message", "role": "assistant", "model": model,
-            "content": [{ "type": "text", "text": ANSWER }], "stop_reason": "end_turn", "usage": { "input_tokens": input, "output_tokens": 8 },
+            "content": [{ "type": "text", "text": text }], "stop_reason": "end_turn", "usage": { "input_tokens": input, "output_tokens": 8 },
         })),
-        "/v1/responses" if stream => sse(&responses_events(&model, input)),
-        "/v1/responses" => json_answer(StatusCode::OK, responses_events(&model, input).pop().expect("three events").1["response"].clone()),
+        "/v1/responses" if stream => sse(&responses_events(&model, input, text)),
+        "/v1/responses" => json_answer(StatusCode::OK, responses_events(&model, input, text).pop().expect("three events").1["response"].clone()),
         "/v1/responses/compact" => json_answer(StatusCode::OK, json!({ "object": "response.compaction", "output": [] })),
         _ => json_answer(StatusCode::OK, json!({
             "id": format!("chatcmpl-standin-{}", uuid::Uuid::new_v4().simple()), "object": "chat.completion", "model": model,
-            "choices": [{ "index": 0, "message": { "role": "assistant", "content": ANSWER }, "finish_reason": "stop" }],
+            "choices": [{ "index": 0, "message": { "role": "assistant", "content": text }, "finish_reason": "stop" }],
             "usage": { "prompt_tokens": input, "completion_tokens": 8, "total_tokens": input + 8 },
         })),
     }
@@ -644,8 +707,8 @@ async fn responses_socket(State(f): State<Shared>, mut req: axum::extract::Reque
             let Message::Text(text) = frame else { continue };
             let (model, _, input) = asked(text.as_bytes(), "gpt-6.1-sol");
             f.log("inference", &json!({ "path": "/v1/responses (websocket)", "model": model, "bytes": text.len() }));
-            f.serve("codex", &model, (input, 0, 8), &user_agent, &session);
-            for (_, event) in responses_events(&model, input) {
+            f.serve("codex", &model, (input, 0, 8), &user_agent, &session, "/v1/responses");
+            for (_, event) in responses_events(&model, input, answer_to(text.as_bytes())) {
                 if ws.send(Message::text(event.to_string())).await.is_err() {
                     return;
                 }

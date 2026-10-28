@@ -81,13 +81,20 @@ pub fn make_copy(live: &Install, dest: &Path) -> std::io::Result<Vec<PathBuf>> {
         "state/routing-attempts.json",
         "state/session-usage.json",
         "state/routing-ladders.json",
+        // The model refresh's inputs (model-refresh.mjs): the families, the proxy's live model
+        // lists, the lineage, the admission evidence and the calibration preview's pointer.
+        "model-families.json",
+        "state/live-models.json",
+        "state/model-lineage.json",
+        "state/model-admission.jsonl",
+        "state/calibration/latest.json",
     ]
     .map(String::from)
     .to_vec();
-    for pointer in ["state/benchmarks/latest.json", "state/benchmarks/latest-arena.json"] {
+    for (pointer, dir) in [("state/benchmarks/latest.json", "state/benchmarks"), ("state/benchmarks/latest-arena.json", "state/benchmarks"), ("state/calibration/latest.json", "state/calibration")] {
         let file = live.json(pointer).and_then(|p| p.get("file").and_then(Value::as_str).map(String::from));
         if let Some(name) = file.as_deref().and_then(|f| Path::new(f).file_name()).and_then(|n| n.to_str()) {
-            ladder_inputs.push(format!("state/benchmarks/{name}"));
+            ladder_inputs.push(format!("{dir}/{name}"));
         }
     }
     for rel in &ladder_inputs {

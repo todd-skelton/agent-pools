@@ -52,7 +52,8 @@ pub fn app_copy(
     let _ = shadow.copy.set(copy.clone());
     let (n, w) = (shadow.clone(), shadow.clone());
     let (watch, drain, d, value, closing) = (copy.clone(), copy.clone(), shadow.clone(), copy.clone(), copy.clone());
-    App::new(url::router(shadow))
+    let models = copy.models.clone().map(|m| (m, copy.io.root.clone(), shadow.clone()));
+    let app = App::new(url::router(shadow))
         .assets(assets)
         .policy(security)
         .shutdown_grace(std::time::Duration::from_secs(20))
@@ -76,7 +77,22 @@ pub fn app_copy(
         .task("closing", move |signal| async move {
             signal.aborted().await;
             closing.stop("signal");
-        })
+        });
+    // model-refresh.mjs's two scheduled tasks; the pool's status is the copy's own /api/status.
+    match models {
+        Some(((prober, delays), root, s)) => app.task("model-refresh", move |signal| {
+            let (status, changed) = (s.clone(), s);
+            crate::writer::models::run(
+                root,
+                prober,
+                move || crate::parity::status_now(&status.install, &status.memory(), now_ms()),
+                move || changed.changed_inputs(),
+                delays,
+                signal,
+            )
+        }),
+        None => app,
+    }
 }
 
 /// The app: its routes and the two tasks that keep the parity checks running.
