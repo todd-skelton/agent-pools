@@ -40,7 +40,11 @@ Plan:
    process's job with its ports, files and event logs, and were rehearsed on a made-up install
    with the stand-in as a separate proxy process. The install (`deploy/`, below) and every
    cutover step, forward and back, were rehearsed against Agent Pools' own Node processes on
-   the same made-up install. Not done: the cutover itself.
+   the same made-up install. Done live (2026-10-28, version 0.1.0-bff8a30): gateway at
+   15:46Z (about 16 s down), inference relay at 15:56Z (about 14 s), service with the tailnet
+   dashboard at 16:00Z (about 10 s, proxy adopted, not restarted). Node's tasks for those four
+   jobs are disabled, not removed. Model refresh, model recheck, backup and the cloudflare
+   tunnel still run on Node.
 
 ## The shadow
 
