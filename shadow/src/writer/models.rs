@@ -7,8 +7,9 @@
 //! stand-in proxy's inference (so the copy's ledger counts it and the stand-in logs the pool's
 //! routing lines), reads the answer as the tool's output would carry it, and judges it with the
 //! real judges and, for Codex, the real routing evidence from the copy's `logs/main.log`. Its rows
-//! say `standIn: true`. The benchmark and arena fetches (external sites, one with a key) are not
-//! ported: the copy runs as `benchmarks: false` does and keeps the snapshot it was copied with.
+//! say `standIn: true`. The copy runs as `benchmarks: false` does and keeps the snapshot it was
+//! copied with. The live service probes with `live::admission::Native` (the real tools) and takes
+//! the benchmark snapshots ([`super::benchmarks`]).
 
 use std::future::Future;
 use std::io::Write;
@@ -32,6 +33,16 @@ const PROBE_TIMEOUT: Duration = Duration::from_secs(240);
 pub const EVERY: Duration = Duration::from_secs(3600);
 pub const RECHECK_EVERY: Duration = Duration::from_secs(300);
 pub const FIRST: Duration = Duration::from_secs(180);
+/// A benchmark snapshot is taken again once the last is this old.
+pub const BENCHMARK_EVERY_MS: f64 = 20.0 * 3_600_000.0;
+/// Benchmark fetches start only this long into a run, and stop issuing requests at the deadline
+/// (one in flight may add 2 minutes), leaving time to publish the registry. Deferred work runs
+/// next hour.
+pub const BENCH_START_MS: f64 = 26.0 * 60_000.0;
+pub const BENCH_DEADLINE_MS: f64 = 38.0 * 60_000.0;
+/// Where each task's lines go (Run-Model-Refresh.vbs sent them to these two files).
+pub const REFRESH_LOG: &str = "logs/model-refresh.log";
+pub const RECHECK_LOG: &str = "logs/model-recheck.log";
 
 // ---------------------------------------------------------------- model-store.mjs
 
@@ -199,8 +210,9 @@ fn read_json(file: &Path, fallback: Option<Value>) -> Result<Value, String> {
 /// Runs one probe: a model at an effort, answering `{ ok, reason?, servedModel?, account?,
 /// poolRequestId?, durationMs }`.
 pub trait Prober: Send + Sync {
-    /// The installed tools' versions (`harnessVersion(resolveExe(...))`) the evidence binds to.
-    fn harness_versions(&self) -> Value;
+    /// The installed tools' versions (`harnessVersion(resolveExe(...))`) the evidence binds to; a
+    /// tool that is missing or does not answer fails the run, as it does in model-refresh.mjs.
+    fn harness_versions(&self) -> impl Future<Output = Result<Value, String>> + Send;
     /// `batteryRunning()`: probing would compete with a running load, so it waits for next run.
     fn deferred(&self) -> bool;
     fn probe(&self, provider: &str, id: &str, effort: &str) -> impl Future<Output = Value> + Send;
@@ -261,6 +273,13 @@ pub async fn admit<P: Prober>(root: &Path, targets: &[Value], prober: &P, versio
     Ok(rows)
 }
 
+/// `Date.parse` of a pool log time (`YYYY-MM-DDTHH:mm:ss`, local in `zone`).
+pub fn local_ms(zone: Zone, stamp: &str) -> f64 {
+    let Some(utc) = js::date_parse(&format!("{stamp}Z")) else { return f64::NAN };
+    let guess = utc - f64::from(zone.standard) * 3_600_000.0;
+    utc - f64::from(zone.offset_hours(guess)) * 3_600_000.0
+}
+
 /// The copy's prober: the stand-in proxy answers the probe, nothing runs `codex` or `claude`.
 pub struct StandIn {
     root: PathBuf,
@@ -292,12 +311,6 @@ impl StandIn {
         }
     }
 
-    /// `Date.parse` of a pool log time (`YYYY-MM-DDTHH:mm:ss`, local).
-    fn local_ms(&self, stamp: &str) -> f64 {
-        let Some(utc) = js::date_parse(&format!("{stamp}Z")) else { return f64::NAN };
-        let guess = utc - f64::from(self.zone.standard) * 3_600_000.0;
-        utc - f64::from(self.zone.offset_hours(guess)) * 3_600_000.0
-    }
 
     async fn ask(&self, path: &str, body: Value) -> Result<Value, i32> {
         let r = self.http.post(format!("{}{path}", self.proxy)).bearer_auth(&self.client_key).json(&body).timeout(PROBE_TIMEOUT).send().await.map_err(|_| -1)?;
@@ -309,8 +322,9 @@ impl StandIn {
 }
 
 impl Prober for StandIn {
-    fn harness_versions(&self) -> Value {
-        self.versions.clone()
+    #[allow(clippy::manual_async_fn)]
+    fn harness_versions(&self) -> impl Future<Output = Result<Value, String>> + Send {
+        async { Ok(self.versions.clone()) }
     }
 
     fn deferred(&self) -> bool {
@@ -357,7 +371,7 @@ impl Prober for StandIn {
             if provider == "codex" && verdict.get("ok") == Some(&Value::Bool(true)) {
                 tokio::time::sleep(self.flush).await;
                 let log = std::fs::read_to_string(self.root.join("logs/main.log")).unwrap_or_default();
-                let routed = registry::pool_routing(&log, &id, start, end, |s| self.local_ms(s));
+                let routed = registry::pool_routing(&log, &id, start, end, |s| local_ms(self.zone, s));
                 verdict = if routed.is_null() {
                     json!({ "ok": false, "reason": "no-pool-routing-evidence" })
                 } else {
@@ -376,12 +390,20 @@ impl Prober for StandIn {
 
 // ---------------------------------------------------------------- model-refresh.mjs
 
-/// `refresh(root, { probe, benchmarks: false })`: under the registry's lock, builds the registry
-/// from the live model lists, the pool's status (`status`, as `/api/status` answers; `None` when
-/// it does not), the families, the evidence and the lineage; probes the efforts the plan lacks
-/// (16 at most, least recently tried first, within the probe budget) and builds again; then
-/// writes the lineage and the registry (with the benchmark snapshot on disk). Answers the registry.
-pub async fn refresh<P: Prober>(root: &Path, prober: &P, status: impl FnOnce() -> Option<Value>, probe: bool, log: &(dyn Fn(&str) + Sync)) -> Result<Value, String> {
+/// `refresh(root, { probe, benchmarks })`: under the registry's lock, builds the registry from the
+/// live model lists, the pool's status (`status`, as `/api/status` answers; `None` when it does
+/// not), the families, the evidence and the lineage; probes the efforts the plan lacks (16 at
+/// most, least recently tried first, within the probe budget) and builds again; takes each
+/// benchmark snapshot that is 20 hours old with `bench` (none: `benchmarks: false`); then writes
+/// the lineage and the registry (with the benchmark snapshot on disk). Answers the registry.
+pub async fn refresh<P: Prober>(
+    root: &Path,
+    prober: &P,
+    status: impl FnOnce() -> Option<Value>,
+    probe: bool,
+    bench: Option<&super::benchmarks::Fetcher>,
+    log: &(dyn Fn(&str) + Sync),
+) -> Result<Value, String> {
     let file = root.join("state/model-registry.json");
     let target = file.clone();
     with_lock(&file, Lock::default(), || async move {
@@ -392,7 +414,7 @@ pub async fn refresh<P: Prober>(root: &Path, prober: &P, status: impl FnOnce() -
         let status = status().unwrap_or(Value::Null);
         let lineage_path = root.join("state/model-lineage.json");
         let lineage = read_json(&lineage_path, Some(registry::empty_lineage()))?;
-        let harness = prober.harness_versions();
+        let harness = prober.harness_versions().await?;
         let mut probes = read_probes(root)?;
         let build = |probes: &[Value]| {
             registry::build_registry(&json!({
@@ -426,6 +448,31 @@ pub async fn refresh<P: Prober>(root: &Path, prober: &P, status: impl FnOnce() -
         // As in model-refresh.mjs, the second build replaces the first (a deferral's notice too).
         let built = build(&probes)?;
         let mut reg = built["registry"].clone();
+        if let Some(fetcher) = bench {
+            let deadline = started + BENCH_DEADLINE_MS;
+            let identities = reg["identities"].clone();
+            for feed in super::benchmarks::Feed::ALL {
+                let last = read_json(&root.join("state/benchmarks").join(feed.pointer()), Some(Value::Null))?;
+                let age = now_ms() - js::date_parse_value(last.get("fetchedAt"));
+                if (-5.0 * 60_000.0..=BENCHMARK_EVERY_MS).contains(&age) {
+                    continue;
+                }
+                let notice = if now_ms() - started > BENCH_START_MS {
+                    Some(json!({ "notice": format!("{}-deferred-time-budget", feed.name()) }))
+                } else {
+                    match fetcher.fetch(feed, root, &identities, deadline).await {
+                        Ok(r) => {
+                            log(&format!("{}: {}", feed.name(), js::stringify(&r)));
+                            None
+                        }
+                        Err(e) => Some(json!({ "notice": format!("{}-failed", feed.name()), "error": e })),
+                    }
+                };
+                if let (Some(n), Some(list)) = (notice, reg.get_mut("notices").and_then(Value::as_array_mut)) {
+                    list.push(n);
+                }
+            }
+        }
         reg["benchmarks"] = read_json(&root.join("state/benchmarks/latest.json"), Some(Value::Null))?;
         write_json_atomic(&lineage_path, &built["lineage"]).await.map_err(|e| e.to_string())?;
         write_json_atomic(&file, &reg).await.map_err(|e| e.to_string())?;
@@ -449,7 +496,7 @@ pub async fn recheck<P: Prober>(root: &Path, prober: &P, status: impl FnOnce() -
         return Ok(false);
     }
     log(&format!("--- model-refresh --recheck {} pid={}", js::iso(now_ms()), std::process::id()));
-    match refresh(root, prober, status, false, log).await {
+    match refresh(root, prober, status, false, None, log).await {
         Ok(_) => Ok(true),
         Err(e) if e.starts_with("lock busy") => {
             log("recheck skipped: refresh already running");
@@ -459,26 +506,41 @@ pub async fn recheck<P: Prober>(root: &Path, prober: &P, status: impl FnOnce() -
     }
 }
 
-/// A line in the copy's `logs/model-refresh.log` (where Run-Model-Refresh.vbs sends the output).
-pub fn log_line(root: &Path, line: &str) {
+/// A line in `<root>/<file>` (`REFRESH_LOG`, `RECHECK_LOG`), where Run-Model-Refresh.vbs sent
+/// each task's output.
+pub fn log_line(root: &Path, file: &str, line: &str) {
     let _ = std::fs::create_dir_all(root.join("logs"));
-    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(root.join("logs/model-refresh.log")) {
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(root.join(file)) {
         let _ = f.write_all(format!("{line}\n").as_bytes());
     }
 }
 
-/// The two scheduled tasks on the copy, in one: the refresh `first` after the start and then
-/// every `every`, the recheck every `recheck_every`. One at a time, as Task Scheduler's
-/// IgnoreNew and the lock keep them. `changed` is told after each run that wrote.
+/// How long until the clock next reads `minute` past the hour (UTC; the zones here are whole
+/// hours from it): the scheduled task's "hourly at :15".
+pub fn until_minute(minute: u32) -> Duration {
+    let hour = 3_600_000.0;
+    let into = now_ms().rem_euclid(hour);
+    let at = f64::from(minute % 60) * 60_000.0;
+    let wait = if at > into { at - into } else { at + hour - into };
+    Duration::from_secs_f64(wait / 1000.0)
+}
+
+/// The two scheduled tasks in one: the refresh `first` after the start and then every `every`
+/// on that mark (a run that overruns skips the marks it missed), with the benchmark snapshots
+/// when `bench` is given; the recheck every `recheck_every`. One at a time, as Task Scheduler's
+/// IgnoreNew and the lock kept them. Lines go to `REFRESH_LOG` and `RECHECK_LOG`; `changed` is
+/// told after each run that wrote.
 pub async fn run<P: Prober + 'static>(
     root: PathBuf,
     prober: Arc<P>,
+    bench: Option<Arc<super::benchmarks::Fetcher>>,
     status: impl Fn() -> Option<Value> + Send + Sync,
     changed: impl Fn() + Send,
     (first, every, recheck_every): (Duration, Duration, Duration),
     signal: corten::Signal,
 ) {
-    let log = |l: &str| log_line(&root, l);
+    let refresh_log = |l: &str| log_line(&root, REFRESH_LOG, l);
+    let recheck_log = |l: &str| log_line(&root, RECHECK_LOG, l);
     let mut next_refresh = tokio::time::Instant::now() + first;
     let mut next_recheck = tokio::time::Instant::now() + recheck_every;
     loop {
@@ -488,17 +550,20 @@ pub async fn run<P: Prober + 'static>(
             _ = signal.aborted() => return,
         }
         if refresh_due {
-            log(&format!("--- model-refresh {} pid={}", js::iso(now_ms()), std::process::id()));
-            match refresh(&root, &*prober, &status, true, &log).await {
+            refresh_log(&format!("--- model-refresh {} pid={}", js::iso(now_ms()), std::process::id()));
+            match refresh(&root, &*prober, &status, true, bench.as_deref(), &refresh_log).await {
                 Ok(_) => changed(),
-                Err(e) => log(&format!("model-refresh failed: {e}")),
+                Err(e) => refresh_log(&format!("model-refresh failed: {e}")),
             }
-            next_refresh = tokio::time::Instant::now() + every;
+            let now = tokio::time::Instant::now();
+            while next_refresh <= now {
+                next_refresh += every;
+            }
         } else {
-            match recheck(&root, &*prober, &status, &log).await {
+            match recheck(&root, &*prober, &status, &recheck_log).await {
                 Ok(true) => changed(),
                 Ok(false) => {}
-                Err(e) => log(&format!("model-refresh --recheck failed: {e}")),
+                Err(e) => recheck_log(&format!("model-refresh --recheck failed: {e}")),
             }
             next_recheck = tokio::time::Instant::now() + recheck_every;
         }
@@ -656,8 +721,9 @@ mod tests {
     struct Never;
 
     impl Prober for Never {
-        fn harness_versions(&self) -> Value {
-            json!({})
+        #[allow(clippy::manual_async_fn)]
+        fn harness_versions(&self) -> impl Future<Output = Result<Value, String>> + Send {
+            async { Ok(json!({})) }
         }
         fn deferred(&self) -> bool {
             false

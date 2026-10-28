@@ -21,13 +21,18 @@ backwards.
              waits while the old cloudflared runs, so the new one starts as the old one is stopped
              (the public hostname is unreachable for a few seconds).
   backup     "<OldPrefix> - backup" -> "<TaskPrefix> - backup" (no process: the next 03:30 run).
+  models     "<OldPrefix> - model refresh" and "<OldPrefix> - model recheck" -> the service (no task
+             of its own): pool-rs.json gets "models": true and the service is restarted
+             (Restart-Pool-Rs.ps1 -Step service), so it refreshes hourly at :15 and rechecks every
+             five minutes. A Node refresh still running finishes; the registry's lock keeps the two
+             from overlapping.
 
 The live install is refused without -Live. -WhatIf says what would be done and does nothing.
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
   [Parameter(Mandatory)][string]$Root,
-  [Parameter(Mandatory)][ValidateSet('gateway', 'inference', 'service', 'tunnel', 'backup')][string]$Step,
+  [Parameter(Mandatory)][ValidateSet('gateway', 'inference', 'service', 'tunnel', 'backup', 'models')][string]$Step,
   [switch]$Undo,
   [switch]$Tailnet,
   [string]$TaskPrefix = 'Agent Pools (rs)',
@@ -39,10 +44,29 @@ $ErrorActionPreference = 'Stop'
 $target = Resolve-PoolRoot $Root $Live.IsPresent
 $Root = $target.Root
 $install = Read-Json (Join-Path $Root 'state\install.json')
-$new = Get-PoolRsTasks $TaskPrefix | Where-Object Key -eq $Step
-if (-not (Get-ScheduledTask -TaskName $new.Name -ErrorAction SilentlyContinue)) { throw "task '$($new.Name)' is not registered: run Install-Pool-Rs.ps1 -RegisterTasks first" }
 
 function Say([string]$s) { "$((Get-Date).ToUniversalTime().ToString('HH:mm:ss'))Z $s" }
+
+if ($Step -eq 'models') {
+  $oldTasks = @("$OldPrefix - model refresh", "$OldPrefix - model recheck")
+  $settingsFile = Join-Path $Root 'pool-rs\pool-rs.json'
+  $settings = Read-Json $settingsFile
+  if (-not $settings) { throw "$settingsFile is missing: run Install-Pool-Rs.ps1 first" }
+  $running = @(Get-NodeProcess $Root 'model-refresh.mjs')
+  Say "models $(if ($Undo) { 'back to Node' } else { 'to the service' }); pool-rs.json models: $([bool]$settings.models); Node refresh running: $($running.Count)"
+  if (-not $PSCmdlet.ShouldProcess($settingsFile, "models: $(-not $Undo)")) { return }
+  if (-not $Undo) { foreach ($t in $oldTasks) { if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) { Disable-ScheduledTask -TaskName $t | Out-Null; Say "disabled '$t'" } } }
+  $settings | Add-Member -Force NoteProperty models (-not $Undo)
+  Write-Json $settingsFile $settings
+  Say "pool-rs.json models: $(-not $Undo)"
+  & (Join-Path $PSScriptRoot 'Restart-Pool-Rs.ps1') -Root $Root -Step service -TaskPrefix $TaskPrefix -Live:$Live
+  if ($Undo) { foreach ($t in $oldTasks) { if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) { Enable-ScheduledTask -TaskName $t | Out-Null; Say "enabled '$t'" } } }
+  if ($running.Count) { Say "a Node refresh (pid $($running.ProcessId -join ', ')) is still running; it finishes under the registry's lock" }
+  return
+}
+
+$new = Get-PoolRsTasks $TaskPrefix | Where-Object Key -eq $Step
+if (-not (Get-ScheduledTask -TaskName $new.Name -ErrorAction SilentlyContinue)) { throw "task '$($new.Name)' is not registered: run Install-Pool-Rs.ps1 -RegisterTasks first" }
 
 # The two jobs with no port: the tunnel's cloudflared and the daily backup.
 if ($Step -in 'tunnel', 'backup') {

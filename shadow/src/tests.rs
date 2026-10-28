@@ -865,7 +865,7 @@ async fn a_copy_admits_models_through_the_stand_in_and_publishes_its_registry() 
     let lines = std::sync::Mutex::new(Vec::<String>::new());
     let log = |l: &str| lines.lock().unwrap().push(l.to_string());
 
-    let registry = models::refresh(&t.dir, &prober, || Some(status.clone()), true, &log).await.unwrap();
+    let registry = models::refresh(&t.dir, &prober, || Some(status.clone()), true, None, &log).await.unwrap();
     let rows = models::read_probes(&t.dir).unwrap();
     let tried: Vec<String> = rows.iter().map(|r| format!("{} {}", r["model"].as_str().unwrap(), r["effort"].as_str().unwrap())).collect();
     assert_eq!(
@@ -893,7 +893,7 @@ async fn a_copy_admits_models_through_the_stand_in_and_publishes_its_registry() 
     assert!(lines.lock().unwrap().iter().any(|l| l.starts_with("sol     current=gpt-6.1-sol")), "{:?}", lines.lock().unwrap());
 
     // Fresh evidence: nothing to probe.
-    models::refresh(&t.dir, &prober, || Some(status.clone()), true, &log).await.unwrap();
+    models::refresh(&t.dir, &prober, || Some(status.clone()), true, None, &log).await.unwrap();
     assert_eq!(models::read_probes(&t.dir).unwrap().len(), 6);
 
     for f in ["model-families.json", "state/live-models.json", "state/model-lineage.json", "state/model-admission.jsonl", "logs/main.log", "logs/fake-proxy.jsonl"] {

@@ -4,6 +4,7 @@
 //! ([`fake_proxy`]) so no request reaches a provider. [`copy::guard`] refuses the live install.
 
 pub mod attempts;
+pub mod benchmarks;
 pub mod copy;
 pub mod desktop;
 pub mod edge;

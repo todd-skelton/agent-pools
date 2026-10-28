@@ -31,8 +31,10 @@ fn in_use(port: u16, e: std::io::Error) -> std::io::Error {
 /// `pools-shadow serve-service <root> [--live]`: pool-service.mjs. The dashboard and API on
 /// `supervisorPort` (the same pages and routes as a copy), the refresh loop, the proxy watch with
 /// its restarts, the usage ledger, the value report, the desktop relay on `desktopRelayPort` (TLS
-/// from `state/certs` when the pair is there), and the proxy child. The model refresh is not run
-/// here: Agent Pools' own scheduled tasks keep it.
+/// from `state/certs` when the pair is there), and the proxy child. With `--models` (or
+/// `pool-rs.json`'s `models: true`) also model-refresh.mjs's two scheduled tasks: the refresh
+/// hourly at :15 (admission probes with the real tools, the benchmark snapshots) and the recheck
+/// every five minutes ([`writer::models::run`]). A rehearsal never probes: its proxy is the stand-in.
 pub async fn serve_service(install: Install) -> std::io::Result<()> {
     super::normal_priority();
     let root = install.root.clone();
@@ -65,7 +67,30 @@ pub async fn serve_service(install: Install) -> std::io::Result<()> {
     );
     tokio::spawn(supervisor.start());
     let options = pool_core::refresh::Options { read_plans: true, ..Default::default() };
-    corten::serve_on(listeners, crate::app::app_copy(shadow, assets, copy, writer::Delays::default(), options)).await
+    let models = install.models() && !install.rehearsal;
+    let s = shadow.clone();
+    let app = crate::app::app_copy(shadow, assets, copy, writer::Delays::default(), options);
+    let app = if models {
+        println!("models: refresh hourly at :15, recheck every {} s", writer::models::RECHECK_EVERY.as_secs());
+        app.task("model-refresh", move |signal| {
+            let (status, changed) = (s.clone(), s);
+            writer::models::run(
+                root,
+                Arc::new(super::admission::Native::new(install.root.clone())),
+                Some(Arc::new(writer::benchmarks::Fetcher::default())),
+                move || {
+                    let now = crate::watch::now_ms();
+                    status.built(now).map(|b| (*b.status(now)).clone())
+                },
+                move || changed.changed_inputs(),
+                (writer::models::until_minute(15), writer::models::EVERY, writer::models::RECHECK_EVERY),
+                signal,
+            )
+        })
+    } else {
+        app
+    };
+    corten::serve_on(listeners, app).await
 }
 
 /// `pools-shadow serve-inference <root> [--live]`: inference-service.mjs. The relay over TLS on

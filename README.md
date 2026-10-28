@@ -44,7 +44,9 @@ Plan:
    15:46Z (about 16 s down), inference relay at 15:56Z (about 14 s), service with the tailnet
    dashboard at 16:00Z (about 10 s, proxy adopted, not restarted). Node's tasks for those four
    jobs are disabled, not removed. Model refresh, model recheck, backup and the cloudflare
-   tunnel still run on Node.
+   tunnel still ran on Node then; the tunnel and backup moved later that day (`tunnel`, `backup`),
+   and the model refresh and recheck into the service (`Cutover-Pool-Rs.ps1 -Step models`,
+   below).
 
 ## The shadow
 
@@ -229,7 +231,8 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   for Codex, its routing evidence from that log. Rows carry `standIn: true`, and the harness
   versions are the ones the copied registry recorded, so copied evidence keeps counting. The
   benchmark and arena fetches (external sites, one with a key) are not ported; the copy runs as
-  `benchmarks: false` and keeps the snapshot it was copied with. The stand-in's model lists are
+  `benchmarks: false` and keeps the snapshot it was copied with (the live service takes them:
+  [Live mode](#live-mode)). The stand-in's model lists are
   re-read hourly and on `POST live-models/refresh` (which `/api/refresh` sends). Agent Pools'
   lock and recheck tests are ported (`writer::models::tests`), and
   `a_copy_admits_models_through_the_stand_in_and_publishes_its_registry` runs a refresh end to end;
@@ -316,7 +319,41 @@ live install. `pools-shadow make-rehearsal <dest>` makes one: make-copy's files 
 secrets, desktop sign-in, machine key and TLS pair (rcgen, in no certificate store), ports
 8340-8344, and this program at `proxy/0.0.0-standin/cli-proxy-api.exe`, which runs as the
 stand-in when started as the proxy is (`-config <root>\proxy.yaml`) and refuses any other
-config. The model refresh stays with Agent Pools' scheduled tasks.
+config.
+
+The model refresh runs in the service when `pool-rs/pool-rs.json` says `"models": true` (or
+`serve-service` is given `--models`; a rehearsal never runs it): hourly at :15 and the recheck
+every five minutes, one at a time, as "Agent Pools - model refresh" and "- model recheck" ran
+`Run-Model-Refresh.vbs`, with the same lock, logs (`logs/model-refresh.log`,
+`logs/model-recheck.log`), evidence rows and registry. A refresh that overruns skips the marks
+it missed rather than drifting. The parts that were not ported for the copy are here:
+
+- admission probes with the real tools (`live::admission::Native`, model-admission.mjs): the
+  first `codex.exe`/`claude.exe` on `PATH`, no shell, the prompt on stdin, 240 s each, in a
+  directory of its own under the temp directory that is removed after; Codex's verdict needs
+  the pool's routing line in `logs/main.log`. Probing waits while a
+  `controller-release-battery.ps1` runs (found with the process list, not CIM). A tool's
+  `--version` is read again only when its executable changes, with a 90 s limit: Node read it
+  every run with 30 s, and its timing out failed the whole refresh about 13 times since 10-19;
+- the benchmark snapshots (`writer::benchmarks`, model-benchmarks.mjs and model-arena.mjs),
+  once the last is 20 hours old, started only in the run's first 26 minutes and stopped at 38:
+  Artificial Analysis (the key from `state/secrets.json`, never logged; every page of the cost
+  endpoint at one index version, or nothing published) and Arena (the Hugging Face dataset
+  pinned to the commit it read; Parquet read with the `parquet` crate, rows only, Snappy),
+  each an immutable file published by hard link, then its pointer written atomically.
+
+By hand, against the live install (2026-10-28): `pools-shadow fetch-benchmarks <root> --live
+--out <dir>` published both snapshots under `<dir>` in 5 s; the AA one is Node's of 09:15Z
+apart from its time and the two speed medians, which change between fetches (63 rows, 35 with
+a cost), and the Arena one is the same document. `model-refresh <root> --live --probe codex
+gpt-6-luna low` passed with its routing evidence (9 s) and `--probe claude claude-haiku-5-5
+low` with its model usage (29 s); `model-refresh <root> --live --no-probe` and Node's
+`model-refresh.mjs --no-probe` run one after the other wrote the same registry and lineage
+apart from their times (4.7 s and 9.4 s).
+
+Arena has published 0 rows since 2026-10-21 on both sides: the dataset now names models by
+display name ("Claude Opus 5.5 (Max)"), and the matching takes only "<id>-<effort>" (Node's
+rule, kept). Calibration's Arena row has had no data since.
 
 The proxy child keeps Node's record format (`state/process-proxy.json`, `{pid, creationDate}`),
 so either supervisor adopts what the other started. The port's `portOwner` reads the TCP

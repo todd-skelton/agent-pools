@@ -67,6 +67,11 @@ pub fn run() -> std::io::Result<()> {
         Some("render-dash") => return render_dash(),
         Some("make-copy") => return make_copy(),
         Some("make-rehearsal") => return make_rehearsal(),
+        Some(command @ ("model-refresh" | "fetch-benchmarks")) => {
+            let install = live::open_from_args(command)?;
+            let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+            return runtime.block_on(live::models_once(install, command));
+        }
         Some(command @ ("guardian" | "serve-service" | "serve-inference" | "serve-gateway")) => {
             let install = live::open_from_args(command)?;
             let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;

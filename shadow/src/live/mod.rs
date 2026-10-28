@@ -18,6 +18,7 @@
 //! `~/.codex/auth.json`, and the desktop relay's upstream is the stand-in's `/backend-api`
 //! instead of chatgpt.com.
 
+pub mod admission;
 pub mod guardian;
 pub mod machine;
 pub mod notify;
@@ -170,6 +171,12 @@ impl Install {
 pub const PORT_SETTINGS: &str = "pool-rs/pool-rs.json";
 
 impl Install {
+    /// Whether this service runs the model refresh: `--models` on its command line, or
+    /// `pool-rs/pool-rs.json`'s `models: true` (so the cutover is a settings change and a restart).
+    pub fn models(&self) -> bool {
+        std::env::args().any(|a| a == "--models") || read_json(&self.root.join(PORT_SETTINGS)).is_ok_and(|d| d.get("models") == Some(&Value::Bool(true)))
+    }
+
     /// The tailnet view from `pool-rs/pool-rs.json`, when it names one.
     pub fn tailnet(&self) -> Result<Option<crate::tailnet::Tailnet>, String> {
         let Ok(doc) = read_json(&self.root.join(PORT_SETTINGS)) else { return Ok(None) };
@@ -200,9 +207,68 @@ pub fn plain(p: PathBuf) -> PathBuf {
 pub fn open_from_args(command: &str) -> std::io::Result<Install> {
     let args: Vec<String> = std::env::args().skip(2).collect();
     let live = args.iter().any(|a| a == "--live");
-    let root = args.iter().find(|a| *a != "--live").ok_or_else(|| std::io::Error::other(format!("usage: pools-shadow {command} <root> [--live]")))?;
+    let root = args.iter().find(|a| !a.starts_with("--")).ok_or_else(|| std::io::Error::other(format!("usage: pools-shadow {command} <root> [--live]")))?;
     let live_root = crate::env_or("AGENT_POOLS_ROOT", crate::LIVE_ROOT);
     Install::open(Path::new(root), Path::new(&live_root), live)
+}
+
+/// `model-refresh <root> --live [--no-probe] [--recheck]`: one run of model-refresh.mjs by hand
+/// (the pool's status from the running service's `/api/status`, as it read it), its lines printed.
+/// `model-refresh <root> --live --probe <provider> <id> <effort>`: one probe with the real tool, its
+/// verdict printed and not recorded.
+/// `fetch-benchmarks <root> --live --out <dir>`: both benchmark snapshots taken now with the
+/// registry's identities, published under `<dir>/state/benchmarks` (nothing under `<root>` is
+/// written; the Artificial Analysis key is read from it).
+pub async fn models_once(install: Install, command: &str) -> std::io::Result<()> {
+    use crate::writer::{benchmarks, models};
+    let args: Vec<String> = std::env::args().collect();
+    let has = |f: &str| args.iter().any(|a| a == f);
+    let log = |l: &str| println!("{l}");
+    let fail = |e: String| std::io::Error::other(e);
+    if command == "fetch-benchmarks" {
+        let out = args.iter().position(|a| a == "--out").and_then(|i| args.get(i + 1)).ok_or_else(|| fail("usage: pools-shadow fetch-benchmarks <root> --live --out <dir>".into()))?;
+        let out = PathBuf::from(out);
+        if std::fs::canonicalize(&out).is_ok_and(|o| plain(o) == install.root) {
+            return Err(fail("--out must not be the install".into()));
+        }
+        let registry = read_json(&install.root.join("state/model-registry.json"))?;
+        let fetcher = benchmarks::Fetcher::default();
+        let deadline = crate::watch::now_ms() + models::BENCH_DEADLINE_MS;
+        for feed in benchmarks::Feed::ALL {
+            match fetcher.fetch_to(feed, &install.root, &out, &registry["identities"], deadline).await {
+                Ok(r) => log(&format!("{}: {}", feed.name(), pool_core::js::stringify(&r))),
+                Err(e) => log(&format!("{}: failed: {e}", feed.name())),
+            }
+        }
+        return Ok(());
+    }
+    let url = format!("{}/api/status", install.service_url());
+    let status = async {
+        let r = reqwest::Client::builder().no_proxy().build().ok()?.get(&url).timeout(std::time::Duration::from_secs(15)).send().await.ok()?;
+        if r.status().is_success() { r.json::<Value>().await.ok() } else { None }
+    }
+    .await;
+    let prober = admission::Native::new(install.root.clone());
+    if let Some(i) = args.iter().position(|a| a == "--probe") {
+        use crate::writer::models::Prober;
+        let [provider, id, effort] = [1, 2, 3].map(|k| args.get(i + k).cloned().unwrap_or_default());
+        if !pool_core::registry::safe_id(&id) || !["claude", "codex"].contains(&provider.as_str()) || !pool_core::registry::EFFORTS.contains(&effort.as_str()) {
+            return Err(fail("usage: --probe <claude|codex> <id> <effort>".into()));
+        }
+        log(&format!("harness {}", pool_core::js::stringify(&prober.harness_versions().await.map_err(fail)?)));
+        log(&format!("battery running: {}", prober.deferred()));
+        log(&pool_core::js::stringify(&prober.probe(&provider, &id, &effort).await));
+        return Ok(());
+    }
+    if has("--recheck") {
+        let rebuilt = models::recheck(&install.root, &prober, || status, &log).await.map_err(fail)?;
+        log(&format!("rebuilt: {rebuilt}"));
+    } else {
+        log(&format!("--- model-refresh {} pid={}", pool_core::js::iso(crate::watch::now_ms()), std::process::id()));
+        let fetcher = benchmarks::Fetcher::default();
+        models::refresh(&install.root, &prober, || status, !has("--no-probe"), Some(&fetcher), &log).await.map_err(fail)?;
+    }
+    Ok(())
 }
 
 /// Raises this process to normal priority: the scheduled tasks start below normal, which starved

@@ -38,8 +38,14 @@ rcgen = { version = "0.13", default-features = false, features = ["ring", "pem",
 uuid = { version = "1", features = ["v4"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
-# The live service's /api/summary, over plain HTTP on loopback (no TLS stack).
-reqwest = { version = "0.12", default-features = false, features = ["json"] }
+# The live service's /api/summary, over plain HTTP on loopback; the benchmark snapshots
+# (writer::benchmarks) over TLS (rustls, as the gateway's).
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# The Arena snapshot reads the dataset's Parquet files (rows, no Arrow; Snappy is what it uses).
+parquet = { version = "60", default-features = false, features = ["snap"] }
+bytes = "1"
+# The benchmark name matching (already in the tree through pool-core).
+regex = "1"
 # The stand-in's WebSocket for /v1/responses (all three already in Corten's and the gateway's tree).
 hyper = { version = "1", default-features = false, features = ["http1", "server"] }
 hyper-util = { version = "0.1", default-features = false, features = ["tokio"] }

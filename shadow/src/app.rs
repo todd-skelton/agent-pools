@@ -87,6 +87,7 @@ pub fn app_copy(
             crate::writer::models::run(
                 root,
                 prober,
+                None,
                 move || {
                     let now = now_ms();
                     status.built(now).map(|b| (*b.status(now)).clone())
