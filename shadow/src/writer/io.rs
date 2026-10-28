@@ -34,12 +34,38 @@ pub struct FileIo {
     zone: Zone,
     versions: Mutex<(f64, HashMap<String, String>)>,
     policies: Mutex<(Option<Vec<ResetPolicy>>, String)>,
-    /// Serializes rotate-then-append so concurrent events never split or lose a line.
-    append_lock: Mutex<()>,
+    /// Toasts are shown on the desktop (the service itself), not written to `logs/toasts.jsonl`.
+    desktop_toasts: bool,
 }
 
 pub fn now_ms() -> f64 {
     crate::watch::now_ms()
+}
+
+/// One process's appends, so concurrent events never split or lose a line.
+static APPEND: Mutex<()> = Mutex::new(());
+
+/// events.mjs `createEventLog(file)(type, details)`: rotate past 5 MiB, then append one line.
+pub fn append_event(file: &Path, kind: &str, details: Value) -> std::io::Result<()> {
+    let _guard = APPEND.lock().unwrap_or_else(|e| e.into_inner());
+    if std::fs::metadata(file).is_ok_and(|m| m.len() > MAX_LOG_BYTES) {
+        let _ = std::fs::rename(file, file.with_extension("jsonl.1"));
+    }
+    let mut line = Map::new();
+    line.insert("at".into(), json!(js::iso(now_ms())));
+    line.insert("type".into(), json!(kind));
+    if let Value::Object(d) = details {
+        line.extend(d);
+    }
+    if let Some(dir) = file.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    use std::io::Write;
+    std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(file)
+        .and_then(|mut f| f.write_all(format!("{}\n", js::stringify(&Value::Object(line))).as_bytes()))
 }
 
 impl FileIo {
@@ -56,8 +82,14 @@ impl FileIo {
             zone: Zone::from_env(),
             versions: Mutex::new((f64::NEG_INFINITY, HashMap::new())),
             policies: Mutex::new((None, String::new())),
-            append_lock: Mutex::new(()),
+            desktop_toasts: false,
         }
+    }
+
+    /// The same, showing toasts on the desktop as notifications.mjs `toast` does.
+    pub fn with_desktop_toasts(mut self) -> FileIo {
+        self.desktop_toasts = true;
+        self
     }
 
     fn path(&self, rel: &str) -> PathBuf {
@@ -81,29 +113,9 @@ impl FileIo {
         let _ = self.append(rel, kind, details);
     }
 
-    /// `createEventLog(file)(type, details)`: rotate past 5 MiB, then append one line.
+    /// `createEventLog(file)(type, details)` for one of the install's logs.
     fn append(&self, rel: &str, kind: &str, details: Value) -> Result<(), Failure> {
-        let file = self.path(rel);
-        let _guard = self.append_lock.lock().unwrap_or_else(|e| e.into_inner());
-        if std::fs::metadata(&file).is_ok_and(|m| m.len() > MAX_LOG_BYTES) {
-            let _ = std::fs::rename(&file, file.with_extension("jsonl.1"));
-        }
-        let mut line = Map::new();
-        line.insert("at".into(), json!(js::iso(now_ms())));
-        line.insert("type".into(), json!(kind));
-        if let Value::Object(d) = details {
-            line.extend(d);
-        }
-        if let Some(dir) = file.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| Failure::new(e.to_string()))?;
-        }
-        use std::io::Write;
-        std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&file)
-            .and_then(|mut f| f.write_all(format!("{}\n", js::stringify(&Value::Object(line))).as_bytes()))
-            .map_err(|e| Failure::new(e.to_string()))
+        append_event(&self.path(rel), kind, details).map_err(|e| Failure::new(e.to_string()))
     }
 
     /// pool-service.mjs `management(endpoint, body, method)`.
@@ -173,6 +185,9 @@ impl Io for FileIo {
     }
 
     async fn toast(&self, title: &str, body: &str) -> Result<(), Failure> {
+        if self.desktop_toasts {
+            return crate::live::notify::toast(title, body).await.map_err(Failure::new);
+        }
         self.append("logs/toasts.jsonl", "toast", json!({ "title": title, "body": body }))
     }
 

@@ -37,7 +37,7 @@ pub fn guard(root: &Path, live: &Path) -> Result<PathBuf, Refused> {
 }
 
 /// Refused when `root` (canonical) is the live install, inside it or holding it.
-fn apart(root: &Path, live: &Path) -> Result<(), Refused> {
+pub(crate) fn apart(root: &Path, live: &Path) -> Result<(), Refused> {
     let lower = |p: &Path| p.to_string_lossy().to_lowercase();
     if let Ok(live) = std::fs::canonicalize(live) {
         let (r, l) = (lower(root), lower(&live));

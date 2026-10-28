@@ -66,7 +66,7 @@ pub fn app_copy(
             crate::writer::run(copy, delays, options, move || w.changed_inputs(), signal)
         })
         .task("check-proxy", move |signal| {
-            crate::writer::health::run(watch.io.clone(), watch.health.clone(), watch.trigger.clone(), crate::writer::health::EVERY, signal)
+            crate::writer::health::run(watch.io.clone(), watch.health.clone(), watch.trigger.clone(), watch.supervisor.clone(), crate::writer::health::EVERY, signal)
         })
         .task("usage-ledger", move |signal| {
             crate::writer::ledger::run(drain.ledger.clone(), drain.io.clone(), drain.health.clone(), std::time::Duration::from_secs(5), move || d.changed_inputs(), signal)

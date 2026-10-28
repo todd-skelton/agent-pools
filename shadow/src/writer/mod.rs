@@ -33,7 +33,8 @@ pub struct Copy {
     pub trigger: Arc<Trigger>,
     pub ledger: Arc<ledger::Ledger>,
     /// pool-service.mjs `closing`: set once the copy begins to stop; writes get 503 from then on.
-    pub closing: AtomicBool,
+    /// Shared with the proxy supervisor, which stops acting once it is set.
+    pub closing: Arc<AtomicBool>,
     /// What `POST /api/shutdown` must present as a Bearer (pool-service.mjs `keys.managementKey`):
     /// made up for the run.
     pub management_key: String,
@@ -43,6 +44,9 @@ pub struct Copy {
     /// The model refresh's prober, with the scheduled tasks' delays (first refresh, refresh,
     /// recheck); none: the copy does not refresh its model registry.
     pub models: Option<(Arc<models::StandIn>, (Duration, Duration, Duration))>,
+    /// The proxy child, when this process supervises it (`serve-service`); a copy's stand-in
+    /// lives in this process and has none.
+    pub supervisor: Option<Arc<crate::live::proxy::Supervisor>>,
 }
 
 impl Copy {
@@ -56,11 +60,18 @@ impl Copy {
             trigger: Default::default(),
             ledger,
             io,
-            closing: AtomicBool::new(false),
+            closing: Arc::new(AtomicBool::new(false)),
             management_key: format!("management-{}", uuid::Uuid::new_v4().simple()),
             begin_shutdown: Box::new(corten::shutdown),
             models: None,
+            supervisor: None,
         }
+    }
+
+    /// The same, supervising the proxy with `supervisor` (its restarts follow the proxy watch).
+    pub fn with_supervisor(mut self, supervisor: Arc<crate::live::proxy::Supervisor>) -> Copy {
+        self.supervisor = Some(supervisor);
+        self
     }
 
     /// The same, with `key` as the management key.

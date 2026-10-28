@@ -75,6 +75,27 @@ type Shared = Arc<Fake>;
 /// Serves the stand-in on 127.0.0.1 (a free port) for the copy at `root`, accepting `key`, until
 /// the process ends. Returns its base URL.
 pub async fn start(root: PathBuf, key: String, client_key: Option<String>) -> std::io::Result<String> {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+    let url = format!("http://{}", listener.local_addr()?);
+    let app = app(root, key, client_key);
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+    Ok(url)
+}
+
+/// Serves the stand-in on `listener` until the process ends: a rehearsal's proxy, as its own
+/// process (`live::rehearsal::stand_in`).
+pub async fn serve(listener: tokio::net::TcpListener, root: PathBuf, key: String, client_key: Option<String>) -> std::io::Result<()> {
+    axum::serve(listener, app(root, key, client_key)).await
+}
+
+/// The proxy's `/healthz`: up, with no lock taken and nothing called upstream.
+async fn healthz() -> AxumJson<Value> {
+    AxumJson(json!({ "status": "ok" }))
+}
+
+fn app(root: PathBuf, key: String, client_key: Option<String>) -> Router {
     let state = std::fs::read_to_string(root.join("state/pool-state.json")).unwrap_or_default();
     let state: Value = serde_json::from_str(state.trim_start_matches('\u{feff}')).unwrap_or(Value::Null);
     let accounts = js::values(state.get("accounts")).into_iter().cloned().collect();
@@ -95,7 +116,8 @@ pub async fn start(root: PathBuf, key: String, client_key: Option<String>) -> st
         lists_at: Mutex::new(started),
         zone: crate::dash::fmt::Zone::from_env(),
     });
-    let app = Router::new()
+    Router::new()
+        .route("/healthz", get(healthz))
         .route("/v0/management/auth-files", get(auth_files))
         .route("/v0/management/auth-files/fields", patch(fields))
         .route("/v0/management/api-call", post(api_call))
@@ -115,13 +137,7 @@ pub async fn start(root: PathBuf, key: String, client_key: Option<String>) -> st
         .route("/v1/models/{id}", get(models))
         .route("/backend-api/wham/usage", get(desktop_usage))
         .route("/backend-api/{*rest}", axum::routing::any(desktop_other))
-        .with_state(fake);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
-    let url = format!("http://{}", listener.local_addr()?);
-    tokio::spawn(async move {
-        let _ = axum::serve(listener, app).await;
-    });
-    Ok(url)
+        .with_state(fake)
 }
 
 impl Fake {

@@ -1,7 +1,8 @@
 //! The desktop relay on the copy (pool-service.mjs's desktop relay listener): Agent Pools'
 //! backend relay (`pools_gateway::backend`) with the pool-wide usage overlay over the copy's own
 //! accounts, in front of the stand-in's `/backend-api` (`fake_proxy`), never chatgpt.com. Plain
-//! HTTP: the TLS pair in the live install's `state/certs` is not copied.
+//! HTTP: the TLS pair in the live install's `state/certs` is not copied. The service in live mode
+//! (`live::services`) serves the same relay with that pair (`start_with`).
 
 use std::sync::Arc;
 
@@ -34,32 +35,48 @@ pub const RETRY: std::time::Duration = std::time::Duration::from_secs(30);
 /// (`desktop-relay-listening`); `[::1]` on a system without IPv6 is said once and left. Port 0
 /// (tests) binds `127.0.0.1` at once and serves that only.
 pub async fn start(io: Arc<FileIo>, upstream: &str, port: u16, retry: std::time::Duration) -> std::io::Result<u16> {
-    // No TLS pair is copied, as pool-service.mjs says when state/certs has none.
-    io.log_event("desktop-relay-tls-missing", serde_json::json!({ "certDir": "state/certs", "origin": format!("http://127.0.0.1:{port}") }));
+    start_with(io, upstream, port, retry, None).await
+}
+
+/// One listener of the relay's, behind `tls` when there is a pair.
+async fn serve_relay(listener: tokio::net::TcpListener, tls: Option<tokio_rustls::TlsAcceptor>, app: corten::App<pools_gateway::backend::Hosts>) -> std::io::Result<()> {
+    match tls {
+        Some(acceptor) => corten::serve_on(vec![crate::live::tls::listener(listener, acceptor)?], app).await,
+        None => corten::serve_on(vec![listener], app).await,
+    }
+}
+
+/// [`start`], over TLS with `tls` (the pair in `state/certs`, as pool-service.mjs serves it with
+/// `https.createServer`); without it plain HTTP, said once (`desktop-relay-tls-missing`).
+pub async fn start_with(io: Arc<FileIo>, upstream: &str, port: u16, retry: std::time::Duration, tls: Option<tokio_rustls::TlsAcceptor>) -> std::io::Result<u16> {
+    let scheme = if tls.is_some() { "https" } else { "http" };
+    if tls.is_none() {
+        io.log_event("desktop-relay-tls-missing", serde_json::json!({ "certDir": "state/certs", "origin": format!("http://localhost:{port}") }));
+    }
     let app = |port: u16| -> std::io::Result<corten::App<pools_gateway::backend::Hosts>> { relay_app(io.clone(), upstream, port) };
     if port == 0 {
         let v4 = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await?;
         let port = v4.local_addr()?.port();
         let app = app(port)?;
         tokio::spawn(async move {
-            if let Err(e) = corten::serve_on(vec![v4], app).await {
+            if let Err(e) = serve_relay(v4, tls, app).await {
                 eprintln!("copy: the desktop relay stopped: {e}");
             }
         });
         return Ok(port);
     }
     for host in ["127.0.0.1", "::1"] {
-        let (io, app) = (io.clone(), app(port)?);
+        let (io, app, tls) = (io.clone(), app(port)?, tls.clone());
         tokio::spawn(async move {
             let mut down = false;
             loop {
                 match tokio::net::TcpListener::bind((host, port)).await {
                     Ok(listener) => {
                         if down {
-                            io.log_event("desktop-relay-listening", serde_json::json!({ "host": host, "port": port, "tls": false }));
+                            io.log_event("desktop-relay-listening", serde_json::json!({ "host": host, "port": port, "tls": tls.is_some() }));
                         }
-                        println!("copy: desktop relay listening on {host}:{port}");
-                        if let Err(e) = corten::serve_on(vec![listener], app).await {
+                        println!("desktop relay: {scheme}://localhost:{port} on {host}");
+                        if let Err(e) = serve_relay(listener, tls, app).await {
                             eprintln!("copy: the desktop relay on {host} stopped: {e}");
                         }
                         return;

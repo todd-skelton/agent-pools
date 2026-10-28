@@ -16,7 +16,12 @@ pools-gateway = { path = "../gateway" }
 corten = { git = "https://github.com/todd-skelton/corten", rev = "1149c5a", features = ["json", "compress"] }
 # The dashboard's live stream (corten::live takes a Stream).
 futures-util = { version = "0.3", default-features = false }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "net"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "net", "process", "signal"] }
+# Live mode (src/live): the desktop and inference relays over TLS from state/certs, as Agent Pools
+# serves them (rustls with ring, already in the tree through reqwest).
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+# make-rehearsal's self-signed pair for the relays (no certificate store touched).
+rcgen = { version = "0.13", default-features = false, features = ["ring", "pem", "crypto"] }
 # A Claude claim's request id on the copy's write side.
 uuid = { version = "1", features = ["v4"] }
 serde = { version = "1", features = ["derive"] }
@@ -27,6 +32,11 @@ reqwest = { version = "0.12", default-features = false, features = ["json"] }
 hyper = { version = "1", default-features = false, features = ["http1", "server"] }
 hyper-util = { version = "0.1", default-features = false, features = ["tokio"] }
 tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect", "handshake"] }
+# Live mode's process checks (alive, kill, priority), as Node's process.kill and os.setPriority do
+# them; already in the tree through tokio.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_NetworkManagement_IpHelper", "Win32_Networking_WinSock"] }
+
 [dev-dependencies]
 # The refresh loop's tests run on a paused clock.
 tokio = { version = "1", features = ["test-util"] }

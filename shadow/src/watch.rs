@@ -182,7 +182,11 @@ impl Shadow {
     /// watch (`holds`) and ledger (`usageLedger`); otherwise the live service's last answer.
     pub fn memory(&self) -> pool_core::status::Live {
         match self.copy.get() {
-            Some(c) => pool_core::status::Live { holds: c.health.holds(), usage_ledger: Some(c.ledger.stats()), ..Default::default() },
+            Some(c) => pool_core::status::Live {
+                processes: c.supervisor.as_ref().map(|s| s.processes()),
+                holds: c.health.holds(),
+                usage_ledger: Some(c.ledger.stats()),
+            },
             None => self.live_memory(),
         }
     }

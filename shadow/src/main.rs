@@ -17,6 +17,7 @@
 
 mod app;
 mod dash;
+mod live;
 mod parity;
 mod served;
 mod sources;
@@ -55,6 +56,27 @@ fn main() -> std::io::Result<()> {
         Some("check-registry") => return check_registry_once(),
         Some("render-dash") => return render_dash(),
         Some("make-copy") => return make_copy(),
+        Some("make-rehearsal") => return make_rehearsal(),
+        Some(command @ ("guardian" | "serve-service" | "serve-inference" | "serve-gateway")) => {
+            let install = live::open_from_args(command)?;
+            let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+            return match command {
+                "guardian" => runtime.block_on(live::guardian::run(install)),
+                "serve-service" => runtime.block_on(live::services::serve_service(install)),
+                "serve-inference" => runtime.block_on(live::services::serve_inference(install)),
+                _ => runtime.block_on(live::services::serve_gateway(install)),
+            };
+        }
+        // Started as the proxy is (`cli-proxy-api.exe -config <root>\proxy.yaml`): a rehearsal's
+        // stand-in (live::rehearsal), refused on any other config.
+        Some("-config" | "--config") => {
+            let config = std::env::args().nth(2).ok_or_else(|| std::io::Error::other("usage: cli-proxy-api.exe -config <rehearsal>\\proxy.yaml"))?;
+            let live = env_or("AGENT_POOLS_ROOT", LIVE_ROOT);
+            return tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()?
+                .block_on(live::rehearsal::stand_in(std::path::Path::new(&config), std::path::Path::new(&live)));
+        }
         Some("run-copy") => {
             return tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
@@ -131,6 +153,17 @@ fn make_copy() -> std::io::Result<()> {
     let dest = std::env::args().nth(2).ok_or_else(|| std::io::Error::other("usage: pools-shadow make-copy <dest>"))?;
     let live = sources::Install::new(env_or("AGENT_POOLS_ROOT", LIVE_ROOT));
     for p in writer::copy::make_copy(&live, std::path::Path::new(&dest))? {
+        println!("{}", p.display());
+    }
+    Ok(())
+}
+
+/// `pools-shadow make-rehearsal <dest>`: a copy the live commands may run on (live::rehearsal),
+/// its secrets, sign-ins, certificates and proxy made up. Reads the live install as make-copy does.
+fn make_rehearsal() -> std::io::Result<()> {
+    let dest = std::env::args().nth(2).ok_or_else(|| std::io::Error::other("usage: pools-shadow make-rehearsal <dest>"))?;
+    let live = sources::Install::new(env_or("AGENT_POOLS_ROOT", LIVE_ROOT));
+    for p in live::rehearsal::make(&live, std::path::Path::new(&dest), &std::env::current_exe()?)? {
         println!("{}", p.display());
     }
     Ok(())

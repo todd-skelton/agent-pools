@@ -35,7 +35,11 @@ Plan:
    proxy-takeover.mjs's adopt, spawn or wait plan) pass Agent Pools' own tests of them
    (`cargo test -p pool-core --test supervise`, 12, from platform.test.mjs and
    proxy-takeover.test.mjs, copied to `reference/agent-pools/`).
-5. Cutover: only with Todd's go-ahead.
+5. Cutover: only with Todd's go-ahead. Ready to rehearse (2026-10-28): the live commands
+   (`guardian`, `serve-service`, `serve-inference`, `serve-gateway`, below) run each Node
+   process's job with its ports, files and event logs, and were rehearsed on a made-up install
+   with the stand-in as a separate proxy process. Not yet done: the versioned install folder,
+   the `.vbs` wrappers and scheduled tasks, and the cutover itself.
 
 ## The shadow
 
@@ -285,8 +289,64 @@ pool-service.mjs compresses nothing. Measured on 2026-10-28:
 Cargo features are unified per build, so the gateway and relays in the same binary compress
 too. A relayed `/v1/responses` stream asked for with `Accept-Encoding: zstd` comes back
 `content-encoding: zstd` (314 bytes against 726), where Agent Pools' relays pass the stream as
-it is. Corten has no per-App or per-`Relay` opt-out other than `Cache-Control: no-transform`:
-[corten#205 With compress on, a Relay's answer is re-encoded per connection, so a gateway holds a 480 KiB coder for every relayed model stream and cannot opt out](https://github.com/todd-skelton/corten/issues/205).
+it is. That was [corten#205 With compress on, a Relay's answer is re-encoded per connection, so a gateway holds a 480 KiB coder for every relayed model stream and cannot opt out](https://github.com/todd-skelton/corten/issues/205);
+since `1149c5a` ([corten#240 A Relay's answer is passed on as it came with compress on](https://github.com/todd-skelton/corten/pull/240))
+a `Relay`'s answer passes as it came, and `Relay::compressed()` opts back in.
+
+### Live mode
+
+`shadow/src/live/` runs Agent Pools' own processes, one command each, on an install named on
+the command line (nothing defaults to the live one):
+
+| Command | Agent Pools | Ports (install.json, default) |
+|---|---|---|
+| `guardian <root>` | pool-guardian.mjs | none |
+| `serve-service <root>` | pool-service.mjs, with the desktop relay and the proxy child | `supervisorPort` 8318, `desktopRelayPort` 8000 (TLS) |
+| `serve-inference <root>` | inference-service.mjs | `inferenceRelayPort` 8319 (TLS) |
+| `serve-gateway <root>` | public-gateway-service.mjs | `publicGateway.port` 8330 |
+
+`Install::open` accepts the live install only with `--live`, refuses `--live` on any other
+root, and opens any other root only as a rehearsal (`state/rehearsal.json`) apart from the
+live install. `pools-shadow make-rehearsal <dest>` makes one: make-copy's files plus made-up
+secrets, desktop sign-in, machine key and TLS pair (rcgen, in no certificate store), ports
+8340-8344, and this program at `proxy/0.0.0-standin/cli-proxy-api.exe`, which runs as the
+stand-in when started as the proxy is (`-config <root>\proxy.yaml`) and refuses any other
+config. The model refresh stays with Agent Pools' scheduled tasks.
+
+The proxy child keeps Node's record format (`state/process-proxy.json`, `{pid, creationDate}`),
+so either supervisor adopts what the other started. The port's `portOwner` reads the TCP
+table (`GetExtendedTcpTable`); `Get-NetTCPConnection` took 27 s here, past the 20 s lookup
+limit, and a takeover without a record then waited forever (`port-held-unidentified`). Its
+`powershell` pipes the child's output; without that the CIM lookups read nothing, every spawn
+logged `process-record-error`, and `a_running_process_reads_with_its_identity` caught it.
+
+Rehearsed on 2026-10-28 (`shadow-state/rehearsal`, scripts `target/rehearse-*.ps1`):
+
+1. The guardian started the service, which spawned the stand-in and wrote its record.
+   `/api/health`, the dashboard and `/api/summary` answered 200, and so did the desktop relay over
+   HTTPS (plain HTTP failed). The inference relay over HTTPS answered `POST /v1/responses` 200
+   with the desktop token and 401 with another. The gateway gave 200 with the machine key and
+   401 with another.
+2. A service started with the proxy running and no record found it by its port, adopted it
+   (`process-adopted`) and wrote the record.
+3. The adopted proxy, ended, was gone within 10 s (`process-exit`, `adopted`) and a new one was
+   spawned with a new record. The spawned one, ended, came back after 10 s (`process-exit`,
+   `retryInMs` 10000).
+4. `state/guardian-stop.request` stopped the guardian, which stopped the service through
+   `/api/shutdown` (`supervisor-stopping`). The proxy kept running, and the next guardian's
+   service adopted the same PID from the record.
+5. The service, ended, was restarted by the guardian (`supervisor-exit`), and the new one
+   adopted the same proxy.
+
+Resources, measured over 60 s on 2026-10-28 at about 13:19Z. The Node processes serve the real pool,
+and the port serves the rehearsal with no outside traffic, so CPU is not like for like:
+
+| Process | Node working set / private | Port working set / private | CPU per 60 s, Node / port |
+|---|---|---|---|
+| guardian | 20.2 / 73.6 MB | 11.3 / 2.0 MB | 62 / 47 ms |
+| service | 74.8 / 124.6 MB | 35.9 / 26.3 MB | 1,031 / 516 ms |
+| inference relay | 58.3 / 110.9 MB | 10.9 / 2.2 MB | 2,359 / 0 ms |
+| public gateway | 6.2 / 76.1 MB | 9.9 / 2.2 MB | 0 / 0 ms |
 
 ### The tailnet view
 
@@ -309,8 +369,8 @@ JSON. `the_tailnet_reads_and_only_its_owner_writes` holds the rules through the 
 Not ported from pool-service.mjs, and why:
 
 1. Starting, adopting and restarting the proxy child (`child`, `adopt`, `planTakeover`) and
-   `processes` on `/api/status`: the copy's proxy is the in-process stand-in. This is the live
-   install's process management; it belongs to cutover.
+   `processes` on `/api/status`: the copy's proxy is the in-process stand-in. Live mode has
+   them (below).
 
 Measured on 2026-10-27: a POST at 13:11:12.40Z started a cycle at 13:11:12.58Z; cycles saved the
 copy's pool state and forecast, and appended usage samples only for windows whose use changed.

@@ -2,8 +2,9 @@
 //! stand-in's `auth-files` answers with a `files` list), then `readHolds` (the proxy's provider
 //! outage hold counters, `outage-holds`), whose transitions (notifications.mjs `holdTransition`)
 //! are logged and toasted. A first healthy answer starts a refresh when the writer's own start did
-//! not find the proxy (`bootstrapped`). Restarting the proxy is not ported: the copy's proxy is
-//! the stand-in, which this process owns.
+//! not find the proxy (`bootstrapped`). Restarting the proxy is the service's
+//! (`live::proxy::Supervisor::after_check`); a copy's proxy is the stand-in, which this process
+//! owns, and is never restarted.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -129,10 +130,14 @@ pub async fn check(io: &FileIo, health: &Health, trigger: &Trigger) {
     }
 }
 
-/// `setInterval(checkProxy, 10000)` until the app stops.
-pub async fn run(io: Arc<FileIo>, health: Arc<Health>, trigger: Arc<Trigger>, every: Duration, signal: corten::Signal) {
+/// `setInterval(checkProxy, 10000)` until the app stops; with a `supervisor`, each reading also
+/// feeds its restart policy.
+pub async fn run(io: Arc<FileIo>, health: Arc<Health>, trigger: Arc<Trigger>, supervisor: Option<Arc<crate::live::proxy::Supervisor>>, every: Duration, signal: corten::Signal) {
     loop {
         check(&io, &health, &trigger).await;
+        if let Some(s) = &supervisor {
+            s.after_check(health.healthy()).await;
+        }
         tokio::select! {
             _ = tokio::time::sleep(every) => {}
             _ = signal.aborted() => return,
