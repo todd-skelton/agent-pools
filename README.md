@@ -38,8 +38,9 @@ Plan:
 5. Cutover: only with Todd's go-ahead. Ready to rehearse (2026-10-28): the live commands
    (`guardian`, `serve-service`, `serve-inference`, `serve-gateway`, below) run each Node
    process's job with its ports, files and event logs, and were rehearsed on a made-up install
-   with the stand-in as a separate proxy process. Not yet done: the versioned install folder,
-   the `.vbs` wrappers and scheduled tasks, and the cutover itself.
+   with the stand-in as a separate proxy process. The install (`deploy/`, below) and every
+   cutover step, forward and back, were rehearsed against Agent Pools' own Node processes on
+   the same made-up install. Not done: the cutover itself.
 
 ## The shadow
 
@@ -347,6 +348,60 @@ and the port serves the rehearsal with no outside traffic, so CPU is not like fo
 | service | 74.8 / 124.6 MB | 35.9 / 26.3 MB | 1,031 / 516 ms |
 | inference relay | 58.3 / 110.9 MB | 10.9 / 2.2 MB | 2,359 / 0 ms |
 | public gateway | 6.2 / 76.1 MB | 9.9 / 2.2 MB | 0 / 0 ms |
+
+### Install and cutover
+
+`deploy/` holds three scripts and the wrapper:
+
+1. `Install-Pool-Rs.ps1 -Root <install> -Exe <pools-shadow.exe> -Version <v> [-RegisterTasks]`
+   copies the build and its static files into `<install>\pool-rs\<v>` (with `build.json`: SHA-256
+   and commit). A version is never replaced. It writes `pool-rs\Run-Pool-Rs.vbs` and
+   `pool-rs\pool-rs.json` (`current`, `previous`, `tailnet`), and registers
+   "Agent Pools (rs) - subscriptions", "- inference relay" and "- public gateway" as Agent Pools
+   registers its own (logon plus a 5-minute keepalive, IgnoreNew; the relays restart on
+   failure, the gateway at priority 4). New tasks start disabled. `-Use <v>` points
+   `current` back at an installed version. Agent Pools' own files are not changed; the
+   service reads its tailnet view from `pool-rs.json`, not tailnet-dashboard-proxy.mjs.
+2. `Run-Pool-Rs.vbs <command>` starts `pool-rs\<current>\pools-shadow.exe <command> <install>`
+   through wscript with no console, waiting, as Run-Pool-Guardian.vbs starts node. It adds
+   `--live` unless the install is a rehearsal.
+3. `Cutover-Pool-Rs.ps1 -Root <install> -Step gateway|inference|service [-Undo] [-Tailnet]`
+   moves one job between the Node task and the port's. It disables the Node task (never deletes
+   it) and stops the Node process: for the service through `state\guardian-stop.request`, which
+   leaves the proxy running. It then enables and starts the port's task and waits for the port
+   to listen, the health check to pass and, for the service, the same proxy PID to be adopted.
+   `-Undo` is the same step backwards. A step that is already done is safe to run again.
+   `-WhatIf` changes nothing.
+
+Both scripts refuse the live install without `-Live`, and any other root that is not a rehearsal.
+Installed programs find their static files beside themselves (`static\shadow`,
+`static\gateway`). Corten has no way to build them in:
+[corten#268 Static files are a directory found at run time, so a built program cannot be deployed by itself and each app writes its own lookup](https://github.com/todd-skelton/corten/issues/268).
+
+Rehearsed on 2026-10-28 on `shadow-state/rehearsal`. Agent Pools' own `.mjs` files were copied
+there and run by rehearsal tasks ("Agent Pools rehearsal (node) - subscriptions", "- public
+gateway") on the rehearsal's ports, against the stand-in proxy. The port's tasks were
+"Agent Pools rehearsal (rs) - ...". Times are measured:
+
+1. Node's service adopted the proxy the port had started (PID 142292) from its record.
+2. Gateway: Node to the port with an outage of 17 s (stopped 14:07:30Z, the port listening and
+   answering at 14:07:47Z). Back to Node took 16 s, and forward again was a no-op. There is no
+   Node inference relay on a rehearsal (it reads the desktop's sign-in), so that step was the
+   port's side only: listening and `/health` 200 in 41 s, most of it waiting on lookups.
+3. Service, three times (forward, back, forward): Node's guardian stopped on the stop file in
+   4-5 s, and the next service adopted proxy 142292 each time ("adopted, not restarted"). The
+   port's `/api/health` was down for 27-40 s per handover, Node's for 36 s.
+4. Killing the guardian and the service together left the pool down until the next 5-minute
+   keepalive (185 s in one run, 203 s in another), then it came back on the same proxy. The
+   same holds for Agent Pools: its guardian is not watched by anything but that trigger.
+5. A cold start from the task to `/api/health` 200 took 25.7 s. Of that, 16.8 s passed before the
+   guardian process existed (Task Scheduler and wscript) and 8 s more before the service did.
+   Where those 8 s go is not yet measured; the guardian only reads the secrets and asks
+   `/api/health` (1 s timeout) before it starts the service.
+
+Found and fixed while rehearsing: the scripts read the port's owner from `netstat`, since
+`Get-NetTCPConnection` took 27 s per call here. They also match the service's command line with
+the install path unquoted, as the guardian starts it.
 
 ### The tailnet view
 
