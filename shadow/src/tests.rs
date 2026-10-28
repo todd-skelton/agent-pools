@@ -140,6 +140,22 @@ async fn api_summary_is_pool_cores_summary_in_javascripts_bytes() {
 }
 
 #[tokio::test]
+async fn the_service_pages_drop_the_shadow_marks() {
+    let t = snapshot("service-marks", false);
+    let (_, shadow_page) = get(router(&t), "/accounts").await;
+    assert!(shadow_page.contains("shadow-tag") && shadow_page.contains("(shadow)</title>") && shadow_page.contains("href=\"/parity\""));
+    let shadow = Shadow::new(t.install(), "(the service: not compared)".into(), t.dir.join("parity.jsonl"));
+    let _ = shadow.service.set(());
+    let app = crate::app::app(shadow, std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"), Duration::from_secs(5), Duration::from_secs(60)).router();
+    let (status, page) = get(app, "/accounts").await;
+    assert_eq!(status, StatusCode::OK, "{page}");
+    assert!(page.contains("<title>Accounts · Agent pools</title>"), "{page}");
+    for mark in ["shadow-tag", "(shadow)", "href=\"/parity\""] {
+        assert!(!page.contains(mark), "the service's page has no {mark}");
+    }
+}
+
+#[tokio::test]
 async fn api_status_leaves_out_credit_ids_and_auth() {
     let t = snapshot("status", false);
     let (status, body) = get(router(&t), "/api/status").await;

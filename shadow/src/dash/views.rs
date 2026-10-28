@@ -81,8 +81,13 @@ const READ_ONLY: &str = "Done on the live dashboard (port 8318): the shadow only
 /// account" opens the sign-in steps; the read-only shadow shows both disabled. The tabs are
 /// the shell's nav (`req.nav`): Corten marks the one for this page's path current, here and
 /// after each swap, so none is current on the sign-in page.
+/// A page title: the live service's as given, a shadow's or a copy's marked "(shadow)".
+pub fn titled(title: &str, service: bool) -> String {
+    if service { title.to_string() } else { format!("{title} (shadow)") }
+}
+
 #[component]
-pub fn Dash<'a>(req: &'a Req, title: &'a str, header: &'a Header, writable: bool, children: impl Render) -> impl Document {
+pub fn Dash<'a>(req: &'a Req, title: &'a str, header: &'a Header, writable: bool, service: bool, children: impl Render) -> impl Document {
     let accounts = url::Accounts { filter: None, open: None };
     html! {
         <!DOCTYPE html>
@@ -97,7 +102,12 @@ pub fn Dash<'a>(req: &'a Req, title: &'a str, header: &'a Header, writable: bool
             <body>
                 <header class="bar">
                     <div class="bar-in">
-                        <div class="brand"><span class="logo"></span>"Agent pools"<span class="shadow-tag" title="Corten shadow: built from the live install's files, read only">"shadow"</span></div>
+                        <div class="brand">
+                            <span class="logo"></span>"Agent pools"
+                            if !service {
+                                <span class="shadow-tag" title="Corten shadow: built from the live install's files, read only">"shadow"</span>
+                            }
+                        </div>
                         <nav class="tabs">
                             <a {..req.nav(&url::Overview)}>
                                 "Overview "
@@ -109,9 +119,11 @@ pub fn Dash<'a>(req: &'a Req, title: &'a str, header: &'a Header, writable: bool
                         </nav>
                         <div class="bar-right">
                             {fresh(header)}
-                            <a class="btn ghost" href={url::Parity}>"Parity"</a>
+                            if !service {
+                                <a class="btn ghost" href={url::Parity}>"Parity"</a>
+                            }
                             if writable {
-                                <form class="inline" method="post" action={url::RefreshNow}><button type="submit" class="btn" title="Run a refresh cycle on this copy now">"Refresh"</button></form>
+                                <form class="inline" method="post" action={url::RefreshNow}><button type="submit" class="btn" title="Run a refresh cycle now">"Refresh"</button></form>
                                 <a class="btn primary" href={url::Signin { provider: None, account: None }}>"Add account"</a>
                             } else {
                                 <button type="button" class="btn" disabled title={READ_ONLY}>"Refresh"</button>

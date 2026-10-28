@@ -399,6 +399,7 @@ fn render_dash() -> std::io::Result<()> {
         z: dash::fmt::Zone::from_env(),
         writable: false,
         signin: None,
+        service: false,
     };
     let parts = dash::fragments(&data, args.get(3).map(String::as_str).filter(|f| !f.is_empty()), args.get(4).map(String::as_str));
     println!("{}", serde_json::Value::Object(parts));

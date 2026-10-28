@@ -321,9 +321,9 @@ fn draw(req: Req, _shadow: &Shared, d: &super::Data, steps: &Steps) -> HtmlResul
     let (fresh, bad) = c.freshness();
     // The banner is not shown over the steps (`renderFinish` hides it while the drawer is open).
     let header = Header { count: c.attention_count(&items), fresh, bad, finish: None };
-    let title = if steps.account.is_some() { "Sign in again · Agent pools (shadow)" } else { "Connect an account · Agent pools (shadow)" };
+    let title = super::views::titled(if steps.account.is_some() { "Sign in again · Agent pools" } else { "Connect an account · Agent pools" }, d.service);
     req.page(html! {
-        <Dash req={&req} title={title} header={&header} writable={true}>
+        <Dash req={&req} title={&title} header={&header} writable={true} service={d.service}>
             {view(steps)}
         </Dash>
     })

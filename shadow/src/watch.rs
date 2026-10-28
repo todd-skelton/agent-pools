@@ -87,6 +87,9 @@ pub struct Shadow {
     pub signin: crate::dash::signin::Signins,
     /// The tailnet view, when it is set (`SHADOW_TAILNET_*`).
     pub tailnet: std::sync::OnceLock<crate::tailnet::Tailnet>,
+    /// Set when this is the live service (`serve-service`), not a shadow or a copy: the pages
+    /// drop the shadow's marks (the badge, "(shadow)" in titles, the parity link).
+    pub service: std::sync::OnceLock<()>,
     /// `/api/status` and `/api/summary` as last built, kept while they hold.
     pub answers: crate::served::Answers,
     /// `/api/capacity` and `/api/ladders` as last written out.
@@ -124,6 +127,7 @@ impl Shadow {
             copy: std::sync::OnceLock::new(),
             signin: Default::default(),
             tailnet: std::sync::OnceLock::new(),
+            service: std::sync::OnceLock::new(),
             answers: Default::default(),
             capacity_bytes: Default::default(),
             ladders_bytes: Default::default(),

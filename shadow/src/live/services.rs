@@ -43,6 +43,7 @@ pub async fn serve_service(install: Install) -> std::io::Result<()> {
     let relay_tls = tls::load(&install.certs())?;
     let relay = writer::desktop::start_with(io.clone(), &install.backend_upstream(), install.port("desktopRelayPort", 8000), writer::desktop::RETRY, relay_tls).await?;
     let shadow = crate::watch::Shadow::new(crate::sources::Install::new(root.clone()), "(the service: not compared)".into(), root.join("logs/parity.jsonl"));
+    let _ = shadow.service.set(());
     // The environment's (as the shadow takes it), else the install's pool-rs.json.
     crate::set_tailnet(&shadow)?;
     if shadow.tailnet.get().is_none()

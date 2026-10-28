@@ -37,6 +37,8 @@ pub struct Data {
     pub writable: bool,
     /// The sign-in banner (a copy's).
     pub signin: Option<signin::Banner>,
+    /// The live service's pages, without the shadow's marks.
+    pub service: bool,
 }
 
 impl Data {
@@ -59,7 +61,7 @@ pub async fn load(shadow: &Shared) -> corten::Result<Data> {
         shadow.changed_inputs();
     }
     let banner = shadow.signin.banner(now).filter(|_| writable);
-    Ok(Data { s, v: value.filter(|v| v.is_object()), now, z: fmt::Zone::from_env(), writable, signin: banner })
+    Ok(Data { s, v: value.filter(|v| v.is_object()), now, z: fmt::Zone::from_env(), writable, signin: banner, service: shadow.service.get().is_some() })
 }
 
 /// Between changes, a copy's open page takes the status kept for this moment (the same one
@@ -126,13 +128,16 @@ impl Tab {
         }
     }
 
-    fn title(self) -> &'static str {
-        match self {
-            Tab::Overview => "Agent pools (shadow)",
-            Tab::Accounts => "Accounts · Agent pools (shadow)",
-            Tab::Usage => "Usage & value · Agent pools (shadow)",
-            Tab::Policy => "Automation · Agent pools (shadow)",
-        }
+    fn title(self, service: bool) -> String {
+        views::titled(
+            match self {
+                Tab::Overview => "Agent pools",
+                Tab::Accounts => "Accounts · Agent pools",
+                Tab::Usage => "Usage & value · Agent pools",
+                Tab::Policy => "Automation · Agent pools",
+            },
+            service,
+        )
     }
 }
 
@@ -243,7 +248,7 @@ async fn page(req: Req, shadow: Shared, tab: Tab, q: DashQuery) -> HtmlResult {
     let since = cursor(&fragment(&body, &header));
     let src = url::Live { tab: Some(tab.key()), filter: q.filter.as_deref(), open: q.open.as_deref() };
     req.page(html! {
-        <Dash req={&req} title={tab.title()} header={&header} writable={d.writable}>
+        <Dash req={&req} title={&tab.title(d.service)} header={&header} writable={d.writable} service={d.service}>
             <corten-live src={src} since={&since}>{views::body(&body)}</corten-live>
         </Dash>
     })
