@@ -131,6 +131,9 @@ pub async fn with_lock<T, Fut: Future<Output = T>>(file: &Path, o: Lock, f: impl
             Err(e) if taken(&e) => {
                 if age_ms(&lock).unwrap_or(0.0) > o.stale_ms {
                     reclaim_if_stale(&lock, o.stale_ms).map_err(|e| e.to_string())?;
+                    // As model-store.mjs, retried at once; yielded, so a reclaimer holding the guard
+                    // (up to a minute when it died) never blocks the runtime's thread.
+                    tokio::task::yield_now().await;
                     continue;
                 }
                 if now_ms() - start > o.wait_ms {
@@ -621,6 +624,32 @@ mod tests {
             }
             assert_eq!(most.load(Ordering::SeqCst), 1, "round {round}: two holders overlapped");
         }
+        clean(&dir);
+    }
+
+    /// A stale lock while another reclaimer holds a fresh guard is left alone until that guard is
+    /// stale itself (a minute): only then is the guard removed and the lock taken over.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_stale_lock_is_not_taken_over_while_another_reclaimer_holds_the_guard() {
+        let dir = scratch("guarded");
+        let file = dir.join("x.json");
+        let lock = suffixed(&file, ".lock");
+        let guard = suffixed(&lock, ".reclaim");
+        std::fs::write(&lock, r#"{"token":"dead"}"#).unwrap();
+        let set_age = |p: &Path, secs: u64| std::fs::OpenOptions::new().write(true).open(p).unwrap().set_modified(SystemTime::now() - Duration::from_secs(secs)).unwrap();
+        set_age(&lock, 3600);
+        std::fs::write(&guard, "").unwrap();
+        set_age(&guard, 58);
+        let started = std::time::Instant::now();
+        let token = with_lock(&file, Lock { stale_ms: 1000.0, wait_ms: 10_000.0, ..Lock::default() }, || async {
+            std::fs::read_to_string(&lock).unwrap()
+        })
+        .await
+        .unwrap();
+        let waited = started.elapsed();
+        assert!(waited >= Duration::from_millis(1500), "taken over after {waited:?}, while the guard was fresh");
+        assert!(!token.contains("dead"), "{token}");
+        assert!(!guard.exists() && !lock.exists(), "the stale guard is gone and the lock released");
         clean(&dir);
     }
 
