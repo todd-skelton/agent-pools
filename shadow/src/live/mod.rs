@@ -189,13 +189,6 @@ impl Install {
     }
 }
 
-/// A static directory of the program's: `static/<name>` beside the executable when it is
-/// installed (`pool-rs/<version>/static`), else the source tree's `<crate>/static`.
-pub fn assets(name: &str, source: &Path) -> PathBuf {
-    let installed = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join("static").join(name)));
-    installed.filter(|d| d.is_dir()).unwrap_or_else(|| source.to_path_buf())
-}
-
 /// `p` without Windows' verbatim prefix (`\\?\D:\...` as `D:\...`), as a process's
 /// `ExecutablePath` and command line name it: the proxy's identity is compared on those.
 pub fn plain(p: PathBuf) -> PathBuf {

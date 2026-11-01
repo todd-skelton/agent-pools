@@ -118,7 +118,6 @@ fn router(t: &crate::testing::TempInstall) -> corten::axum::Router {
     );
     crate::app::app(
         shadow,
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"),
         Duration::from_secs(5),
         Duration::from_secs(60),
     )
@@ -143,14 +142,14 @@ async fn api_summary_is_pool_cores_summary_in_javascripts_bytes() {
 async fn the_service_pages_drop_the_shadow_marks() {
     let t = snapshot("service-marks", false);
     let (_, shadow_page) = get(router(&t), "/accounts").await;
-    assert!(shadow_page.contains("shadow-tag") && shadow_page.contains("(shadow)</title>") && shadow_page.contains("href=\"/parity\""));
+    assert!(shadow_page.contains("Corten shadow:") && shadow_page.contains("(shadow)</title>") && shadow_page.contains("href=\"/parity\""));
     let shadow = Shadow::new(t.install(), "(the service: not compared)".into(), t.dir.join("parity.jsonl"));
     let _ = shadow.service.set(());
-    let app = crate::app::app(shadow, std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"), Duration::from_secs(5), Duration::from_secs(60)).router();
+    let app = crate::app::app(shadow, Duration::from_secs(5), Duration::from_secs(60)).router();
     let (status, page) = get(app, "/accounts").await;
     assert_eq!(status, StatusCode::OK, "{page}");
     assert!(page.contains("<title>Accounts · Agent pools</title>"), "{page}");
-    for mark in ["shadow-tag", "(shadow)", "href=\"/parity\""] {
+    for mark in ["Corten shadow:", "(shadow)", "href=\"/parity\""] {
         assert!(!page.contains(mark), "the service's page has no {mark}");
     }
 }
@@ -255,7 +254,6 @@ async fn a_save_reaches_an_open_tab_at_once() {
     let shadow = Shadow::new(t.install(), "http://127.0.0.1:9".into(), t.dir.join("parity.jsonl"));
     let app = crate::app::app(
         shadow.clone(),
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"),
         Duration::from_secs(5),
         Duration::from_secs(60),
     )
@@ -327,7 +325,6 @@ async fn a_copy_answers_the_services_api_through_the_stand_in() {
     let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
     let app = crate::app::app_copy(
         shadow,
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"),
         copy.clone(),
         Default::default(),
         Default::default(),
@@ -407,7 +404,6 @@ async fn a_copys_dashboard_signs_in_and_refreshes_through_the_stand_in() {
     let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
     let app = crate::app::app_copy(
         shadow.clone(),
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"),
         copy.clone(),
         Default::default(),
         Default::default(),
@@ -416,17 +412,17 @@ async fn a_copys_dashboard_signs_in_and_refreshes_through_the_stand_in() {
 
     let (status, home) = get(app.clone(), "/").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(home.contains(r#"<a class="btn primary" href="/signin">Add account</a>"#), "{home}");
+    assert!(home.contains(r#"<a href="/signin">Add account</a>"#), "{home}");
     assert!(!home.contains(" disabled "), "no action is disabled on a copy");
-    assert!(home.contains(r#"<main><div id="finish" class="finish" hidden></div>"#), "in <main>, which a navigation swaps");
+    assert!(home.contains(r#"<main class="dash__main"><div id="finish" class="dash__finish" hidden></div>"#), "in <main>, which a navigation swaps: {home}");
     let (_, accounts) = get(app.clone(), "/accounts").await;
     assert!(accounts.contains(r#"href="/signin?provider=codex">Connect Codex</a>"#), "{accounts}");
 
     let (status, page) = get(app.clone(), "/signin").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(page.contains(r#"<li class="step active"><span class="n">1</span>"#) && page.contains(r#"href="/signin?provider=claude""#));
+    assert!(page.contains(r#"<li class="signin-steps__step signin-steps__active"><span class="signin-steps__n">1</span>"#) && page.contains(r#"href="/signin?provider=claude""#), "{page}");
     let (_, page) = get(app.clone(), "/signin?provider=codex").await;
-    assert!(page.contains(r#"<li class="step active"><span class="n">2</span>"#) && page.contains("Open ChatGPT (Codex) sign-in"));
+    assert!(page.contains(r#"<li class="signin-steps__step signin-steps__active"><span class="signin-steps__n">2</span>"#) && page.contains("Open ChatGPT (Codex) sign-in"));
 
     let (status, page, _) = send_form(app.clone(), "/signin", "provider=codex").await;
     assert_eq!(status, StatusCode::OK);
@@ -454,7 +450,7 @@ async fn a_copys_dashboard_signs_in_and_refreshes_through_the_stand_in() {
     let (_, page, _) = send_form(app.clone(), "/signin/cancel", "").await;
     assert!(page.contains("Sign-in cancelled."));
     let (_, home) = get(app.clone(), "/").await;
-    assert!(home.contains(r#"<div id="finish" class="finish" hidden></div>"#), "cancelled");
+    assert!(home.contains(r#"<div id="finish" class="dash__finish" hidden></div>"#), "cancelled");
 
     let id = shadow.install.json("state/pool-state.json").unwrap()["accounts"].as_array().unwrap()[0]["id"].as_str().unwrap().to_string();
     let (status, _, location) = send_form(app.clone(), "/refresh", &format!("open={}", enc(&id))).await;
@@ -481,7 +477,7 @@ async fn the_tailnet_reads_and_only_its_owner_writes() {
         if let Some(tn) = tailnet {
             shadow.tailnet.set(tn).unwrap();
         }
-        crate::app::app_copy(shadow, std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"), copy.clone(), Default::default(), Default::default()).router()
+        crate::app::app_copy(shadow, copy.clone(), Default::default(), Default::default()).router()
     };
     let app = app_with(Some(crate::tailnet::Tailnet::new("https://box.example.ts.net:8443", "owner@example.com").unwrap()));
     let send = |method: &'static str, path: &'static str, login: Option<&'static str>, kind: &'static str, body: &'static str| {
@@ -534,7 +530,6 @@ async fn a_copy_drains_the_stand_ins_queue_into_its_ledger_and_reports_value_fro
     let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
     let app = crate::app::app_copy(
         shadow,
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"),
         copy.clone(),
         Default::default(),
         Default::default(),
@@ -768,7 +763,7 @@ async fn the_management_key_stops_the_copy_once_and_writes_are_refused_while_it_
     });
     let copy = std::sync::Arc::new(copy);
     let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
-    let app = crate::app::app_copy(shadow, std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"), copy.clone(), Default::default(), Default::default()).router();
+    let app = crate::app::app_copy(shadow, copy.clone(), Default::default(), Default::default()).router();
     let shutdown = |auth: Option<&str>| {
         let mut req = Request::builder().method("POST").uri("/api/shutdown").header("host", "localhost");
         if let Some(a) = auth {
@@ -819,7 +814,7 @@ async fn the_read_only_shadow_serves_documents_but_no_writes() {
         let (status, _) = get(router(&t), "/signin").await;
         assert_eq!(status, StatusCode::NOT_FOUND, "sign-in is the live dashboard's");
         let (_, home) = get(router(&t), "/").await;
-        assert!(home.contains(r#"<button type="button" class="btn primary" disabled title="#), "Add account is disabled");
+        assert!(home.contains(r#"<button type="button" disabled title="Done on the live dashboard (port 8318): the shadow only reads">Add account</button>"#), "Add account is disabled: {home}");
         assert!(!home.contains("/signin"));
     }
     let t = snapshot("ro-api", false);

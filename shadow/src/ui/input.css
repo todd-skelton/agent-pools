@@ -1,0 +1,14 @@
+/* corten ui 0.1.0: input bdacd041c8cc9b3b */
+/* The wrapper takes no box: the rules style the <input> inside it. */
+.input { display: contents; }
+.input > input {
+  box-sizing: border-box; width: 100%; min-width: 0; height: 2.25rem; padding: .25rem .75rem;
+  font: inherit; font-size: .875rem; color: var(--foreground); background: transparent;
+  border: 1px solid var(--input); border-radius: calc(var(--radius) - 2px);
+  box-shadow: 0 1px 2px rgb(0 0 0 / .05); transition: border-color .15s, box-shadow .15s;
+}
+.input > input::placeholder { color: var(--muted-foreground); }
+.input > input:focus-visible { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 35%, transparent); }
+.input > input:disabled { opacity: .5; cursor: not-allowed; }
+.input > input:user-invalid, .input > input[aria-invalid="true"] { border-color: var(--destructive); }
+.input > input[type="file"] { padding-block: .375rem; }

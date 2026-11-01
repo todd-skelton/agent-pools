@@ -49,6 +49,9 @@ use sha2::{Digest, Sha256};
 pub mod backend;
 pub mod inference;
 
+// The sign-in page's stylesheet, compiled into the program.
+corten::assets::embed!(pub struct Static = "static");
+
 /// A registered machine (state/remote-clients.json): its name and the SHA-256 of its key.
 #[derive(Clone, Debug, Hash)]
 pub struct Client {
@@ -80,8 +83,6 @@ pub struct Config {
     pub failure_window_ms: f64,
     /// Milliseconds since the epoch.
     pub now: Hook<f64>,
-    /// The sign-in page's static files (`login.css`); `gateway/static` in the source tree when unset.
-    pub assets: Option<std::path::PathBuf>,
 }
 
 impl Config {
@@ -99,7 +100,6 @@ impl Config {
             max_failures: 30,
             failure_window_ms: 15.0 * 60_000.0,
             now: Arc::new(now_ms),
-            assets: None,
         }
     }
 }
@@ -159,7 +159,7 @@ pub fn app(config: Config) -> Result<App<Headers>, String> {
     }));
     let policy = corten::security::Policy::new().host(&config.hostname).proxy("127.0.0.0/8");
     Ok(App::new(url::router(gw.clone()))
-        .assets(config.assets.clone().unwrap_or_else(|| std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static")))
+        .assets(Static)
         .policy(policy)
         // Streams run for many minutes; a model may think long before its first byte.
         .deadline(None)
@@ -295,7 +295,7 @@ pub mod v1 {
     #[route("/v1/models", get = inference)]
     pub struct Models;
 
-    #[route("/v1/models/{id}", get = inference)]
+    #[route("/v1/models/{id}", get = inference_model)]
     pub struct Model<'a> {
         pub id: &'a str,
     }
@@ -324,6 +324,7 @@ impl IntoResponse for Out {
 impl corten::answer::Answer for Out {
     const FORMAT: corten::answer::Format = corten::answer::Format::Json;
     type Inputs = corten::answer::AnyInputs;
+    type Rows = corten::answer::NotAFeed;
 }
 
 /// Agent Pools' `json(res, status, error, type)`: `{"type":"error","error":{"type","message"}}`.
@@ -567,6 +568,12 @@ fn model_id_ok(id: &str) -> bool {
     (1..=128).contains(&id.chars().count()) && id.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '.' || c == ':' || c == '-')
 }
 
+/// `inference` for one model: the id is checked from the path itself (`model_id_ok`), as
+/// public-gateway.mjs checks it, so `Params` is only taken.
+async fn inference_model(_: Params<v1::Model<'_>>, gw: State<Gw>, caller: corten::Caller<Machine>, req: Request) -> Out {
+    inference(gw, caller, req).await
+}
+
 async fn inference(State(gw): State<Gw>, corten::Caller(Machine(client)): corten::Caller<Machine>, req: Request) -> Out {
     let (parts, body) = req.into_parts();
     let path = parts.uri.path().to_string();
@@ -612,7 +619,7 @@ fn LoginPage<'a>(req: &'a Req, message: Option<&'a str>) -> impl Document {
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width,initial-scale=1">
-                <link rel="stylesheet" href={req.asset("login.css")}>
+                <link rel="stylesheet" href={req.asset(Static::LOGIN_CSS)}>
                 <title>"Agent Pools"</title>
                 <Corten />
             </head>

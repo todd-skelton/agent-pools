@@ -1,0 +1,47 @@
+/* The next 14 days: an axis of days, a lane per account with its marks, a lane per provider with
+   its projected shortfall. Marks and bands are placed by --left and --width from data. */
+@property --left { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+@property --width { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--muted-foreground); }
+.legend > span { display: inline-flex; align-items: center; gap: 7px; }
+.tl { position: relative; }
+.gridlines { position: absolute; left: 200px; right: 0; top: 0; bottom: 0; pointer-events: none; }
+.gl { position: absolute; top: 28px; bottom: 0; left: var(--left); border-left: 1px solid var(--border); }
+.wknd { width: var(--width); border-left-color: transparent; background: color-mix(in oklab, var(--foreground) 2%, transparent); }
+.nowline { position: absolute; top: 22px; bottom: 0; left: 0; border-left: 2px solid var(--foreground); }
+.nowline::before { content: "now"; position: absolute; top: -18px; left: -12px; font-size: 10px; font-weight: 700; color: var(--foreground); }
+.axis { display: grid; grid-template-columns: 200px 1fr; }
+.ticks { position: relative; height: 28px; }
+.tick { position: absolute; top: 6px; left: var(--left); transform: translateX(-50%); font-size: 11px; color: var(--subtle-foreground); white-space: nowrap; }
+.tl-row { display: grid; grid-template-columns: 200px 1fr; align-items: center; min-height: 30px; }
+.group { min-height: 34px; margin-top: 6px; }
+.lbl { padding-right: 12px; font-size: 12px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group > .lbl { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.lane { position: relative; height: 30px; }
+.dashed::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed color-mix(in oklab, var(--input) 60%, transparent); }
+.mk { position: absolute; top: 50%; left: var(--left); z-index: 2; transform: translate(-50%, -50%); }
+.key { display: inline-block; }
+.reset { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--success); background: var(--card); }
+.proj { border-style: dotted; opacity: .7; }
+.credit { width: 11px; height: 11px; border-radius: 2px; background: var(--warning); }
+.used { width: 13px; height: 13px; border-radius: 2px; background: var(--success); box-shadow: 0 0 0 2px var(--card); }
+.lapse { width: 11px; height: 11px; border-radius: 2px; border: 2px solid var(--destructive); background: var(--card); }
+.mk.credit, .mk.used, .mk.lapse { transform: translate(-50%, -50%) rotate(45deg); }
+.key.credit, .key.used, .key.lapse { transform: rotate(45deg); }
+.band {
+  position: absolute; top: 7px; bottom: 7px; left: var(--left); width: var(--width);
+  display: flex; align-items: center; padding: 0 8px; overflow: hidden; white-space: nowrap;
+  font-size: 11px; font-weight: 600; border-radius: 5px; color: var(--destructive);
+  background: color-mix(in oklab, var(--destructive) 13%, transparent); border: 1px solid color-mix(in oklab, var(--destructive) 40%, transparent);
+}
+.swatch {
+  width: 18px; height: 10px; border-radius: 3px;
+  background: color-mix(in oklab, var(--destructive) 13%, transparent); border: 1px solid color-mix(in oklab, var(--destructive) 40%, transparent);
+}
+@media (max-width: 760px) {
+  .legend { display: none; }
+  .tl-row, .axis { grid-template-columns: 96px 1fr; }
+  .gridlines { left: 96px; }
+  .tick { display: none; }
+  .tick:nth-child(3n+1) { display: block; }
+}

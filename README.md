@@ -126,11 +126,51 @@ account opened, no value report, and `now` moved from -24 h to +14 days. Getting
 real difference: Intl rounds a tie away from zero on the shortest decimal (`$1,246.5` is
 `$1,247`, `1.005` is `1.01`), where Rust's `{:.0}` keeps the even digit.
 
-The live page sizes meters, bars and timeline marks with `style` attributes, which Corten's CSP
-blocks, so the app allows them for every page (`allow_style_attributes`); acceptable for a
-loopback, read-only app, and filed as [corten#139 A size or position drawn from data needs style attributes, and allowing them opens style-src-attr 'unsafe-inline' for the whole app](https://github.com/todd-skelton/corten/issues/139).
-The fixed inline styles became classes in `shadow/static/dash.css` (the live stylesheet, less
-the sign-in drawer).
+The live page sizes meters, bars and timeline marks with `style` attributes. Here each is a
+custom property its component registers with `@property` and sets from data
+(`style={WIDTH.pct(..)}`, written as `data-vars`): Corten puts the values in one style block
+allowed by its hash, and after a live update the runtime sets them, so no page allows style
+attributes ([corten#139 A size or position drawn from data needs style attributes, and allowing them opens style-src-attr 'unsafe-inline' for the whole app](https://github.com/todd-skelton/corten/issues/139),
+closed). `dash-text.mjs` compares the live page's `width:42%` with the shadow's
+`--meter__width:42%`. The markup is the design system's components (below).
+
+### The design system
+
+The dashboard is drawn with Corten's UI kit (`corten ui`, copied into the app as source) themed
+to Agent Pools, and Agent Pools' own components on the same tokens:
+
+| Layer | Where | What |
+|---|---|---|
+| Theme | `shadow/tokens/` (`ui.tokens.json` light, `ui-dark.tokens.json`, `ui.resolver.json`) | the kit's token names (`--background`, `--card`, `--primary`, `--muted-foreground`, `--border`, `--input`, `--ring`, `--radius`, ...) in Agent Pools' colors, and Agent Pools' own: `--success`, `--warning`, `--info`, `--subtle-foreground`, `--claude`, `--codex`, `--font-sans`, `--font-mono` |
+| Kit | `shadow/src/ui/` (`ui.rs` lists them) | `Button`, `Card`, `Table`, `Alert`, `Badge`, `Input`, from `corten ui add` |
+| Design system | `shadow/src/design/` | `Chip`, `ProviderDot`, `StatusDot`, `Meter`, `Stats`/`Stat`, `Kpi`, `Eyebrow`, `Segmented` |
+| Dashboard | `shadow/src/dash/views.rs`, `signin.rs` and a stylesheet per component beside them | the top bar, attention, provider cards, timeline, the four tabs and the sign-in steps |
+| Page | `shadow/static/base.css` | the theme's page colors, the font and element defaults |
+
+Each text color meets WCAG AA (4.5:1) on the surfaces it is drawn on, and `--input` 3:1, in both
+themes. The live page's quietest text (`#677c8d`, 3.98:1 on a card) and field border (`#2e4152`,
+1.64:1) did not; `--subtle-foreground` (`#7a8fa1`) and `--input` (`#56708a`) replace them. The
+dashboard is dark (`data-theme="dark"` on `<html>`); the light theme is the same files without
+the attribute. The summary and parity pages follow the system's theme.
+
+The kit's copies are the app's, edited where Agent Pools differs, and each edit is said at the top
+of the file: `card` (one header row with a divider, `CardAction`, the dashboard's density),
+`table` (dense rows, small uppercase headings, ellipsis), `alert` (`Info`, `Success`, `Warning`,
+the role chosen where it is used, `AlertActions`), `badge` (`Success`, `Warning`). `button` and
+`input` are as the kit ships them. Run `corten ui diff` in `shadow/` to see the edits and what a
+newer kit changed. What the kit lacked is filed against Corten (below, Gaps).
+
+#### Gaps
+
+Filed against Corten from this port; each is worked around here as said:
+
+- [#571 The kit has no meter, so every app draws a share used as a bar of divs with no meter role](https://github.com/todd-skelton/corten/issues/571): `design::Meter`, which has no meter role yet.
+- [#572 The kit has no labelled figure (stat) or status dot, so a dashboard writes its own and names status only by color and title](https://github.com/todd-skelton/corten/issues/572): `Stats`, `Kpi`, `StatusDot`, `Chip`.
+- [#573 Kit Card header has no slot for actions, so a card with a button in its header is an edit to the copied card](https://github.com/todd-skelton/corten/issues/573): `CardAction` in the copy.
+- [#574 Kit tabs styles only TabGroup, so a nav of filter links (aria-current) has no segmented look](https://github.com/todd-skelton/corten/issues/574): `design::Segmented`.
+- [#575 Kit Table has no stacked layout for phones, so a wide table only scrolls sideways or each app rewrites it as cards](https://github.com/todd-skelton/corten/issues/575): the phone rules in `accounts_tab.css`.
+- [#576 Sizes from data (data-vars) in markup placed with raw() never reach the page's style block, and nothing says so](https://github.com/todd-skelton/corten/issues/576): `dash::Body`, rendered inside each response.
+- Already open, with this port's case added: [#552 Kit Badge and Alert have no success, warning or info tone, and every Alert is announced as role=alert](https://github.com/todd-skelton/corten/issues/552) (the tones and `AlertRole` in the copies) and [#561 Kit control heights, spacing and type are literals, so a theme cannot give every control a 44 px touch target without editing each copied file](https://github.com/todd-skelton/corten/issues/561) (the density edits to `card.css` and `table.css`). Also met: [#551 corten ui init on an app that already has tokens adds a second theme instead of mapping onto the app's](https://github.com/todd-skelton/corten/issues/551) (init looked for `App::new` in `lib.rs`, and its `color-scheme` block was moved to `base.css`).
 
 An unaligned check (the live service read its inputs at another moment than the files show) is
 counted apart and never as a match. The shadow's tests (`cargo test --release -p pools-shadow`)
@@ -282,7 +322,7 @@ CPU per request, the copy before and after, then live `pool-service.mjs`):
 
 #### Compression
 
-The shadow builds Corten (`1149c5a`) with `compress`. Pages and JSON are compressed per request (zstd 1,
+The shadow builds Corten with `compress` (`1149c5a` when measured; `3b19711` now). Pages and JSON are compressed per request (zstd 1,
 brotli 2 or gzip 1, by the client's `Accept-Encoding`). The dashboard's live stream is compressed
 as one stream per connection, so a redraw that repeats the last one costs only what changed.
 pool-service.mjs compresses nothing. Measured on 2026-10-28:
@@ -436,9 +476,9 @@ kept) and `restore [<backup>] [--target <dir>] [--list]` (Restore-Pool-Secrets.p
 directory only). Each restores the other's backups.
 
 The scripts refuse the live install without `-Live`, and any other root that is not a rehearsal.
-Installed programs find their static files beside themselves (`static\shadow`,
-`static\gateway`). Corten has no way to build them in:
-[corten#268 Static files are a directory found at run time, so a built program cannot be deployed by itself and each app writes its own lookup](https://github.com/todd-skelton/corten/issues/268).
+The static files are compiled into the program (`corten::assets::embed!`, since
+[corten#268 Static files are a directory found at run time, so a built program cannot be deployed by itself and each app writes its own lookup](https://github.com/todd-skelton/corten/issues/268)
+closed), so the install is the two executables and `build.json`.
 
 Rehearsed on 2026-10-28 on `shadow-state/rehearsal`. Agent Pools' own `.mjs` files were copied
 there and run by rehearsal tasks ("Agent Pools rehearsal (node) - subscriptions", "- public
@@ -514,7 +554,7 @@ install's own inputs (398 rungs; not committed, since its inputs are not scrubbe
 
 ### The public gateway
 
-`gateway/` (`pools-gateway`; `run-copy` serves it in front of the stand-in) is public-gateway.mjs on Corten (`1149c5a`, with
+`gateway/` (`pools-gateway`; `run-copy` serves it in front of the stand-in) is public-gateway.mjs on Corten (`3b19711`, with
 [corten#162 Upgrade and Relay](https://github.com/todd-skelton/corten/pull/162)). Inference routes
 take a machine key and relay the pool's answer as it streams, sent with the pool's key. The
 dashboard routes take a session cookie signed as Agent Pools signs it (the same secret keeps

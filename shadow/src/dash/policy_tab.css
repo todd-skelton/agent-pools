@@ -1,0 +1,24 @@
+/* Automation: numbered rules, each provider's settings, the configuration and the endpoints. */
+.policy-tab { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.wide { grid-column: 1 / -1; display: grid; min-width: 0; }
+.rules { margin: 0; padding: 0; list-style: none; counter-reset: r; }
+.rules > li { position: relative; padding: 0 0 12px 34px; font-size: 13px; color: var(--muted-foreground); }
+.rules > li:last-child { padding-bottom: 0; }
+.rules b { color: var(--foreground); font-weight: 600; }
+.rules > li::before {
+  counter-increment: r; content: counter(r); position: absolute; left: 0; top: -1px;
+  display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  font-size: 12px; font-weight: 650; color: var(--foreground); background: var(--secondary);
+}
+.settings { margin: 0; }
+.setting { display: grid; grid-template-columns: 180px 1fr; gap: 16px; padding: 10px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.setting:first-child { border-top: 0; padding-top: 0; }
+.setting > dt { color: var(--muted-foreground); }
+.setting > dd { margin: 0; }
+.bad { color: var(--destructive); }
+.intro { margin: 0; font-size: 13px; color: var(--muted-foreground); }
+.endpoints { table-layout: fixed; }
+.path { width: 34%; }
+.endpoints .wrap { white-space: normal; }
+@media (max-width: 1080px) { .policy-tab { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .setting { grid-template-columns: 1fr; gap: 4px; } }

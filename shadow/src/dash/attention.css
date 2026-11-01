@@ -1,0 +1,24 @@
+/* What needs attention: a rail in the item's tone, its text, its actions, and why it matters. */
+.list { list-style: none; margin: 0; padding: 0; }
+.item {
+  display: grid; grid-template-columns: 4px 1fr auto; gap: 0 14px; align-items: start;
+  padding: 14px 16px 14px 0; border-bottom: 1px solid var(--border);
+}
+.item:last-child { border-bottom: 0; }
+.rail { align-self: stretch; border-radius: 0 3px 3px 0; }
+.danger > .rail { background: var(--destructive); }
+.warning > .rail { background: var(--warning); }
+.info > .rail { background: var(--info); }
+.item h3 { margin: 0; font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.item p { margin: 3px 0 0; font-size: 13px; color: var(--muted-foreground); max-width: 760px; }
+.acts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.why { grid-column: 2 / 4; margin-top: 8px; }
+.why > summary { width: max-content; font-size: 12px; color: var(--subtle-foreground); cursor: pointer; }
+.why > summary:hover { color: var(--muted-foreground); }
+.why > p { margin-top: 6px; font-size: 12px; border-left: 2px solid var(--input); padding-left: 10px; }
+.healthy { align-self: center; margin-right: 4px; }
+@media (max-width: 760px) {
+  .item { grid-template-columns: 4px 1fr; }
+  .acts { grid-column: 2; justify-content: flex-start; margin-top: 10px; }
+  .why { grid-column: 2; }
+}

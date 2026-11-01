@@ -1,0 +1,16 @@
+/* The page around every component: the theme's colors (from corten ui init), the font and the
+   element defaults no component owns. color-scheme themes form controls and scrollbars: light,
+   the system's when the page chose no theme, else the one chosen. */
+:root { color-scheme: light; background: var(--background); color: var(--foreground); }
+:root:not([data-theme]) { color-scheme: light dark; }
+[data-theme="dark"] { color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font: 14px/1.45 var(--font-sans); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4 { margin: 0; font-weight: 600; }
+a { color: var(--info); }
+button { font: inherit; color: inherit; }
+code { font-family: var(--font-mono); font-size: .92em; }
+:target { scroll-margin-top: 72px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

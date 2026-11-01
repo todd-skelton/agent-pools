@@ -1,0 +1,20 @@
+/* corten ui 0.1.0: card 79c5ce659bd1862d */
+/* Agent Pools: one header row with a divider, an action slot, the dashboard's density. */
+.card {
+  display: flex; flex-direction: column; min-width: 0;
+  background: var(--card); color: var(--card-foreground);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.header {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .375rem .625rem;
+  padding: .875rem 1rem; border-bottom: 1px solid var(--border);
+}
+.header > :is(h1, h2, h3, h4, h5, h6) { margin: 0; font-size: .875rem; font-weight: 600; line-height: 1.25; }
+.header > p { margin: 0; font-size: .8125rem; color: var(--muted-foreground); }
+.action { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-left: auto; font-size: .75rem; color: var(--muted-foreground); }
+.content { display: grid; gap: 1rem; padding: 1rem; min-width: 0; }
+.footer {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .75rem 1rem;
+  border-top: 1px solid var(--border); background: var(--muted);
+  border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px);
+}

@@ -1,7 +1,8 @@
 // Draws the live dashboard's parts with its own JavaScript (dashboard.html, the pure functions
 // above its I/O marker) and with the shadow (pools-shadow render-dash) from the same documents at
 // the same moment, and compares them part by part: the words, the tooltips (title attributes)
-// and the sizes the page computes (style attributes' numbers).
+// and the sizes the page computes (the live page's style attributes; the shadow's custom
+// properties, data-vars="--meter__width:42%", named after the property they set).
 //
 //   node golden/dash-text.mjs <status.json> <value.json|-> <now ms> [filter] [open]
 //
@@ -54,6 +55,7 @@ const decode = (s) => s.replace(/&(amp|lt|gt|quot|#39|middot|mdash);/g, (_, e) =
 const words = (html) => decode(String(html).replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
 const titles = (html) => [...String(html).matchAll(/ title="([^"]*)"/g)].map((m) => decode(m[1]));
 const sizes = (html) => [...String(html).matchAll(/ style="([^"]*)"/g)].flatMap((m) => [...m[1].matchAll(/(left|width|height|flex):\s*(?:calc\()?(-?[\d.e+-]+)/g)].map((x) => x[1] + ":" + Number(x[2]).toFixed(6)));
+const vars = (html) => [...String(html).matchAll(/ data-vars="([^"]*)"/g)].flatMap((m) => [...m[1].matchAll(/--[\w-]+?__(left|width|height|flex):(-?[\d.e+-]+)/g)].map((x) => x[1] + ":" + Number(x[2]).toFixed(6)));
 
 // Where the shadow differs on purpose. Its actions are disabled, with a title saying why; the live
 // page's fixed inline styles are classes in shadow/static/dash.css (only sizes from data are
@@ -72,7 +74,7 @@ const firstDiff = (a, b) => {
 };
 for (const k of Object.keys(js)) {
   const checks = typeof js[k] === "string" && k !== "fresh"
-    ? [["text", words(js[k]), words(rs[k])], ["titles", titles(js[k]).join("\n"), titles(rs[k]).join("\n")], ["sizes", sizes(js[k]).join(" "), sizes(rs[k]).join(" ")]]
+    ? [["text", words(js[k]), words(rs[k])], ["titles", titles(js[k]).join("\n"), titles(rs[k]).join("\n")], ["sizes", sizes(js[k]).join(" "), vars(rs[k]).join(" ")]]
     : [["value", String(js[k]), String(rs[k])]];
   for (const [what, a, b] of checks) {
     if (a === b) { console.log("match   " + k + " " + what + " (" + a.length + " chars)"); continue; }

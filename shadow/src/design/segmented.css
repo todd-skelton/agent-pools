@@ -1,0 +1,11 @@
+.segmented {
+  display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px;
+  background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) - 3px);
+}
+.segmented > a {
+  padding: 5px 11px; border-radius: 6px; font-size: .8125rem; font-weight: 550;
+  color: var(--muted-foreground); text-decoration: none;
+}
+.segmented > a:hover { color: var(--foreground); }
+.segmented > a:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.segmented > a[aria-current="page"] { background: var(--secondary); color: var(--foreground); }

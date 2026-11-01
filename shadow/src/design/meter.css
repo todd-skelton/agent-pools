@@ -1,0 +1,9 @@
+@property --width { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+@property --left { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+.meter { display: flex; align-items: center; gap: .5rem; flex: 1; min-width: 0; }
+.track { position: relative; flex: 1; min-width: 40px; height: 6px; border-radius: 6px; background: color-mix(in oklab, var(--input) 45%, transparent); overflow: hidden; }
+.fill { width: var(--width); height: 100%; border-radius: 6px; background: var(--success); }
+.warning { background: var(--warning); }
+.danger { background: var(--destructive); }
+.tick { position: absolute; top: 0; bottom: 0; left: var(--left); width: 2px; margin-left: -1px; background: var(--foreground); opacity: .75; }
+.pct { width: 34px; text-align: right; font-size: .75rem; font-variant-numeric: tabular-nums; }

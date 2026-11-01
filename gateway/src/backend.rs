@@ -175,7 +175,7 @@ pub mod url {
     #[route("/backend-api", get = get, post = handle, put = handle, delete = handle, patch = handle, options = handle)]
     pub struct Root;
 
-    #[route("/backend-api/{*rest}", get = get, post = handle, put = handle, delete = handle, patch = handle, options = handle)]
+    #[route("/backend-api/{*rest}", get = get_under, post = handle_under, put = handle_under, delete = handle_under, patch = handle_under, options = handle_under)]
     pub struct Under<'a> {
         pub rest: &'a str,
     }
@@ -231,6 +231,16 @@ async fn get(State(b): State<Backend>, req: Request) -> Out {
 
 async fn handle(State(b): State<Backend>, req: Request) -> Out {
     relay(b, req).await
+}
+
+/// `get` under `/backend-api/`: the relay forwards the whole path, so the route's `rest` is only
+/// what Corten checks (UTF-8 once decoded) before it gets here.
+async fn get_under(_: Params<url::Under<'_>>, b: State<Backend>, req: Request) -> Out {
+    get(b, req).await
+}
+
+async fn handle_under(_: Params<url::Under<'_>>, b: State<Backend>, req: Request) -> Out {
+    handle(b, req).await
 }
 
 /// `readBody(req, limit)`: the whole body, `None` when empty, or the status and message.

@@ -23,15 +23,20 @@ use crate::parity::{self, Kind, Outcome};
 use crate::tailnet::Owner;
 use crate::watch::{Shared, now_ms};
 
+// The stylesheets (`style.css` for the summary and parity pages, `dash.css` for the
+// dashboard), compiled into the program.
+corten::assets::embed!(pub struct Static = "static");
+
 /// How often the live service's memory (`/api/status`) is read for the dashboard.
 const MEMORY_EVERY: std::time::Duration = std::time::Duration::from_secs(5);
 /// How often the dashboard's files' modification times are looked at.
 const SAVES_EVERY: std::time::Duration = std::time::Duration::from_millis(250);
 
-/// The app's security policy: style attributes allowed (the dashboard sizes meters, bars and
-/// timeline marks from data: corten#139), and the tailnet view's name and origin when it is set.
+/// The app's security policy: Corten's own (no style attributes: the dashboard's sizes from
+/// data are its components' custom properties), and the tailnet view's name and origin when it
+/// is set.
 fn security(shadow: &Shared) -> corten::security::Policy {
-    let p = corten::security::Policy::new().allow_style_attributes();
+    let p = corten::security::Policy::new();
     match shadow.tailnet.get() {
         Some(t) => t.policy(p),
         None => p,
@@ -42,7 +47,6 @@ fn security(shadow: &Shared) -> corten::security::Policy {
 /// files, and the write side's refresh loop in place of the parity checks.
 pub fn app_copy(
     shadow: Shared,
-    assets: std::path::PathBuf,
     copy: std::sync::Arc<crate::writer::Copy>,
     delays: crate::writer::Delays,
     options: pool_core::refresh::Options,
@@ -54,7 +58,10 @@ pub fn app_copy(
     let (watch, drain, d, value, closing) = (copy.clone(), copy.clone(), shadow.clone(), copy.clone(), copy.clone());
     let models = copy.models.clone().map(|m| (m, copy.io.root.clone(), shadow.clone()));
     let app = App::new(url::router(shadow))
-        .assets(assets)
+        .assets(Static)
+        .components(crate::ui::COMPONENTS)
+        .components(crate::design::COMPONENTS)
+        .components(crate::dash::COMPONENTS)
         .policy(security)
         .shutdown_grace(std::time::Duration::from_secs(20))
         // Open pages redraw when the write side's memory changes (a save, a publication, a
@@ -104,14 +111,16 @@ pub fn app_copy(
 /// The app: its routes and the two tasks that keep the parity checks running.
 pub fn app(
     shadow: Shared,
-    assets: std::path::PathBuf,
     watch_every: std::time::Duration,
     summary_every: std::time::Duration,
 ) -> App {
     let security = security(&shadow);
     let (w, s, st, n) = (shadow.clone(), shadow.clone(), shadow.clone(), shadow.clone());
     App::new(url::router(shadow))
-        .assets(assets)
+        .assets(Static)
+        .components(crate::ui::COMPONENTS)
+        .components(crate::design::COMPONENTS)
+        .components(crate::dash::COMPONENTS)
         .policy(security)
         .task("watch-files", move |signal| {
             crate::watch::watch(w, watch_every, signal)
@@ -272,6 +281,7 @@ impl corten::axum::response::IntoResponse for RawJson {
 impl corten::answer::Answer for RawJson {
     const FORMAT: corten::answer::Format = corten::answer::Format::Json;
     type Inputs = corten::answer::AnyInputs;
+    type Rows = corten::answer::NotAFeed;
 }
 
 fn copy_of(shadow: &Shared) -> Result<std::sync::Arc<crate::writer::Copy>, JsonStatus> {
@@ -487,6 +497,7 @@ impl corten::axum::response::IntoResponse for JsonStatus {
 impl corten::answer::Answer for JsonStatus {
     const FORMAT: corten::answer::Format = corten::answer::Format::Json;
     type Inputs = corten::answer::AnyInputs;
+    type Rows = corten::answer::NotAFeed;
 }
 
 /// `/api/summary` at the request's moment, from the answers kept for the inputs.
@@ -648,7 +659,8 @@ fn Layout<'a>(req: &'a Req, title: &'a str, children: impl Render) -> impl Docum
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1">
-                <link rel="stylesheet" href={req.asset("style.css")}>
+                <link rel="stylesheet" href={req.asset(Static::BASE_CSS)}>
+                <link rel="stylesheet" href={req.asset(Static::STYLE_CSS)}>
                 <title>{title}</title>
                 <Corten />
             </head>

@@ -54,7 +54,6 @@ pub async fn serve_service(install: Install) -> std::io::Result<()> {
         println!("tailnet: {} answered; writes there only as {}", t.origin, t.owner);
         let _ = shadow.tailnet.set(t);
     }
-    let assets = std::env::var_os("STATIC_DIR").map(PathBuf::from).unwrap_or_else(|| super::assets("shadow", &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static")));
     let copy = writer::Copy::new(io).with_management_key(key);
     let supervisor = super::proxy::Supervisor::new(install.clone(), copy.closing.clone());
     let copy = Arc::new(copy.with_supervisor(supervisor.clone()));
@@ -69,7 +68,7 @@ pub async fn serve_service(install: Install) -> std::io::Result<()> {
     let options = pool_core::refresh::Options { read_plans: true, ..Default::default() };
     let models = install.models() && !install.rehearsal;
     let s = shadow.clone();
-    let app = crate::app::app_copy(shadow, assets, copy, writer::Delays::default(), options);
+    let app = crate::app::app_copy(shadow, copy, writer::Delays::default(), options);
     let app = if models {
         println!("models: refresh hourly at :15, recheck every {} s", writer::models::RECHECK_EVERY.as_secs());
         app.task("model-refresh", move |signal| {
@@ -182,7 +181,6 @@ pub async fn serve_gateway(install: Install) -> std::io::Result<()> {
     let port = publish.and_then(|p| p.get("port")).and_then(Value::as_u64).and_then(|p| u16::try_from(p).ok()).unwrap_or(8330);
     let tcp = tokio::net::TcpListener::bind(("127.0.0.1", port)).await.map_err(|e| in_use(port, e))?;
     let mut config = pools_gateway::Config::new(&hostname, &install.proxy_url(), &install.service_url());
-    config.assets = Some(super::assets("gateway", &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../gateway/static")));
     let machines = Arc::new(Cached::new(install.clone(), "state/remote-clients.json", clients));
     let secrets = Arc::new(Cached::new(install.clone(), "state/secrets.json", secrets_doc));
     config.clients = Arc::new(move || machines.get());

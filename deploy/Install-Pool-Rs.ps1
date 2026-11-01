@@ -3,9 +3,10 @@
 Installs a build of the port into <Root>\pool-rs\<Version>\ and points the wrapper at it.
 
 .DESCRIPTION
-1. Copies pools-shadow.exe and its static files (shadow\static, gateway\static) into
-   <Root>\pool-rs\<Version>\, with build.json (its SHA-256 and the commit). A version is never
-   replaced: the same version again must be the same file.
+1. Copies pools-shadow.exe and pools-rs.exe into <Root>\pool-rs\<Version>\, with build.json
+   (its SHA-256 and the commit). The stylesheets and static files are built into the program
+   (corten::assets::embed!), so there is no static folder. A version is never replaced: the same
+   version again must be the same file.
 2. Writes pool-rs.json ("current", "previous", "tailnet"). Agent Pools' own files are not changed.
 3. Points each of the port's tasks that is registered at the new version's pools-rs.exe (the
    action only). With -RegisterTasks, registers "<TaskPrefix> - subscriptions", "- inference
@@ -69,11 +70,6 @@ if (Test-Path -LiteralPath $dir) {
   $windowless = Join-Path (Split-Path -Parent $Exe) 'pools-rs.exe'
   if (-not (Test-Path -LiteralPath $windowless)) { throw "$windowless is missing: build both binaries (cargo build -p pools-shadow --release)" }
   Copy-Item -LiteralPath $windowless -Destination (Join-Path $dir 'pools-rs.exe')
-  foreach ($s in @(@('shadow', "$repo\shadow\static"), @('gateway', "$repo\gateway\static"))) {
-    $to = Join-Path $dir "static\$($s[0])"
-    New-Item -ItemType Directory -Force -Path $to | Out-Null
-    Copy-Item -Path (Join-Path $s[1] '*') -Destination $to
-  }
   $commit = (& git -C $repo rev-parse HEAD 2>$null)
   $dirty = [bool](& git -C $repo status --porcelain 2>$null)
   $windowlessHash = (Get-FileHash -LiteralPath $windowless -Algorithm SHA256).Hash.ToLowerInvariant()

@@ -1,0 +1,5 @@
+.kpi { padding: 1rem; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
+.label { font-size: .6875rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--subtle-foreground); }
+.value { margin-top: 4px; font-size: 1.625rem; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.sub { font-size: .75rem; color: var(--muted-foreground); }
+@media (max-width: 760px) { .value { font-size: 1.375rem; } }

@@ -1,0 +1,22 @@
+/* corten ui 0.1.0: alert 27a6a1b70746459b */
+/* Agent Pools: status tones, tinted from the tone itself; actions at the right end. */
+.alert {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .25rem .875rem;
+  padding: .75rem 1rem; font-size: .8125rem;
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.alert > :not(.actions) { grid-column: 1; }
+.alert > :is(h2, h3, h4, h5, h6, strong) { margin: 0; font-size: inherit; font-weight: 600; line-height: 1.25rem; }
+.alert > p { margin: 0; }
+.actions { grid-column: 2; grid-row: 1; display: flex; flex-wrap: wrap; gap: .5rem; }
+.neutral { background: var(--card); color: var(--card-foreground); }
+.neutral > p { color: var(--muted-foreground); }
+.info { background: color-mix(in oklab, var(--info) 12%, var(--card)); border-color: color-mix(in oklab, var(--info) 35%, var(--border)); }
+.success { background: color-mix(in oklab, var(--success) 12%, var(--card)); border-color: color-mix(in oklab, var(--success) 40%, var(--border)); }
+.warning { background: color-mix(in oklab, var(--warning) 12%, var(--card)); border-color: color-mix(in oklab, var(--warning) 40%, var(--border)); }
+.destructive { background: var(--card); color: var(--destructive); border-color: color-mix(in oklab, var(--destructive) 50%, var(--border)); }
+.destructive > p { color: color-mix(in oklab, var(--destructive) 85%, var(--foreground)); }
+@media (max-width: 760px) {
+  .alert { grid-template-columns: minmax(0, 1fr); }
+  .actions { grid-column: 1; grid-row: auto; }
+}

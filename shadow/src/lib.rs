@@ -11,12 +11,12 @@
 //! | `SHADOW_STATE` | `shadow-state` next to the workspace | where `parity.jsonl` is appended |
 //! | `SHADOW_WATCH_SECS` | 5 | how often the install's files are looked at |
 //! | `SHADOW_SUMMARY_SECS` | 60 | how often the live summary is compared |
-//! | `STATIC_DIR` | `shadow/static` | the stylesheet |
 //! | `SHADOW_TAILNET_ORIGIN`, `SHADOW_TAILNET_OWNER` | none | the tailnet view ([`tailnet`]): the page's `https://` origin and the owner's Tailscale login |
 //! | `PORT`, `HOST` | 8320, loopback | Corten's own |
 
 mod app;
 mod dash;
+mod design;
 mod live;
 mod parity;
 mod served;
@@ -26,6 +26,7 @@ mod tailnet;
 mod testing;
 #[cfg(test)]
 mod tests;
+pub mod ui;
 mod watch;
 mod writer;
 
@@ -128,16 +129,13 @@ async fn serve() -> std::io::Result<()> {
         shadow.install.root().display(),
         shadow.live_url
     );
-    let assets = std::env::var_os("STATIC_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"));
     // 8320 unless PORT says otherwise; the loopback pair, the drain and graceful shutdown are
     // serve's (corten#115).
     let listeners = corten::listeners(8320).await?;
     println!("shadow: listening on http://localhost:{}", listeners[0].local_addr()?.port());
     corten::serve_on(
         listeners,
-        app::app(shadow, assets, secs("SHADOW_WATCH_SECS", 5), secs("SHADOW_SUMMARY_SECS", 60)),
+        app::app(shadow, secs("SHADOW_WATCH_SECS", 5), secs("SHADOW_SUMMARY_SECS", 60)),
     )
     .await
 }
@@ -219,9 +217,6 @@ async fn run_copy() -> std::io::Result<()> {
     println!("copy: public gateway at http://127.0.0.1:{gateway} for Host {} (keys in stand-in/keys.json)", writer::edge::GATEWAY_HOST);
     let shadow = watch::Shadow::new(sources::Install::new(root.clone()), "(a copy: not compared)".into(), root.join("logs/parity.jsonl"));
     set_tailnet(&shadow)?;
-    let assets = std::env::var_os("STATIC_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("static"));
     let delays = writer::Delays { every: secs("SHADOW_COPY_REFRESH_SECS", 120), degraded: secs("SHADOW_COPY_DEGRADED_SECS", 30), budget: 3 };
     let options = pool_core::refresh::Options { read_plans: true, ..Default::default() };
     let listeners = corten::listeners(8321).await?;
@@ -234,7 +229,7 @@ async fn run_copy() -> std::io::Result<()> {
         secs("SHADOW_COPY_MODEL_RECHECK_SECS", writer::models::RECHECK_EVERY.as_secs()),
     );
     let copy = std::sync::Arc::new(writer::Copy::new(io).with_management_key(keys.management_key.clone()).with_models(models, model_delays));
-    corten::serve_on(listeners, app::app_copy(shadow, assets, copy, delays, options)).await
+    corten::serve_on(listeners, app::app_copy(shadow, copy, delays, options)).await
 }
 
 /// `pools-shadow check-value`: rebuilds the live `state/usage-value.json` once at its

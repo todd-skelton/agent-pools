@@ -1,0 +1,32 @@
+/* The sign-in steps (the live page's drawer, as a page): numbered steps on a line, the current
+   one open, those done ticked. */
+.signin-steps { max-width: 560px; margin: 0 auto; }
+.steps { list-style: none; margin: 0; padding: 0; }
+.step { position: relative; display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding-bottom: 22px; }
+.step:last-child { padding-bottom: 0; }
+.step:not(:last-child)::after { content: ""; position: absolute; left: 13px; top: 30px; bottom: 4px; border-left: 2px solid var(--border); }
+.n {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  font-size: 12px; font-weight: 700; color: var(--muted-foreground); background: var(--secondary); border: 1px solid var(--border);
+}
+.active > .n { color: var(--primary-foreground); background: var(--primary); border-color: var(--primary); }
+.done > .n { color: var(--success); background: color-mix(in oklab, var(--success) 13%, transparent); border-color: color-mix(in oklab, var(--success) 40%, transparent); }
+.step h3 { margin: 4px 0 0; font-size: 14px; }
+.step p { margin: 4px 0 10px; font-size: 13px; color: var(--muted-foreground); }
+.quiet { font-weight: 400; color: var(--muted-foreground); }
+.strong { color: var(--foreground); }
+.step:not(.active) .body { display: none; }
+.body { margin-top: 8px; }
+.choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.choice > a {
+  padding: 10px 12px; border-radius: calc(var(--radius) - 2px); text-align: left; text-decoration: none;
+  color: var(--foreground); background: var(--muted); border: 1px solid var(--input);
+}
+.choice > a:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.choice > a[aria-current] { border-color: var(--foreground); }
+.choice small { display: block; margin-top: 2px; font-size: 12px; color: var(--muted-foreground); }
+.acts { display: flex; gap: 8px; margin-top: 8px; }
+.hint { min-height: 18px; margin: 6px 0 0 40px; font-size: 12px; color: var(--muted-foreground); }
+.hint:empty { display: none; }
+.hint.bad { color: var(--destructive); }
+.hint.good { color: var(--success); }

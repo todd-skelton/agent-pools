@@ -7,14 +7,7 @@ use serde_json::Value;
 
 use super::fmt::{self, D, H, Zone, ago, day, dt, in_t, n, num, num_v, ok_time, plural, text, ts, usd, usd_v};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Tone {
-    Ok,
-    Warn,
-    Bad,
-    Info,
-    Neutral,
-}
+pub use crate::design::Tone;
 
 /// A page of the dashboard an action goes to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

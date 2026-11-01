@@ -1,0 +1,35 @@
+/* The page around the tabs: the top bar (brand, tabs, freshness, actions) and the main column. */
+.bar {
+  position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 92%, transparent); backdrop-filter: blur(10px);
+}
+.bar-in { max-width: 1280px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; gap: 24px; height: 58px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 15px; white-space: nowrap; }
+.logo { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, var(--claude), var(--codex)); }
+.tabs { display: flex; gap: 2px; height: 100%; }
+.tabs > a {
+  display: flex; align-items: center; gap: 7px; padding: 0 14px; white-space: nowrap;
+  color: var(--muted-foreground); text-decoration: none; font-weight: 500; border-bottom: 2px solid transparent;
+}
+.tabs > a:hover { color: var(--foreground); }
+.tabs > a:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.tabs > a[aria-current="page"] { color: var(--foreground); border-bottom-color: var(--foreground); }
+.count {
+  font-size: 11px; font-weight: 650; padding: 1px 6px; border-radius: 9px;
+  color: var(--destructive); background: color-mix(in oklab, var(--destructive) 14%, transparent);
+}
+.right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.inline { display: contents; }
+.fresh { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted-foreground); white-space: nowrap; }
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px color-mix(in oklab, var(--success) 15%, transparent); }
+.stale { color: var(--destructive); }
+.stale > .pulse { background: var(--destructive); box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 15%, transparent); }
+.main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 64px; }
+.finish { margin: 0 0 16px; }
+.aside { color: var(--muted-foreground); }
+@media (max-width: 760px) {
+  .bar-in { flex-wrap: wrap; height: auto; padding: 10px 16px 0; gap: 8px 12px; }
+  .tabs { order: 3; width: calc(100% + 32px); margin: 0 -16px; padding: 0 8px; overflow-x: auto; height: 42px; border-top: 1px solid var(--border); }
+  .said { display: none; }
+  .main { padding-inline: 16px; }
+}

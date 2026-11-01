@@ -1,0 +1,41 @@
+{
+  "$schema": "https://www.designtokens.org/schemas/2025.10/resolver.json",
+  "version": "2025.10",
+  "sets": {
+    "ui": {
+      "sources": [
+        {
+          "$ref": "ui.tokens.json"
+        }
+      ]
+    }
+  },
+  "modifiers": {
+    "theme": {
+      "contexts": {
+        "light": [],
+        "dark": [
+          {
+            "$ref": "ui-dark.tokens.json"
+          }
+        ]
+      },
+      "default": "light",
+      "$extensions": {
+        "run.corten": {
+          "media": {
+            "dark": "(prefers-color-scheme: dark)"
+          }
+        }
+      }
+    }
+  },
+  "resolutionOrder": [
+    {
+      "$ref": "#/sets/ui"
+    },
+    {
+      "$ref": "#/modifiers/theme"
+    }
+  ]
+}

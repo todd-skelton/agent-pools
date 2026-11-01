@@ -1,0 +1,56 @@
+/* The accounts tab: a filter, then a table per provider whose rows open into details. On a
+   phone each row is a card of labelled cells. */
+@property --width { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+.toolbar { display: flex; gap: 8px 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.shown { font-size: 13px; color: var(--muted-foreground); }
+.accounts-tab { display: grid; gap: 16px; }
+.order { color: var(--subtle-foreground); }
+.grid { table-layout: fixed; }
+.grid > colgroup > col { width: var(--width); }
+.row[aria-expanded="true"] > td, .row:target > td { background: var(--muted); }
+.row[aria-expanded="true"] { border-bottom-color: transparent; }
+.detail-row > td { padding: 4px 16px 18px; white-space: normal; background: var(--muted); }
+.empty { color: var(--muted-foreground); }
+.who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.nm { overflow: hidden; text-overflow: ellipsis; color: var(--foreground); text-decoration: none; }
+.nm:hover { text-decoration: underline; }
+.nm:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 2px; }
+.tag { display: inline-flex; flex: none; }
+.note { margin-top: 4px; max-width: 52ch; font-size: 12px; color: var(--muted-foreground); white-space: normal; }
+.bad { color: var(--destructive); }
+.warn { color: var(--warning); }
+.sub { margin-top: 3px; font-size: 11px; color: var(--subtle-foreground); }
+.soon { color: var(--warning); }
+.dim { color: var(--subtle-foreground); }
+.mono { font-variant-numeric: tabular-nums; }
+.pips { display: flex; align-items: center; gap: 4px; }
+.pips > i { width: 8px; height: 8px; margin-right: 2px; transform: rotate(45deg); border-radius: 1px; background: var(--warning); }
+.pips > b { margin-left: 4px; font-weight: 600; }
+.dgrid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 24px; }
+.dgrid h4 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--subtle-foreground); }
+.dgrid .later { margin-top: 16px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; font-size: 13px; }
+.kv > dt { color: var(--muted-foreground); }
+.kv > dd { margin: 0; }
+.models { display: flex; flex-wrap: wrap; gap: 5px; }
+.models > span { padding: 2px 7px; border-radius: 5px; font: 11px var(--font-mono); color: var(--muted-foreground); background: var(--secondary); }
+.models > .down { color: var(--destructive); background: color-mix(in oklab, var(--destructive) 14%, transparent); }
+.fine { margin: 8px 0 0; font-size: 12px; color: var(--subtle-foreground); }
+.notes { margin: 10px 0 0; font-size: 12px; }
+.dacts { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 1080px) { .dgrid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  .hide-sm { display: none; }
+  .accounts-tab table, .accounts-tab tbody, .accounts-tab tr, .accounts-tab td { display: block; width: auto; }
+  .accounts-tab thead, .accounts-tab colgroup { display: none; }
+  /* Above the block rule for the table's rows. */
+  .accounts-tab .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; padding: 14px 16px; }
+  .row > td { padding: 0; white-space: normal; overflow: visible; }
+  .row > td.hide-sm { display: block; }
+  .row > td:first-child { grid-column: 1 / -1; font-weight: 600; }
+  .row > td[data-h]::before {
+    content: attr(data-h); display: block; margin-bottom: 4px;
+    font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--subtle-foreground);
+  }
+  .toolbar { align-items: flex-start; }
+}

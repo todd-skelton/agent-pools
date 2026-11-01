@@ -1,0 +1,5 @@
+.provider-dot { display: inline-block; flex: none; border-radius: 2px; background: var(--subtle-foreground); }
+.sm { width: 8px; height: 8px; }
+.lg { width: 10px; height: 10px; }
+.claude { background: var(--claude); }
+.codex { background: var(--codex); }

@@ -23,6 +23,10 @@ use serde_json::{Value, json};
 use super::model::{Ctx, Tone};
 use super::views::{Dash, Header};
 use crate::app::url;
+use crate::design::{DotSize, ProviderDot};
+use crate::ui::button::{Button, ButtonSize, ButtonVariant};
+use crate::ui::card::{Card, CardAction, CardContent, CardHeader};
+use crate::ui::input::Input;
 use crate::tailnet::Owner;
 use crate::watch::{Shared, now_ms};
 
@@ -183,12 +187,6 @@ fn known(p: &str) -> bool {
     matches!(p, "claude" | "codex")
 }
 
-#[derive(serde::Deserialize, Default)]
-pub struct SigninQuery {
-    provider: Option<String>,
-    account: Option<String>,
-}
-
 #[derive(serde::Deserialize)]
 pub struct OpenInput {
     provider: String,
@@ -212,7 +210,7 @@ fn copy_of(shadow: &Shared) -> corten::Result<std::sync::Arc<crate::writer::Copy
 
 /// `GET /signin?provider=&account=` (`openSignin(provider, accountId)`): the provider's step
 /// when one is named, else the pending sign-in's last step, else the choice of provider.
-pub async fn page(req: Req, State(shadow): State<Shared>, Query(q): Query<SigninQuery>) -> HtmlResult {
+pub async fn page(req: Req, State(shadow): State<Shared>, Params(q): Params<url::Signin<'_>>) -> HtmlResult {
     copy_of(&shadow)?;
     let d = super::load(&shadow).await?;
     let c = d.ctx();
@@ -330,85 +328,94 @@ fn draw(req: Req, _shadow: &Shared, d: &super::Data, steps: &Steps) -> HtmlResul
 }
 
 /// `renderSignin()`: the three steps and the message under them.
-pub fn view(s: &Steps) -> impl Render + '_ {
-    let cls = |n: u8| if s.step == n { "step active" } else if s.step > n { "step done" } else { "step" };
+#[component(css)]
+pub fn SigninSteps<'a>(s: &'a Steps) -> impl Render {
+    let cls = |n: u8| (Step, (s.step == n).then_some(Active), (s.step > n).then_some(Done));
     let n = |k: u8| if s.step > k { "\u{2713}".to_string() } else { k.to_string() };
     let p = s.provider.as_deref();
     let name = signin_name(p.unwrap_or_default());
     let site = if p == Some("codex") { "ChatGPT" } else { "Claude" };
     let port = if p == Some("codex") { 1455 } else { 54545 };
+    let hint = match &s.note {
+        Some((Tone::Bad, _)) => Some(Bad),
+        Some((Tone::Ok, _)) => Some(Good),
+        _ => None,
+    };
     html! {
-        <div class="card signin">
-            <div class="card-h">
-                <h2>if s.account.is_some() { "Sign in again" } else { "Connect an account" }</h2>
-                <div class="right"><a class="btn ghost" href={url::Overview}>"Close"</a></div>
-            </div>
-            <div class="card-b">
-                <ol class="steps">
-                    <li class={cls(1)}>
-                        <span class="n">{n(1)}</span>
-                        <div>
-                            <h3>"Choose provider" if p.is_some() { " "<span class="mut fw4">{name}</span> }</h3>
-                            <div class="body">
-                                <div class="choice">
-                                    for (id, pname, count) in &s.choices {
-                                        <a href={url::Signin { provider: Some(id), account: None }} aria-current={(p == Some(id.as_str())).then_some("true")}>
-                                            <span class={("pdot ", id.as_str())}></span>" "{pname}<small>{count}" connected"</small>
-                                        </a>
+        <div class={SigninSteps}>
+            <Card>
+                <CardHeader>
+                    <h2>if s.account.is_some() { "Sign in again" } else { "Connect an account" }</h2>
+                    <CardAction><Button variant={ButtonVariant::Ghost} size={ButtonSize::Sm}><a href={url::Overview}>"Close"</a></Button></CardAction>
+                </CardHeader>
+                <CardContent>
+                    <ol class={Steps}>
+                        <li class={cls(1)}>
+                            <span class={N}>{n(1)}</span>
+                            <div>
+                                <h3>"Choose provider" if p.is_some() { " "<span class={Quiet}>{name}</span> }</h3>
+                                <div class={Body}>
+                                    <div class={Choice}>
+                                        for (id, pname, count) in &s.choices {
+                                            <a href={url::Signin { provider: Some(id), account: None }} aria-current={(p == Some(id.as_str())).then_some("true")}>
+                                                <ProviderDot provider={id} size={DotSize::Sm} title={None} />" "{pname}<small>{count}" connected"</small>
+                                            </a>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </li>
+                        <li class={cls(2)}>
+                            <span class={N}>{n(2)}</span>
+                            <div>
+                                <h3>"Sign in with "{name} if let Some((_, email)) = &s.account { " "<span class={Quiet}>"as "{email}</span> }</h3>
+                                <div class={Body}>
+                                    if let Some((_, email)) = &s.account { <p>"Use "<b class={Strong}>{email}</b>" on the provider page."</p> }
+                                    <p>"Opens the provider's page in a new tab. Finish one sign-in before starting another."</p>
+                                    match &s.url {
+                                        Some(u) => <Button variant={ButtonVariant::Primary} size={ButtonSize::Md}><a target="_blank" rel="noopener" href={u.as_str()}>"Continue to "{site}" sign-in"</a></Button>,
+                                        None => {
+                                            <form method="post" action={url::Signin { provider: None, account: None }}>
+                                                <input type="hidden" name="provider" value={p.unwrap_or_default()}>
+                                                if let Some((id, _)) = &s.account { <input type="hidden" name="account" value={id}> }
+                                                <Button variant={ButtonVariant::Primary} size={ButtonSize::Md}><button type="submit">"Open "{name}" sign-in"</button></Button>
+                                            </form>
+                                        }
                                     }
                                 </div>
                             </div>
-                        </div>
-                    </li>
-                    <li class={cls(2)}>
-                        <span class="n">{n(2)}</span>
-                        <div>
-                            <h3>"Sign in with "{name} if let Some((_, email)) = &s.account { " "<span class="mut fw4">"as "{email}</span> }</h3>
-                            <div class="body">
-                                if let Some((_, email)) = &s.account { <p>"Use "<b class="text">{email}</b>" on the provider page."</p> }
-                                <p>"Opens the provider's page in a new tab. Finish one sign-in before starting another."</p>
-                                match &s.url {
-                                    Some(u) => <a class="btn primary" target="_blank" rel="noopener" href={u.as_str()}>"Continue to "{site}" sign-in"</a>,
-                                    None => {
-                                        <form method="post" action={url::Signin { provider: None, account: None }}>
-                                            <input type="hidden" name="provider" value={p.unwrap_or_default()}>
-                                            if let Some((id, _)) = &s.account { <input type="hidden" name="account" value={id}> }
-                                            <button type="submit" class="btn primary">"Open "{name}" sign-in"</button>
-                                        </form>
-                                    }
-                                }
+                        </li>
+                        <li class={cls(3)}>
+                            <span class={N}>{n(3)}</span>
+                            <div>
+                                <h3>"Finish"</h3>
+                                <div class={Body}>
+                                    if let Some(u) = &s.url { <p><Button variant={ButtonVariant::Outline} size={ButtonSize::Sm}><a target="_blank" rel="noopener" href={u.as_str()}>"Open the sign-in page"</a></Button></p> }
+                                    <p>"On this PC the sign-in finishes by itself; keep this page open to see it confirmed."</p>
+                                    <p>"On a phone or another device, the browser ends on a localhost page that will not load. That is expected: copy its address and paste it here."</p>
+                                    <form method="post" action={url::SigninFinish}>
+                                        if let Some(p) = p { <input type="hidden" name="provider" value={p}> }
+                                        <Input><input name="link" autocomplete="off" aria-label="The localhost sign-in link" placeholder={format!("http://localhost:{port}/callback?code=...")}></Input>
+                                        <div class={Acts}><Button variant={ButtonVariant::Outline} size={ButtonSize::Sm}><button type="submit">"Submit link"</button></Button></div>
+                                    </form>
+                                    <form method="post" action={url::SigninCancel} class={Acts}><Button variant={ButtonVariant::Outline} size={ButtonSize::Sm}><button type="submit">"Cancel sign-in"</button></Button></form>
+                                </div>
                             </div>
-                        </div>
-                    </li>
-                    <li class={cls(3)}>
-                        <span class="n">{n(3)}</span>
-                        <div>
-                            <h3>"Finish"</h3>
-                            <div class="body">
-                                if let Some(u) = &s.url { <p><a class="btn sm" target="_blank" rel="noopener" href={u.as_str()}>"Open the sign-in page"</a></p> }
-                                <p>"On this PC the sign-in finishes by itself; keep this page open to see it confirmed."</p>
-                                <p>"On a phone or another device, the browser ends on a localhost page that will not load. That is expected: copy its address and paste it here."</p>
-                                <form method="post" action={url::SigninFinish}>
-                                    if let Some(p) = p { <input type="hidden" name="provider" value={p}> }
-                                    <input class="field" name="link" autocomplete="off" aria-label="The localhost sign-in link" placeholder={format!("http://localhost:{port}/callback?code=...")}>
-                                    <div class="si-acts"><button type="submit" class="btn sm">"Submit link"</button></div>
-                                </form>
-                                <form method="post" action={url::SigninCancel} class="si-acts"><button type="submit" class="btn sm">"Cancel sign-in"</button></form>
-                            </div>
-                        </div>
-                    </li>
-                    <li class="step">
-                        <span class="n"></span>
-                        <div>
-                            <p class={("hint", match &s.note { Some((Tone::Bad, _)) => " bad-t", Some((Tone::Ok, _)) => " ok-t", _ => "" })} role="status" aria-live="polite">
-                                if let Some((_, text)) = &s.note { {text} }
-                            </p>
-                        </div>
-                    </li>
-                </ol>
-            </div>
+                        </li>
+                    </ol>
+                    // The live drawer draws this as a fourth step with an empty marker; here it
+                    // sits under the steps, so the line ends at Finish.
+                    <p class={(Hint, hint)} role="status" aria-live="polite">
+                        if let Some((_, text)) = &s.note { {text} }
+                    </p>
+                </CardContent>
+            </Card>
         </div>
     }
+}
+
+pub fn view(s: &Steps) -> impl Render + '_ {
+    html! { <SigninSteps s={s} /> }
 }
 
 #[cfg(test)]

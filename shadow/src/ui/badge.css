@@ -1,0 +1,12 @@
+/* corten ui 0.1.0: badge 33c6675cb1bf4078 */
+.badge {
+  display: inline-flex; align-items: center; gap: .25rem; width: fit-content; white-space: nowrap;
+  padding: .125rem .5rem; font-size: .75rem; font-weight: 500; line-height: 1rem;
+  border: 1px solid transparent; border-radius: calc(var(--radius) - 2px);
+}
+.primary { background: var(--primary); color: var(--primary-foreground); }
+.secondary { background: var(--secondary); color: var(--secondary-foreground); }
+.outline { color: var(--foreground); border-color: var(--border); }
+.destructive { background: var(--destructive); color: var(--destructive-foreground); }
+.success { color: var(--success); border-color: color-mix(in oklab, var(--success) 40%, transparent); }
+.warning { color: var(--warning); border-color: color-mix(in oklab, var(--warning) 40%, transparent); }

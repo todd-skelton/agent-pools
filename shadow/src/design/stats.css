@@ -1,0 +1,12 @@
+.stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; overflow: hidden;
+  background: var(--border); border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px);
+}
+.stat { background: var(--muted); padding: .625rem .75rem; }
+.label { font-size: .6875rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--subtle-foreground); }
+.value { margin-top: 2px; font-size: .9375rem; font-weight: 600; }
+.sub { font-size: .75rem; color: var(--muted-foreground); }
+.success { color: var(--success); }
+.warning { color: var(--warning); }
+.danger { color: var(--destructive); }
+@media (max-width: 760px) { .stats { grid-template-columns: 1fr; } }

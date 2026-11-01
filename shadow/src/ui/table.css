@@ -1,0 +1,17 @@
+/* corten ui 0.1.0: table aaf186899d1c011c */
+/* Agent Pools: dense rows, small uppercase headings, long text cut with an ellipsis. */
+.table { width: 100%; overflow-x: auto; }
+.table > table { width: 100%; border-collapse: collapse; font-size: .8125rem; font-variant-numeric: tabular-nums; caption-side: bottom; }
+.table > table > caption { margin-top: 1rem; font-size: .875rem; color: var(--muted-foreground); }
+.table :is(th, td) {
+  padding: .6875rem .75rem; text-align: left; vertical-align: middle;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.table th {
+  padding-block: .625rem; font-size: .6875rem; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--subtle-foreground);
+}
+.table tr { border-bottom: 1px solid var(--border); transition: background-color .15s; }
+.table > table > tbody > tr:last-child { border-bottom: 0; }
+.table > table > tbody > tr:hover { background: var(--muted); }
+.table > table > tfoot { font-weight: 500; background: var(--muted); border-top: 1px solid var(--border); }

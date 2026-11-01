@@ -1,0 +1,13 @@
+/* A forecast's rows: label, what it comes to, a note at the right. */
+.ladder-box { padding: 10px 12px; border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px); background: var(--muted); }
+.heading { margin-bottom: 6px; }
+.row {
+  display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, .8fr); gap: 10px;
+  padding: 3px 0; font-size: 12px; color: var(--muted-foreground);
+}
+.main { color: var(--foreground); font-weight: 600; }
+.assume { font-style: italic; }
+.bad { color: var(--destructive); }
+.good { color: var(--success); }
+.note { text-align: right; color: var(--subtle-foreground); }
+.foot { margin: 8px 0 0; font-size: 12px; color: var(--subtle-foreground); }

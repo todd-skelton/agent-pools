@@ -1,0 +1,26 @@
+/* corten ui 0.1.0: button 33b6a62e563ae4d4 */
+/* The wrapper takes no box: the rules style the <button> or <a> inside it. */
+.button { display: contents; }
+.button > * {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  font: inherit; font-size: .875rem; font-weight: 500; line-height: 1.25rem; white-space: nowrap;
+  border: 1px solid transparent; border-radius: calc(var(--radius) - 2px);
+  cursor: pointer; text-decoration: none; transition: background-color .15s, color .15s, border-color .15s;
+}
+.button > :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.button > :disabled, .button > [aria-disabled="true"] { opacity: .5; pointer-events: none; }
+.primary > * { background: var(--primary); color: var(--primary-foreground); }
+.primary > :hover { background: color-mix(in oklab, var(--primary) 88%, var(--foreground)); }
+.secondary > * { background: var(--secondary); color: var(--secondary-foreground); }
+.secondary > :hover { background: color-mix(in oklab, var(--secondary) 92%, var(--foreground)); }
+.outline > * { background: var(--background); color: var(--foreground); border-color: var(--input); }
+.outline > :hover, .ghost > :hover { background: var(--accent); color: var(--accent-foreground); }
+.ghost > * { background: transparent; color: var(--foreground); }
+.destructive > * { background: var(--destructive); color: var(--destructive-foreground); }
+.destructive > :hover { background: color-mix(in oklab, var(--destructive) 88%, var(--foreground)); }
+.link > * { background: none; color: var(--primary); text-underline-offset: 4px; }
+.link > :hover { text-decoration: underline; }
+.sm > * { height: 2rem; padding: 0 .75rem; font-size: .8125rem; }
+.md > * { height: 2.25rem; padding: 0 1rem; }
+.lg > * { height: 2.5rem; padding: 0 1.5rem; }
+.icon > * { width: 2.25rem; height: 2.25rem; padding: 0; }
