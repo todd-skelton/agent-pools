@@ -1,4 +1,6 @@
 * text=auto eol=lf
 *.gz binary
+# Applied byte for byte to the upstream source (git apply --binary).
+proxy-build/pool.patch -text
 # Line endings and byte-order marks are what these fixtures test.
 golden/inputs/routing-attempts/** -text

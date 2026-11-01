@@ -7,11 +7,12 @@
 import { registerHooks } from "node:module";
 
 const redirected = ["model-registry.mjs", "model-refresh.mjs", "model-admission.mjs"];
+// model-refresh.mjs imports model-arena.mjs, which imports hyparquet's parquetReadObjects. The
+// registry calls never read a parquet file, so a stand-in that refuses to is enough.
+const hyparquet = "data:text/javascript," + encodeURIComponent("export function parquetReadObjects() { throw new Error('hyparquet is not available to the registry recorder'); }");
 registerHooks({
   resolve(specifier, context, next) {
-    // model-refresh.mjs imports model-arena.mjs, which imports hyparquet: Agent Pools' own copy,
-    // read only (the registry calls never use it).
-    if (specifier === "hyparquet") return next(specifier, { ...context, parentURL: "file:///D:/Users/ToddS/AgentPools/package.json" });
+    if (specifier === "hyparquet") return { url: hyparquet, shortCircuit: true };
     const r = next(specifier, context);
     const fromTest = context.parentURL?.endsWith("/reference/agent-pools/model-registry.test.mjs");
     if (fromTest && redirected.some((m) => r.url.endsWith("/reference/agent-pools/" + m))) {

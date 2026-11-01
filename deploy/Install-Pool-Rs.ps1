@@ -7,12 +7,13 @@ Installs a build of the port into <Root>\pool-rs\<Version>\ and points the wrapp
    (its SHA-256 and the commit). The stylesheets and static files are built into the program
    (corten::assets::embed!), so there is no static folder. A version is never replaced: the same
    version again must be the same file.
-2. Writes pool-rs.json ("current", "previous", "tailnet"). Agent Pools' own files are not changed.
+2. Writes pool-rs.json ("current", "previous", "tailnet"). The install's other files are not changed.
 3. Points each of the port's tasks that is registered at the new version's pools-rs.exe (the
    action only). With -RegisterTasks, registers "<TaskPrefix> - subscriptions", "- inference
-   relay", "- public gateway", "- cloudflare tunnel" and "- backup" as Agent Pools registers its
-   own; a task registered here for the first time is left Disabled (Cutover-Pool-Rs.ps1 enables
-   it). An existing task keeps its triggers, settings and state; only its action changes.
+   relay", "- public gateway", "- cloudflare tunnel" and "- backup"; a task registered here for
+   the first time is left Disabled (Enable-ScheduledTask, or ops\Set-Inference-Relay.ps1 and
+   ops\Set-Public-Gateway.ps1 for theirs, enables it). An existing task keeps its triggers,
+   settings and state; only its action changes.
 
 -Use <Version> points "current" and the tasks at a version already installed (a rollback).
 Either way a running command keeps its version until Restart-Pool-Rs.ps1 starts it again.

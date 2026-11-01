@@ -1,4 +1,4 @@
-# Shared by Install-Pool-Rs.ps1, Restart-Pool-Rs.ps1 and Cutover-Pool-Rs.ps1.
+# Shared by Install-Pool-Rs.ps1, Restart-Pool-Rs.ps1, ops\ and proxy-build\.
 $script:LiveRoot = 'D:\Users\ToddS\AgentPools'
 
 # The install at $Root, refused as Install::open refuses it: the live install only with -Live,
@@ -27,17 +27,16 @@ function Write-Json([string]$Path, $Value) {
   [IO.File]::WriteAllText($Path, ($Value | ConvertTo-Json -Depth 6) + "`n", [Text.UTF8Encoding]::new($false))
 }
 
-# The port's tasks, as Agent Pools registers its own (Register-Pool-Tasks.ps1, Set-Inference-Relay.ps1,
-# Set-Public-Gateway.ps1): each starts <Root>\pool-rs\<version>\pools-rs.exe (no console window, so no
+# The port's tasks: each starts <Root>\pool-rs\<version>\pools-rs.exe (no console window, so no
 # wscript.exe wrapper) with its command. Keepalive: logon plus every 5 minutes, IgnoreNew, no time
-# limit; the backup runs daily at 03:30 and at logon. Old is the Agent Pools task each replaces.
+# limit; the backup runs daily at 03:30 and at logon.
 function Get-PoolRsTasks([string]$Prefix) {
   @(
-    [pscustomobject]@{ Key = 'service';   Name = "$Prefix - subscriptions";    Command = 'guardian';        Live = $true;  Keepalive = $true;  Restart = $false; Priority = $null; Old = 'Agent Pools - subscriptions';     Description = 'Agent Pools on Corten: the guardian, the service and the proxy.' }
-    [pscustomobject]@{ Key = 'inference'; Name = "$Prefix - inference relay";  Command = 'serve-inference'; Live = $true;  Keepalive = $true;  Restart = $true;  Priority = $null; Old = 'Agent Pools - inference relay';   Description = 'Agent Pools on Corten: the inference relay.' }
-    [pscustomobject]@{ Key = 'gateway';   Name = "$Prefix - public gateway";   Command = 'serve-gateway';   Live = $true;  Keepalive = $true;  Restart = $true;  Priority = 4;     Old = 'Agent Pools - public gateway';    Description = 'Agent Pools on Corten: the public gateway.' }
-    [pscustomobject]@{ Key = 'tunnel';    Name = "$Prefix - cloudflare tunnel"; Command = 'tunnel';          Live = $false; Keepalive = $true;  Restart = $true;  Priority = 4;     Old = 'Agent Pools - cloudflare tunnel'; Description = 'Agent Pools on Corten: cloudflared for the public gateway hostname.' }
-    [pscustomobject]@{ Key = 'backup';    Name = "$Prefix - backup";            Command = 'backup';          Live = $false; Keepalive = $false; Restart = $false; Priority = 7;     Old = 'Agent Pools - backup';            Description = 'Agent Pools on Corten: the DPAPI-protected backup of the credentials and state.' }
+    [pscustomobject]@{ Key = 'service';   Name = "$Prefix - subscriptions";    Command = 'guardian';        Live = $true;  Keepalive = $true;  Restart = $false; Priority = $null; Description = 'Agent Pools on Corten: the guardian, the service and the proxy.' }
+    [pscustomobject]@{ Key = 'inference'; Name = "$Prefix - inference relay";  Command = 'serve-inference'; Live = $true;  Keepalive = $true;  Restart = $true;  Priority = $null; Description = 'Agent Pools on Corten: the inference relay.' }
+    [pscustomobject]@{ Key = 'gateway';   Name = "$Prefix - public gateway";   Command = 'serve-gateway';   Live = $true;  Keepalive = $true;  Restart = $true;  Priority = 4;     Description = 'Agent Pools on Corten: the public gateway.' }
+    [pscustomobject]@{ Key = 'tunnel';    Name = "$Prefix - cloudflare tunnel"; Command = 'tunnel';          Live = $false; Keepalive = $true;  Restart = $true;  Priority = 4;     Description = 'Agent Pools on Corten: cloudflared for the public gateway hostname.' }
+    [pscustomobject]@{ Key = 'backup';    Name = "$Prefix - backup";            Command = 'backup';          Live = $false; Keepalive = $false; Restart = $false; Priority = 7;     Description = 'Agent Pools on Corten: the DPAPI-protected backup of the credentials and state.' }
   )
 }
 
@@ -85,12 +84,6 @@ function Get-PoolRsProcess([string]$Root, [string]$Command) {
   # The task quotes the root; the guardian's child (Rust's argument quoting) only when it must.
   $want = '(^|\s)' + [regex]::Escape($Command) + '\s+"?' + [regex]::Escape($Root) + '"?(\s|$)'
   Get-CimInstance Win32_Process -Filter "Name='pools-shadow.exe' OR Name='pools-rs.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine -imatch $want }
-}
-
-# Agent Pools' node processes running $Root\$Script.
-function Get-NodeProcess([string]$Root, [string]$Script) {
-  $path = Join-Path $Root $Script
-  Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($path, [StringComparison]::OrdinalIgnoreCase) -ge 0 }
 }
 
 # The process listening on 127.0.0.1:$Port, from netstat (Get-NetTCPConnection took 27 s here).

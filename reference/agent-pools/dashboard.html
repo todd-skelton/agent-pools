@@ -1,0 +1,1135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Agent pools</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0c131a; --panel: #121c25; --panel2: #16222d; --raise: #1b2935;
+  --line: #22313e; --line2: #2e4152;
+  --text: #e7eef4; --mut: #94a7b7; --dim: #677c8d;
+  --ok: #5fd0a8; --okbg: rgba(95,208,168,.12);
+  --warn: #f2c06b; --warnbg: rgba(242,192,107,.12);
+  --bad: #f08a78; --badbg: rgba(240,138,120,.13);
+  --info: #86b4ff; --infobg: rgba(134,180,255,.12);
+  --claude: #e9a47c; --codex: #8db7ff;
+  --r: 12px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; cursor: pointer; }
+a { color: var(--info); }
+h1, h2, h3, h4 { margin: 0; font-weight: 600; }
+.mono { font-variant-numeric: tabular-nums; }
+.mut { color: var(--mut); } .dim { color: var(--dim); }
+
+/* Top bar */
+.bar { position: sticky; top: 0; z-index: 20; background: rgba(12,19,26,.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.bar-in { max-width: 1280px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; gap: 24px; height: 58px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 15px; white-space: nowrap; }
+.logo { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, var(--claude), var(--codex)); }
+nav.tabs { display: flex; gap: 2px; height: 100%; }
+nav.tabs a { display: flex; align-items: center; gap: 7px; padding: 0 14px; color: var(--mut); text-decoration: none; border-bottom: 2px solid transparent; font-weight: 500; white-space: nowrap; }
+nav.tabs a:hover { color: var(--text); }
+nav.tabs a[aria-current="page"] { color: var(--text); border-bottom-color: var(--text); }
+.tab-count { font-size: 11px; padding: 1px 6px; border-radius: 9px; background: var(--badbg); color: var(--bad); font-weight: 650; }
+.bar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.fresh { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--mut); white-space: nowrap; }
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--okbg); }
+.btn { border: 1px solid var(--line2); background: var(--raise); border-radius: 8px; padding: 7px 12px; font-weight: 550; font-size: 13px; white-space: nowrap; }
+.btn:hover { border-color: #47607a; }
+.btn.primary { background: var(--text); color: #0c131a; border-color: var(--text); }
+.btn.primary:hover { background: #fff; }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--mut); padding: 7px 8px; }
+.btn.ghost:hover { color: var(--text); background: var(--raise); }
+.btn.sm { padding: 5px 10px; font-size: 12px; }
+
+main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 64px; }
+section.view { display: none; } section.view.on { display: block; }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(12, 1fr); }
+.span-12 { grid-column: span 12; } .span-7 { grid-column: span 7; } .span-5 { grid-column: span 5; } .span-6 { grid-column: span 6; } .span-4 { grid-column: span 4; } .span-8 { grid-column: span 8; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+.card-h { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.card-h h2 { font-size: 14px; }
+.card-h .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.card-b { padding: 16px; }
+.eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--dim); font-weight: 600; }
+
+/* Chips */
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.chip.ok { color: var(--ok); background: var(--okbg); } .chip.warn { color: var(--warn); background: var(--warnbg); }
+.chip.bad { color: var(--bad); background: var(--badbg); } .chip.info { color: var(--info); background: var(--infobg); }
+.chip.neutral { color: var(--mut); background: var(--raise); }
+.chip.plain::before { display: none; }
+.pdot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.pdot.claude { background: var(--claude); } .pdot.codex { background: var(--codex); }
+
+/* Attention */
+.att-list { list-style: none; margin: 0; padding: 0; }
+.att { display: grid; grid-template-columns: 4px 1fr auto; gap: 0 14px; padding: 14px 16px 14px 0; border-bottom: 1px solid var(--line); align-items: start; }
+.att:last-child { border-bottom: 0; }
+.att .rail { align-self: stretch; border-radius: 0 3px 3px 0; }
+.att.bad .rail { background: var(--bad); } .att.warn .rail { background: var(--warn); } .att.info .rail { background: var(--info); }
+.att h3 { font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.att p { margin: 3px 0 0; color: var(--mut); font-size: 13px; max-width: 760px; }
+.att .acts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.att details { grid-column: 2 / 4; margin-top: 8px; }
+.att summary { color: var(--dim); font-size: 12px; cursor: pointer; width: max-content; }
+.att summary:hover { color: var(--mut); }
+.att details p { font-size: 12px; color: var(--mut); border-left: 2px solid var(--line2); padding-left: 10px; margin-top: 6px; }
+.clear { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--panel2); border-radius: 0 0 var(--r) var(--r); }
+
+/* Provider cards */
+.prov-h { display: flex; align-items: center; gap: 10px; }
+.prov-h h2 { font-size: 16px; }
+.big { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 4px; }
+.big b { font-size: 30px; font-weight: 650; letter-spacing: -.02em; }
+.supply { display: flex; gap: 3px; height: 10px; margin: 10px 0 4px; }
+.supply span { position: relative; border-radius: 3px; background: var(--line2); overflow: hidden; }
+.supply span i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 16px 0; }
+.stat { background: var(--panel2); padding: 10px 12px; }
+.stat .v { font-size: 15px; font-weight: 600; margin-top: 2px; }
+.stat .s { font-size: 12px; color: var(--mut); }
+.stat.bad .v { color: var(--bad); } .stat.warn .v { color: var(--warn); } .stat.ok .v { color: var(--ok); }
+.acct { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 76px 64px; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.acct .name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.acct .name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.next { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ok); border: 1px solid rgba(95,208,168,.35); border-radius: 4px; padding: 0 4px; flex: none; }
+.meter { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.meter .track { flex: 1; height: 6px; border-radius: 6px; background: var(--line2); overflow: hidden; min-width: 40px; }
+.meter .fill { height: 100%; border-radius: 6px; background: var(--ok); }
+.meter .fill.warn { background: var(--warn); } .meter .fill.bad { background: var(--bad); }
+.meter .pct { width: 34px; text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; }
+.credit { font-size: 12px; color: var(--mut); text-align: right; white-space: nowrap; }
+.credit b { color: var(--text); }
+.when { font-size: 12px; color: var(--mut); white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Timeline */
+.tl { position: relative; }
+.tl-row { display: grid; grid-template-columns: 200px 1fr; align-items: center; min-height: 30px; }
+.tl-row.group { min-height: 34px; margin-top: 6px; }
+.tl-row.group .lbl { font-weight: 600; display: flex; gap: 8px; align-items: center; }
+.tl-row .lbl { font-size: 12px; color: var(--mut); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 12px; }
+.track2 { position: relative; height: 30px; }
+.tl-row:not(.group) .track2::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed var(--line2); }
+.tl-axis { display: grid; grid-template-columns: 200px 1fr; }
+.ticks { position: relative; height: 28px; }
+.tick { position: absolute; top: 6px; font-size: 11px; color: var(--dim); transform: translateX(-50%); white-space: nowrap; }
+.gridlines { position: absolute; left: 200px; right: 0; top: 0; bottom: 0; pointer-events: none; }
+.gl { position: absolute; top: 28px; bottom: 0; border-left: 1px solid var(--line); }
+.gl.wknd { background: rgba(255,255,255,.015); border-left-color: transparent; }
+.nowline { position: absolute; top: 22px; bottom: 0; border-left: 2px solid var(--text); }
+.nowline::before { content: "now"; position: absolute; top: -18px; left: -12px; font-size: 10px; font-weight: 700; color: var(--text); }
+.mk { position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 2; }
+.mk.reset { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--ok); background: var(--bg); }
+.mk.reset.proj { border-style: dotted; opacity: .7; }
+.mk.credit { width: 11px; height: 11px; transform: translate(-50%, -50%) rotate(45deg); background: var(--warn); border-radius: 2px; }
+.mk.used { width: 13px; height: 13px; transform: translate(-50%, -50%) rotate(45deg); background: var(--ok); border-radius: 2px; box-shadow: 0 0 0 2px var(--bg); }
+.mk.lapse { width: 11px; height: 11px; transform: translate(-50%, -50%) rotate(45deg); border: 2px solid var(--bad); background: var(--bg); border-radius: 2px; }
+.legend .mk.used, .legend .mk.lapse { transform: rotate(45deg); }
+.ladder { margin: -4px 0 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); }
+.lrow { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, .8fr); gap: 10px; font-size: 12px; padding: 3px 0; color: var(--mut); }
+.lrow.main { color: var(--text); font-weight: 600; }
+.lrow.assume { font-style: italic; }
+.lrow span:last-child { text-align: right; }
+.bad-t { color: var(--bad); } .ok-t { color: var(--ok); }
+.mk.drain { width: 3px; height: 16px; background: var(--bad); border-radius: 2px; }
+.band { position: absolute; top: 7px; bottom: 7px; border-radius: 5px; font-size: 11px; font-weight: 600; display: flex; align-items: center; padding: 0 8px; white-space: nowrap; overflow: hidden; }
+.band.bad { background: var(--badbg); color: var(--bad); border: 1px solid rgba(240,138,120,.4); }
+.band.warn { background: var(--warnbg); color: var(--warn); border: 1px solid rgba(242,192,107,.35); }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--mut); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend .mk { position: static; transform: none; display: inline-block; }
+.legend .mk.credit { transform: rotate(45deg); }
+
+/* Tables */
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; color: var(--mut); padding: 5px 11px; border-radius: 6px; font-size: 13px; font-weight: 550; }
+.seg button[aria-pressed="true"] { background: var(--raise); color: var(--text); }
+table.t { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.t th { text-align: left; font-size: 11px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.t td { padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+table.t tr.row { cursor: pointer; }
+table.t tr.row:hover td { background: var(--panel2); }
+table.t tr.row[aria-expanded="true"] td { background: var(--panel2); border-bottom-color: transparent; }
+table.t .num { text-align: right; font-variant-numeric: tabular-nums; }
+table.t tr.grp td { background: var(--bg); font-weight: 600; font-size: 12px; color: var(--mut); padding: 14px 12px 8px; cursor: default; }
+.tw { overflow-x: auto; }
+.detail td { background: var(--panel2); white-space: normal; padding: 4px 16px 18px; }
+.dgrid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 24px; }
+.dgrid h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin-bottom: 8px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 13px; }
+.kv dt { color: var(--mut); } .kv dd { margin: 0; }
+.models { display: flex; flex-wrap: wrap; gap: 5px; }
+.models span { font-size: 11px; padding: 2px 7px; border-radius: 5px; background: var(--raise); color: var(--mut); font-family: ui-monospace, Consolas, monospace; }
+.models span.down { color: var(--bad); background: var(--badbg); }
+.dacts { display: flex; gap: 8px; flex-wrap: wrap; }
+.who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.who .nm { overflow: hidden; text-overflow: ellipsis; }
+.sdot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.sdot.ok { background: var(--ok); } .sdot.warn { background: var(--warn); } .sdot.bad { background: var(--bad); } .sdot.neutral { background: var(--dim); }
+td .sub { font-size: 11px; color: var(--dim); margin-top: 3px; }
+td .sub.soon { color: var(--warn); }
+.meter .track { position: relative; }
+.mtick { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--text); opacity: .75; }
+.pips { display: flex; align-items: center; gap: 4px; }
+.pips i { width: 8px; height: 8px; transform: rotate(45deg); background: var(--warn); border-radius: 1px; margin-right: 2px; }
+.pips b { margin-left: 4px; font-weight: 600; }
+.warn-t { color: var(--warn); }
+#acct-tables .card-h { flex-wrap: wrap; }
+
+/* Usage */
+.kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+.kpi { padding: 16px; }
+.kpi .v { font-size: 26px; font-weight: 650; letter-spacing: -.02em; margin-top: 4px; }
+.kpi .s { font-size: 12px; color: var(--mut); }
+.gap { display: flex; gap: 14px; align-items: center; padding: 12px 16px; border: 1px solid rgba(134,180,255,.3); background: var(--infobg); border-radius: var(--r); }
+.gap p { margin: 0; font-size: 13px; color: var(--text); }
+.gap .acts { margin-left: auto; display: flex; gap: 8px; }
+.prog { height: 4px; border-radius: 4px; background: rgba(134,180,255,.2); margin-top: 7px; width: 260px; max-width: 100%; }
+.prog i { display: block; height: 100%; border-radius: 4px; background: var(--info); }
+.barlist { list-style: none; margin: 0; padding: 0; }
+.barlist li { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr) 70px; gap: 12px; align-items: center; padding: 8px 0; font-size: 13px; }
+.barlist .lbl { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.barlist .lbl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar { height: 18px; border-radius: 4px; position: relative; background: var(--panel2); }
+.hbar i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; opacity: .85; }
+.hbar em { position: absolute; left: 8px; top: 0; line-height: 18px; font-style: normal; font-size: 11px; color: #0c131a; font-weight: 650; white-space: nowrap; }
+.hbar em.out { color: var(--mut); }
+.ends { display: flex; gap: 4px; align-items: flex-end; height: 30px; }
+.ends i { width: 14px; background: var(--ok); border-radius: 2px 2px 0 0; opacity: .85; }
+.ends i.lo { background: var(--warn); }
+
+/* Policy */
+.rules { margin: 0; padding: 0; list-style: none; counter-reset: r; }
+.rules li { position: relative; padding: 0 0 12px 34px; font-size: 13px; color: var(--mut); }
+.rules li b { color: var(--text); font-weight: 600; }
+.rules li::before { counter-increment: r; content: counter(r); position: absolute; left: 0; top: -1px; width: 22px; height: 22px; border-radius: 50%; background: var(--raise); color: var(--text); font-size: 12px; font-weight: 650; display: grid; place-items: center; }
+.card-b > dl { margin: 0; }
+.setting { display: grid; grid-template-columns: 180px 1fr; gap: 16px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.setting:first-child { border-top: 0; }
+.setting dt { color: var(--mut); } .setting dd { margin: 0; }
+pre.code { margin: 8px 0 0; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 12px/1.5 ui-monospace, Consolas, monospace; color: #cfe0ee; overflow-x: auto; }
+.toggle { width: 34px; height: 20px; border-radius: 20px; background: var(--line2); position: relative; flex: none; }
+.toggle::after { content: ""; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--text); top: 3px; left: 3px; transition: left .15s; }
+.toggle.on { background: var(--ok); } .toggle.on::after { left: 17px; background: #0c131a; }
+
+/* Drawer */
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 40; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.scrim.on { opacity: 1; pointer-events: auto; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; max-width: 100%; z-index: 50; background: var(--panel); border-left: 1px solid var(--line2); transform: translateX(100%); transition: transform .22s ease; display: flex; flex-direction: column; }
+.drawer.on { transform: none; }
+.drawer-h { display: flex; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.drawer-h h2 { font-size: 16px; }
+.drawer-b { padding: 20px; overflow-y: auto; flex: 1; }
+.steps { list-style: none; margin: 0; padding: 0; }
+.step { display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding-bottom: 22px; position: relative; }
+.step:not(:last-child)::after { content: ""; position: absolute; left: 13px; top: 30px; bottom: 4px; border-left: 2px solid var(--line2); }
+.step .n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--raise); border: 1px solid var(--line2); font-size: 12px; font-weight: 700; color: var(--mut); }
+.step.active .n { background: var(--text); color: #0c131a; border-color: var(--text); }
+.step.done .n { background: var(--okbg); color: var(--ok); border-color: rgba(95,208,168,.4); }
+.step h3 { font-size: 14px; margin-top: 4px; }
+.step p { font-size: 13px; color: var(--mut); margin: 4px 0 10px; }
+.step:not(.active) .body { display: none; }
+.choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.choice button { text-align: left; border: 1px solid var(--line2); background: var(--panel2); border-radius: 10px; padding: 10px 12px; }
+.choice button[aria-pressed="true"] { border-color: var(--text); }
+.choice small { display: block; color: var(--mut); font-size: 12px; margin-top: 2px; }
+input.field { width: 100%; background: var(--bg); border: 1px solid var(--line2); color: var(--text); border-radius: 8px; padding: 10px 12px; font: inherit; }
+input.field:focus { outline: 2px solid var(--info); outline-offset: -1px; }
+.hint { font-size: 12px; margin-top: 6px; min-height: 18px; }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: var(--text); color: #0c131a; padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 550; opacity: 0; pointer-events: none; transition: all .2s; z-index: 60; max-width: calc(100% - 32px); box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 1080px) {
+  .span-7, .span-5, .span-6, .span-4, .span-8 { grid-column: span 12; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .dgrid { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .bar-in { flex-wrap: wrap; height: auto; padding: 10px 16px 0; gap: 8px 12px; }
+  nav.tabs { order: 3; width: calc(100% + 32px); margin: 0 -16px; padding: 0 8px; overflow-x: auto; height: 42px; border-top: 1px solid var(--line); }
+  .fresh span.t { display: none; }
+  main, #finish { padding-left: 16px; padding-right: 16px; }
+  .att { grid-template-columns: 4px 1fr; }
+  .att .acts { grid-column: 2; justify-content: flex-start; margin-top: 10px; }
+  .att details { grid-column: 2; }
+  .acct { grid-template-columns: minmax(0, 1fr) 90px 56px; }
+  .acct .when { display: none; }
+  .stats { grid-template-columns: 1fr; }
+  .tl-row, .tl-axis { grid-template-columns: 96px 1fr; }
+  .gridlines { left: 96px; }
+  .hide-sm, .card-h .right.hide-sm { display: none; }
+  .tick { display: none; }
+  .tick:nth-child(3n+1) { display: block; }
+  .kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kpi .v { font-size: 22px; }
+  .gap { flex-direction: column; align-items: flex-start; }
+  .gap .acts { margin-left: 0; }
+  .setting { grid-template-columns: 1fr; gap: 4px; }
+  #acct-tables table, #acct-tables tbody, #acct-tables tr, #acct-tables td { display: block; width: auto; }
+  #acct-tables thead, #acct-tables colgroup { display: none; }
+  #acct-tables tr.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  #acct-tables tr.row td { padding: 0; border: 0; white-space: normal; overflow: visible; }
+  #acct-tables tr.row td.hide-sm { display: block; }
+  #acct-tables tr.row td:first-child { grid-column: 1 / -1; font-weight: 600; }
+  #acct-tables td[data-h]::before { content: attr(data-h); display: block; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+  #acct-tables .card-h .right { margin-left: 0; width: 100%; justify-content: space-between; }
+  #acct-tables .card-h { flex-wrap: wrap; }
+  #acct-tables .card-h > .mut { flex: 1 1 100%; order: 3; }
+  .toolbar .seg { flex-wrap: wrap; }
+}
+.fresh.bad { color: var(--bad); }
+.fresh.bad .pulse { background: var(--bad); animation: none; }
+ul.plain { margin: 0; padding-left: 18px; font-size: 13px; color: var(--mut); }
+ul.plain li { margin: 4px 0; }
+ul.plain b { color: var(--text); }
+#finish { max-width: 1280px; margin: 14px auto 0; padding: 0 24px; }
+.who + .note, .note + .note { margin-top: 4px; }
+.note { font-size: 12px; color: var(--mut); white-space: normal; max-width: 52ch; }
+.note.bad { color: var(--bad); } .note.warn { color: var(--warn); }
+#si-msg { font-size: 13px; color: var(--mut); min-height: 20px; margin: 4px 0 0 40px; }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="bar-in">
+    <div class="brand"><span class="logo"></span>Agent pools</div>
+    <nav class="tabs" id="tabs">
+      <a href="#overview" data-v="overview">Overview <span class="tab-count" id="att-count"></span></a>
+      <a href="#accounts" data-v="accounts">Accounts</a>
+      <a href="#usage" data-v="usage">Usage &amp; value</a>
+      <a href="#policy" data-v="policy">Automation</a>
+    </nav>
+    <div class="bar-right">
+      <div class="fresh" id="fresh"><span class="pulse"></span><span class="t">Loading</span></div>
+      <button type="button" class="btn" data-act="refresh">Refresh</button>
+      <button type="button" class="btn primary" data-act="signin">Add account</button>
+    </div>
+  </div>
+</header>
+<div id="finish" hidden></div>
+<main>
+  <section class="view" id="v-overview">
+    <div class="grid">
+      <div class="card span-12" id="attention"><div class="card-b"><p class="mut">Loading pool status...</p></div></div>
+      <div class="card span-6" id="prov-claude"></div>
+      <div class="card span-6" id="prov-codex"></div>
+      <div class="card span-12" id="timeline"></div>
+    </div>
+  </section>
+  <section class="view" id="v-accounts"></section>
+  <section class="view" id="v-usage"></section>
+  <section class="view" id="v-policy"></section>
+</main>
+<div class="scrim" id="scrim" data-act="si-close"></div>
+<aside class="drawer" id="drawer" aria-labelledby="dr-title" role="dialog">
+  <div class="drawer-h"><h2 id="dr-title">Connect an account</h2><button type="button" class="btn ghost" style="margin-left:auto" data-act="si-close" aria-label="Close">Close</button></div>
+  <div class="drawer-b"><ol class="steps" id="steps"></ol><p id="si-msg" role="status" aria-live="polite"></p></div>
+</aside>
+<div class="toast" id="toast" role="status"></div>
+<script>
+"use strict";
+/* ======== Rendering: pure functions of S (/api/status), V (/api/value) and NOW. No DOM access above the I/O marker. ======== */
+let S = { accounts: [], providers: {} }, V = null, NOW = Date.now();
+const H = 36e5, D = 864e5;
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const ts = (v) => (typeof v === "number" ? v : Date.parse(v));
+const pname = (p) => S.providers?.[p]?.name ?? p;
+const term = (p) => (S.resetPolicy?.[p]?.redemption === "refill" || (!S.resetPolicy?.[p] && p === "claude") ? "refill" : "reset");
+const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+const num = (x, d = 1) => (x == null || !Number.isFinite(Number(x)) ? "?" : (Math.round(x * 10 ** d) / 10 ** d).toLocaleString());
+const usd = (x, d = 2) => (x == null || !Number.isFinite(Number(x)) ? "?" : "$" + Number(x).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }));
+const okTime = (v) => v != null && Number.isFinite(ts(v));
+const day = (v) => (okTime(v) ? new Date(ts(v)).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "?");
+const dt = (v) => (okTime(v) ? new Date(ts(v)).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "?");
+const clock = (v) => (okTime(v) ? new Date(ts(v)).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "?");
+function inT(v) {
+  const ms = ts(v) - NOW;
+  if (!Number.isFinite(ms)) return "";
+  if (ms <= 0) return "due";
+  const m = Math.ceil(ms / 6e4);
+  return m >= 1440 ? Math.floor(m / 1440) + "d " + Math.floor((m % 1440) / 60) + "h" : m >= 60 ? Math.floor(m / 60) + "h " + (m % 60) + "m" : m + "m";
+}
+function ago(v) {
+  if (!okTime(v)) return "never";
+  const m = Math.max(0, Math.floor((NOW - ts(v)) / 6e4));
+  return m < 1 ? "just now" : m < 60 ? m + "m ago" : m < 1440 ? Math.floor(m / 60) + "h ago" : Math.floor(m / 1440) + "d ago";
+}
+const label = (a) => String(a.email || a.id || "").replace(/\.(com|net|org|io)$/, "");
+const allAccounts = () => (Array.isArray(S.accounts) ? S.accounts : []);
+const accounts = (p) => allAccounts().filter((a) => a.provider === p);
+const windows = (a) => (Array.isArray(a.quotaWindows) ? a.quotaWindows : []);
+const weekly = (a) => windows(a).find((w) => w.common && w.label === "Weekly") ?? windows(a).find((w) => w.common && w.durationSeconds >= 6 * 86400);
+const modelWins = (a) => windows(a).filter((w) => !w.common);
+const valueRow = (a) => (V?.accounts ?? []).find((x) => x.id === a.id);
+const weight = (a) => valueRow(a)?.weight ?? 1;
+const level = (u) => (u >= 100 ? "bad" : u >= 85 ? "warn" : "");
+const cap = () => S.capacity?.providers ?? {};
+const sc = (p) => cap()[p]?.scenarios ?? null;
+function modelLimit(p, w) {
+  const m = (V?.modelLimits ?? []).find((m) => m.provider === p && m.window === w.id && m.scope === w.scope);
+  const kind = m?.kind === "cap" || m?.kind === "reserve" ? m.kind : "model limit";
+  const share = kind !== "model limit" && Number.isFinite(m?.shareOfCommon) && m.shareOfCommon > 0 ? " (" + num(m.shareOfCommon * 100) + "% of all-models)" : "";
+  const detail = kind === "cap" ? "The cap sits inside the all-models quota." : kind === "reserve" ? "The reserve adds capacity outside the all-models quota." : "Whether this limit is a cap or a reserve is unknown.";
+  return { name: (w.scope ?? "Model") + " " + kind + share, detail };
+}
+const providerIds = () => { const known = Object.keys(S.providers ?? {}); const seen = [...new Set(allAccounts().map((a) => a.provider))]; return ["claude", "codex", ...known, ...seen].filter((p, i, xs) => xs.indexOf(p) === i && (known.includes(p) || seen.includes(p))); };
+const STATE = { conserve: ["bad", "Conserve"], spend: ["warn", "Spend"], normal: ["ok", "Normal"], unknown: ["neutral", "Unknown"] };
+const reauthNeeded = (a) => a.refreshError?.code === "reauth_required";
+// data-* attributes carry every action; one delegated listener runs them, so no data ever lands in script.
+function act(text, name, data = {}, opts = {}) {
+  const attrs = Object.entries(data).map(([k, v]) => " data-" + k + '="' + esc(v) + '"').join("");
+  return '<button type="button" class="btn ' + (opts.sm === false ? "" : "sm") + (opts.primary ? " primary" : "") + '" data-act="' + esc(name) + '"' + attrs + (opts.disabled ? " disabled" : "") + ">" + esc(text) + "</button>";
+}
+// Monthly price per account: the plan the provider reports, else the value report's (install.json planPrices).
+function priceOf(a) {
+  const p = a.plan?.price;
+  if (p && Number.isFinite(p.usdPerMonth)) return { usd: p.usdPerMonth, source: p.source, detail: p.detail ?? "" };
+  const v = valueRow(a);
+  if (v && Number.isFinite(v.planUsdPerMonth)) return { usd: v.planUsdPerMonth, source: v.planPriceSource ?? "config", detail: "usageLedger.planPrices" };
+  return null;
+}
+const SOURCE_TEXT = { provider: "billed price reported by the provider", list: "list price for the plan tier the provider reports", config: "price set in install.json" };
+function planCost(p) {
+  const list = accounts(p), priced = list.map(priceOf).filter(Boolean);
+  return { usd: priced.reduce((s, x) => s + x.usd, 0), count: priced.length, missing: list.length - priced.length, sources: [...new Set(priced.map((x) => x.source))] };
+}
+const planName = (a) => (a.plan?.label ? String(a.plan.label).replace(/^(ChatGPT|Claude) /, "") : ({ pro: "Pro", prolite: "Pro Lite", plus: "Plus", max: "Max" })[(String(a.id).match(/-(pro|prolite|plus|max)\.json$/) ?? [])[1]] ?? "");
+// The router's own order (priority, highest first; a refill holder drained
+// first ranks above its reset date), falling back to the soonest weekly reset.
+function nextUp(p) {
+  return accounts(p).filter((a) => !a.disabled && a.status === "available" && a.routingStatus === "ready")
+    .sort((x, y) => (y.priority ?? -Infinity) - (x.priority ?? -Infinity) || (weekly(x)?.resetAt ?? Infinity) - (weekly(y)?.resetAt ?? Infinity))[0];
+}
+function meter(u) {
+  if (u == null || !Number.isFinite(Number(u))) return '<span class="dim">n/a</span>';
+  return '<div class="meter"><div class="track"><div class="fill ' + level(u) + '" style="width:' + Math.max(0, Math.min(100, u)) + '%"></div></div><span class="pct">' + Math.round(u) + "%</span></div>";
+}
+
+/* ---------- Credit-aware projection ---------- */
+// Why a banked credit lapses. A credit only refills its own account, and only
+// once that account is empty, so it cannot be saved for a later shortfall.
+function lapseReason(p, l, shortAt) {
+  const a = allAccounts().find((x) => x.id === l.id), w = a && weekly(a), who = a ? label(a) + "'s " + term(p) : "One " + term(p);
+  const before = okTime(shortAt) && ts(l.at) <= ts(shortAt) ? ", before the shortfall starts" : "";
+  if (w && ts(w.resetAt) < ts(l.at)) return who + " expires " + day(l.at) + before + ", and at this pace that account will not be empty while it is valid: " +
+    (w.durationSeconds > 0 && ts(w.resetAt) + w.durationSeconds * 1000 < ts(l.at) ? "its own weekly resets (next " + day(w.resetAt) + ") keep refilling it" : "its own weekly reset on " + day(w.resetAt) + " refills it first");
+  return who + " expires " + day(l.at) + before + ", before that account runs out at this pace";
+}
+// Refill providers: the credit plan (capacity forecast creditPlan.credits)
+// says per credit what automation does and whether it gets used at this pace.
+function planItems(p, plan, f) {
+  const out = [], pace = (x) => num(x * 168) + " acct-weeks/week";
+  for (const c of plan.credits ?? []) {
+    const a = allAccounts().find((x) => x.id === c.accountId), who = a ? label(a) : "One account";
+    const need = c.needUnitsPerHour != null ? "It needs about " + pace(c.needUnitsPerHour) + " until then; the current pace is " + pace(f.demand?.unitsPerHour ?? 0) + ". " : "No steady pace saves it. ";
+    const how = c.action === "redeem-now" ? "Automation redeems it now: " + who + " is out, and using it now beats waiting for every account to run out. "
+      : c.action === "drain-first" ? "New sessions go to " + who + " first so it is empty (a refill only applies at the limit) before " + dt(c.drainBy) + ". "
+      : "Automation waits: redeeming early would not add usage. ";
+    if (c.outcome === "lapses")
+      out.push({ sev: "warn", p, title: who + "'s " + term(p) + " projected to expire unused", detail: "Expires " + dt(c.expiresAt) + ". " + how + need,
+        why: "A refill clears its own account's usage and keeps that account's reset date, so it only applies once that account is at its limit and must be used before that date. More " + pname(p) + " work is the only thing that saves it.", acts: [act("Review credits", "credits", { p })] });
+    else if (c.action !== "wait")
+      out.push({ sev: "info", p, title: who + "'s " + term(p) + ": " + (c.action === "redeem-now" ? "redeeming before it lapses" : "drained first so it gets used"), detail: "Expires " + dt(c.expiresAt) + ". " + how + (c.outcome === "used" ? "At the current pace it gets used. " : "") + (c.action === "drain-first" ? need : ""), acts: [act("Review credits", "credits", { p })] });
+  }
+  return out;
+}
+const whoUsed = (p, b) => (b?.redemptions ?? []).map((r) => { const a = allAccounts().find((x) => x.id === r.id); return (a ? label(a) : "one account") + " on " + day(r.at); });
+const shortText = (r) => (!r ? "?" : r.firstOutageAt ? "~" + r.outageHours + " h short from " + day(r.firstOutageAt) : "no shortfall");
+function ladderHtml(p) {
+  const s = sc(p);
+  if (!s?.bankedCredits) return "";
+  const t = term(p), b = s.bankedCredits, g = s.weeklyGrant;
+  const rows = [
+    ["Window resets only", s.naturalOnly, "", false, false],
+    ["+ banked " + t + "s" + (s.creditsInStateRun === false ? " (automation off)" : ""), b, b.creditsUsed + " used" + (b.creditsLapsing ? ", " + b.creditsLapsing + " lapse" : ""), true, false],
+    ["+ 1 new " + t + " per week", g, "assumption", false, true],
+  ];
+  return '<div class="ladder"><div class="eyebrow" style="margin-bottom:6px">Next ' + Math.round((s.horizonHours ?? 336) / 24) + " days at current demand</div>" + rows.map(([lbl, r, note, main, assume]) =>
+    '<div class="lrow' + (main ? " main" : "") + (assume ? " assume" : "") + '"' + (assume && g?.assumption ? ' title="Assumption: ' + esc(g.assumption) + '. Providers do not promise new credits."' : "") + "><span>" + esc(lbl) + '</span><span class="' + (r?.firstOutageAt ? "bad-t" : "ok-t") + '">' + esc(shortText(r)) + '</span><span class="dim">' + esc(note) + "</span></div>").join("") +
+    (b.lapses?.length ? '<p class="dim" style="font-size:12px;margin:8px 0 0">Lapses: ' + esc(b.lapses.map((l) => lapseReason(p, l, b.firstOutageAt)).join("; ")) + ".</p>" : "") + "</div>";
+}
+
+// Pace plan from the forecast: how fast to use a provider to get the most out
+// of it. Running short loses nothing; quota is lost when a window resets
+// unused or a credit lapses.
+const wk = (u) => num((u ?? 0) * 168) + " acct-weeks/week";
+const aw = (n) => num(n) + (num(n) === "1" ? " acct-week" : " acct-weeks");
+function paceParts(p) {
+  const f = cap()[p], pc = f?.pace;
+  if (!pc || !Number.isFinite(pc.maxUnits) || f.state === "unknown") return null;
+  const lost = pc.atDemand?.lostUnits ?? 0, t = term(p);
+  const fastest = pc.curve?.length ? pc.curve.at(-1) : null;
+  return { pc, t, lost, fastest, days: Math.round(pc.horizonHours / 24) };
+}
+function paceSentence(p) {
+  const x = paceParts(p);
+  if (!x || x.lost < 0.05) return "";
+  const { pc, t } = x;
+  const how = pc.fullUse
+    ? "at least " + wk(pc.fullUse.unitsPerHour) + (pc.then ? " until " + dt(pc.then.from) + ", then at least " + wk(pc.then.unitsPerHour) : "")
+    : "drain each account as fast as possible and reset it";
+  return "To get the most out of " + pname(p) + ": " + how + (pc.credits ? " (uses " + (pc.maxCreditsLapsing ? pc.credits - pc.maxCreditsLapsing + " of " + plural(pc.credits, t) : pc.credits === 1 ? "the " + t : pc.credits === 2 ? "both " + t + "s" : "all " + pc.credits + " " + t + "s") + ")" : "") +
+    ". The current pace leaves " + aw(x.lost) + " unused over " + x.days + " days" + (pc.atDemand.creditsLapsing ? ", " + plural(pc.atDemand.creditsLapsing, t) + " lapsing" : "") + ". ";
+}
+function paceHtml(p) {
+  const x = paceParts(p);
+  if (!x) return "";
+  const { pc, t } = x;
+  const row = (lbl, val, note, cls) => '<div class="lrow' + (cls ? " " + cls : "") + '"><span>' + esc(lbl) + "</span><span>" + esc(val) + '</span><span class="dim">' + esc(note) + "</span></div>";
+  const cr = (v) => (pc.credits ? (v.creditsLapsing ? plural(v.creditsLapsing, t) + (v.creditsLapsing === 1 ? " lapses" : " lapse") : "every " + t + " used") : "");
+  const gap = (v) => (v.shortHours ? "short ~" + v.shortHours + " h" : "never short");
+  const rows = [
+    row("Most usable", aw(pc.maxUnits), "draining as fast as possible", "main"),
+    row("At current pace " + num(pc.demandUnitsPerHour * 168), num(pc.atDemand.usedUnits) + (x.lost >= 0.05 ? " (" + num(x.lost) + " unused)" : ""), [cr(pc.atDemand), gap(pc.atDemand)].filter(Boolean).join(", ")),
+    pc.fullUse
+      ? row("Use it all", "at least " + wk(pc.fullUse.unitsPerHour) + (pc.then ? ", then " + num(pc.then.unitsPerHour * 168) + " from " + day(pc.then.from) : ""), [cr(pc.fullUse), gap(pc.fullUse)].filter(Boolean).join(", "))
+      : row("Use it all", "as fast as possible", "no steady pace up to " + num(pc.curve?.at(-1)?.unitsPerHour * 168) + "/week gets there"),
+    row("Never run out", "at most " + wk(pc.noGap.unitsPerHour), num(pc.noGap.usedUnits) + " used" + (pc.noGap.lostUnits >= 0.05 ? ", " + num(pc.noGap.lostUnits) + " unused" : "")),
+  ];
+  const notes = [];
+  if ((pc.curve ?? []).length) notes.push("Usage by steady pace (acct-weeks/week: used): " + pc.curve.map((v) => num(v.unitsPerHour * 168) + ": " + num(v.usedUnits)).join(", "));
+  if ((pc.steps ?? []).some((s) => s.reachable) && pc.credits > 1) notes.push("Pace that uses " + pc.steps.filter((s) => s.reachable).map((s) => s.credits + ": " + num(s.unitsPerHour * 168)).join(", "));
+  notes.push("Running short loses nothing, it only means waiting; quota is lost when a window resets unused or a " + t + " lapses" + (p === "codex" ? ". A reset re-dates the window, so it is worth most right after a window opens" : ". A refill lasts only until that account's own reset date"));
+  return '<div class="ladder"><div class="eyebrow" style="margin-bottom:6px" title="Next ' + x.days + ' days, from the same simulation as the scenarios above. A signal for dispatchers; the pool does not enforce it.">Getting the most out of it (next ' + x.days + " days)</div>" + rows.join("") +
+    '<p class="dim" style="font-size:12px;margin:8px 0 0">' + esc(notes.join(". ")) + ".</p></div>";
+}
+
+/* ---------- Attention: each problem with the action that fixes it ---------- */
+function attentionItems() {
+  const items = [];
+  for (const a of allAccounts()) {
+    if (a.disabled) continue;
+    if (reauthNeeded(a))
+      items.push({ sev: "bad", p: a.provider, title: "Sign-in expired: " + label(a), detail: "The provider rejected the saved login" + (a.refreshError.since ? " (since " + dt(a.refreshError.since) + ")" : "") + ". The account stops serving requests when its current token lapses.", acts: [act("Sign in again", "signin", { p: a.provider, id: a.id }, { primary: true })] });
+    else if (a.refreshError)
+      items.push({ sev: "warn", p: a.provider, title: "Token refresh failing: " + label(a), detail: "The proxy keeps retrying" + (a.refreshError.attempts > 1 ? " (" + a.refreshError.attempts + " attempts)" : "") + ".", acts: [act("View account", "account", { id: a.id })] });
+    if (a.modelList && a.modelList.source !== "live")
+      items.push({ sev: "warn", p: a.provider, title: "Not routed yet: " + label(a), detail: "Its live model list has not been read" + (a.modelList.error ? " (last read failed: " + a.modelList.error + ")" : "") + "; nothing is routed to it until it is.", acts: [act("Retry now", "refresh")] });
+    if (a.usageStale || a.status === "unknown")
+      items.push({ sev: "warn", p: a.provider, title: "Usage not verified: " + label(a), detail: (a.error ? a.error + ". " : "") + (a.usageUpdatedAt ? "Showing last known usage from " + dt(a.usageUpdatedAt) + "." : "No usage read yet."), acts: [act("Refresh", "refresh")] });
+  }
+  for (const [p, since] of Object.entries(S.exhausted ?? {}))
+    items.push({ sev: "bad", p, title: "Every " + pname(p) + " account is at its limit", detail: "Since " + dt(since) + ", and no banked " + term(p) + " is about to be used. New " + pname(p) + " turns fail until a window resets.", acts: [act("Connect another account", "signin", { p }, { primary: true })] });
+  for (const [p, f] of Object.entries(cap())) {
+    const pr = f.projection ?? {}, s = sc(p), g = s?.weeklyGrant;
+    const plan = f.creditPlan?.method === "counterfactual" && f.creditPlan.planned && Array.isArray(f.creditPlan.credits) ? f.creditPlan : null;
+    // The scenario models the all-accounts-out rule; a credit the plan uses
+    // (drained first or redeemed early) is not explained as lapsing.
+    const savedBy = (l) => plan?.credits.some((c) => c.accountId === l.id && c.outcome === "used");
+    const b0 = s?.bankedCredits, b = b0 && plan ? { ...b0, lapses: (b0.lapses ?? []).filter((l) => !savedBy(l)) } : b0;
+    if (f.state === "conserve" && pr.firstOutageAt) {
+      const bal = S.capacity?.balance ?? {};
+      items.push({
+        sev: "bad", p,
+        title: pname(p) + " short ~" + pr.outageHours + " h from " + day(pr.firstOutageAt) + (pr.creditsModeled ? ", after banked " + term(p) + "s" : ""),
+        detail: "Demand is " + num(pr.demandToNaturalSupply, 2) + "x weekly supply. " +
+          (s?.naturalOnly?.firstOutageAt ? "With window resets alone the gap would start " + day(s.naturalOnly.firstOutageAt) + " (~" + s.naturalOnly.outageHours + " h). " : "") +
+          (b && !plan ? (b.creditsUsed + b.creditsLapsing ? b.creditsUsed + " of " + (b.creditsUsed + b.creditsLapsing) + " banked " + term(p) + "s get" + (b.creditsUsed === 1 ? "s" : "") + " used" + (b.creditsUsed ? " (" + whoUsed(p, b).join(", ") + ")" : "") + ". " : "No banked " + term(p) + "s. ") : "") +
+          (b && plan && plan.credits.length ? plan.credits.filter((c) => c.outcome === "used").length + " of " + plan.credits.length + " banked " + term(p) + "s get used under the credit plan. " : "") +
+          (b ? 
+            (b.lapses?.length ? b.lapses.map((l) => lapseReason(p, l, pr.firstOutageAt)).join(". ") + (b.lapses.length > 1 ? ", so they do not" : ", so it does not") + " cover the gap. " : "") : "") +
+          paceSentence(p) +
+          (g ? "If one new " + term(p) + " arrives each week: " + shortText(g) + ". " : "") +
+          (bal.toward && bal.toward !== p ? "Published signal: toward " + pname(bal.toward) + ", step " + bal.steps + " of " + bal.maxSteps + "." : ""),
+        why: "The pool only routes among accounts of the provider a request names; it cannot move work between providers. The balance on /api/capacity is a signal the model-routing skill and dispatch-lane.ps1 read when they start new lanes. The pace plan is the same kind of signal: how fast to use " + pname(p) + " to get the most out of it. Running short loses nothing; quota is lost only when a window resets unused or a " + term(p) + " lapses. Inside the pool, the only lever is more " + pname(p) + " supply.",
+        acts: [act("Timeline", "jump", { id: "tl-anchor" }), act("Connect " + pname(p) + " account", "signin", { p })],
+      });
+    }
+    const lapsing = f.creditOutlook?.creditsLapsing;
+    const nearLapses = b?.lapses ?? [];
+    // Lapses ahead of a projected shortfall are explained on the shortfall item:
+    // the credit cannot be carried into the gap, so there is nothing to act on.
+    const explained = f.state === "conserve" && pr.firstOutageAt && nearLapses.length && nearLapses.every((l) => ts(l.at) <= ts(pr.firstOutageAt)) && lapsing <= nearLapses.length;
+    if (plan) planItems(p, plan, f).forEach((x) => items.push(x));
+    else if (lapsing && nearLapses.length && !explained) {
+      items.push({
+        sev: "warn", p,
+        title: plural(nearLapses.length, pname(p) + " " + term(p)) + " projected to expire unused",
+        detail: nearLapses.map((l) => lapseReason(p, l, pr.firstOutageAt)).join(". ") + ". " + paceSentence(p),
+        why: term(p) === "refill" ? "A refill clears its own account's usage and keeps that account's reset date, so it only helps once that account is empty. Redeem-before-lapse is " + (S.resetPolicy?.[p]?.redeemBeforeLapse ? "on" : "off") + ": automation uses it early whenever the account is out before it expires." : "A reset restarts its own account's weekly window, and automation uses it once every account is near its limit, or earlier when it would otherwise lapse.",
+        acts: [act("Review credits", "credits", { p })],
+      });
+    } else if (lapsing && !explained) {
+      const holders = accounts(p).filter((a) => a.creditCount > 0 && a.nextCreditExpiry).sort((x, y) => ts(x.nextCreditExpiry) - ts(y.nextCreditExpiry));
+      items.push({
+        sev: "info", p,
+        title: plural(lapsing, pname(p) + " " + term(p)) + " likely to expire unused",
+        detail: "Projected by " + day((f.supply?.creditExpiries ?? []).at(-1)) + " at current demand. " + paceSentence(p) + (holders.length ? " Banked on: " + holders.map((a) => label(a) + " (" + a.creditCount + ")").join(", ") + "." : ""),
+        why: term(p) === "refill" ? "A refill clears usage but keeps the reset date, so automation only uses one where there is time to burn it before that date. Redeem-before-lapse is " + (S.resetPolicy?.[p]?.redeemBeforeLapse ? "on" : "off") + "." : "A reset restarts the weekly window from now. Automation fires once every account is near its limit, or earlier when a credit would lapse.",
+        acts: [act("Review credits", "credits", { p })],
+      });
+    }
+  }
+  for (const a of allAccounts()) {
+    const w = weekly(a);
+    if (!a.disabled && w && w.used >= 80 && w.used < 100)
+      items.push({ sev: "info", p: a.provider, title: label(a) + " at " + Math.round(w.used) + "% of its weekly limit", detail: "Expected: it resets soonest, so it drains first. Resets " + dt(w.resetAt) + " (in " + inT(w.resetAt) + "); new sessions spill to the next account at the limit.", acts: [act("View", "account", { id: a.id })] });
+    for (const m of modelWins(a))
+      if (!a.disabled && m.used >= 85)
+        items.push({ sev: m.used >= 100 ? "warn" : "info", p: a.provider, title: label(a) + " " + (m.used >= 100 ? "hit" : "near") + " its " + modelLimit(a.provider, m).name + " (" + Math.round(m.used) + "%)", detail: (m.scope ?? "Those") + " requests on this account spill to the next account until " + dt(m.resetAt) + ". " + modelLimit(a.provider, m).detail, acts: [act("View", "account", { id: a.id })] });
+  }
+  for (const [p, r] of Object.entries(S.resets ?? {})) {
+    if (r?.pending?.phase === "attention")
+      items.push({ sev: "bad", p, title: "A " + pname(p) + " " + term(p) + " needs attention", detail: "Reconnect its account so the outcome can be reconciled.", acts: [act("Reconnect", "signin", { p }, { primary: true })] });
+    if (r?.error)
+      items.push({ sev: "warn", p, title: pname(p) + " " + term(p) + " automation hit an error", detail: r.error.message + " (" + dt(r.error.at) + "). It retries on the next refresh.", acts: [] });
+  }
+  for (const [p, c] of Object.entries(S.resetPolicy ?? {}))
+    if (c?.problems?.length) items.push({ sev: "warn", p, title: pname(p) + " " + term(p) + " policy has a configuration problem", detail: "Defaults used: " + c.problems.join("; ") + ".", acts: [act("Automation", "go", { v: "policy" })] });
+  if (S.usageLedger?.lastError) items.push({ sev: "warn", title: "Usage ledger is not writing", detail: S.usageLedger.lastError, acts: [] });
+  const unpriced = allAccounts().filter((a) => !priceOf(a));
+  if (unpriced.length)
+    items.push({ sev: "info", title: "Plan price unknown for " + plural(unpriced.length, "account"), detail: "Read from each provider twice a day; " + unpriced.map(label).join(", ") + " not read yet" + (unpriced.some((a) => a.planError) ? " (last read failed)" : "") + ".", acts: [act("Configuration", "go", { v: "policy", anchor: "config" })] });
+  const order = { bad: 0, warn: 1, info: 2 };
+  return items.sort((a, b) => order[a.sev] - order[b.sev]);
+}
+function healthy() {
+  const live = allAccounts().filter((a) => !a.disabled), out = [];
+  if (live.length && live.every((a) => !a.refreshError)) out.push(live.length + " accounts signed in");
+  if (live.length && live.every((a) => a.routingStatus === "ready")) out.push("all routing ready");
+  if (live.length && live.every((a) => a.modelList?.source === "live")) out.push("live model lists on all");
+  if (S.resetAutomation) out.push("credit automation on");
+  if (S.usageLedger?.enabled && !S.usageLedger.lastError) out.push("ledger recording (" + Number(S.usageLedger.rows ?? 0).toLocaleString() + " rows)");
+  return out;
+}
+function attentionHtml(items = attentionItems()) {
+  const sevTxt = { bad: "Act now", warn: "Soon", info: "FYI" };
+  return '<div class="card-h"><h2>Needs attention</h2><span class="mut" style="font-size:13px">' + (items.length ? plural(items.length, "item") : "nothing") + "</span></div>" +
+    (items.length ? '<ul class="att-list">' + items.map((i, n) =>
+      '<li class="att ' + i.sev + '"><span class="rail"></span><div><h3>' + (i.p ? '<span class="pdot ' + esc(i.p) + '" title="' + esc(pname(i.p)) + '"></span>' : "") + esc(i.title) + ' <span class="chip plain ' + i.sev + '" style="font-size:11px;padding:1px 7px">' + sevTxt[i.sev] + "</span></h3><p>" + esc(i.detail) + "</p></div>" +
+      '<div class="acts">' + i.acts.join("") + "</div>" +
+      (i.why ? '<details data-key="why-' + esc(i.title) + '"><summary>Why this matters</summary><p>' + esc(i.why) + "</p></details>" : "") + "</li>").join("") + "</ul>" : "") +
+    '<div class="clear"><span class="eyebrow" style="align-self:center;margin-right:4px">Healthy</span>' + healthy().map((c) => '<span class="chip ok">' + esc(c) + "</span>").join("") + "</div>";
+}
+
+/* ---------- Provider summaries ---------- */
+function providerHtml(p) {
+  const f = cap()[p] ?? {}, su = f.supply ?? {}, pr = f.projection ?? {}, s = sc(p);
+  const [cls, txt] = STATE[f.state] ?? STATE.unknown;
+  const list = accounts(p), live = list.filter((a) => !a.disabled);
+  const total = su.weightedAccounts ?? live.reduce((x, a) => x + weight(a), 0);
+  const remaining = su.remainingUnits ?? live.reduce((x, a) => x + (weight(a) * (100 - (weekly(a)?.used ?? 100))) / 100, 0);
+  const up = nextUp(p), cost = planCost(p);
+  const credits = live.reduce((x, a) => x + (a.creditsKnown ? a.creditCount ?? 0 : 0), 0);
+  const planned = f.creditPlan?.method === "counterfactual" && f.creditPlan.planned && Array.isArray(f.creditPlan.credits) ? f.creditPlan.credits : null;
+  const lapsing = planned ? planned.filter((c) => c.outcome === "lapses").length : f.creditOutlook?.creditsLapsing ?? 0, b = s?.bankedCredits, g = s?.weeklyGrant, n0 = s?.naturalOnly;
+  const saving = planned ? planned.filter((c) => c.action !== "wait" && c.outcome === "used").length : 0;
+  const t = term(p), ratio = pr.demandToNaturalSupply;
+  const runway = !f.state ? '<div class="stat"><div class="eyebrow">Runway</div><div class="v">?</div><div class="s">no forecast yet</div></div>'
+    : pr.firstOutageAt
+      ? '<div class="stat bad"><div class="eyebrow">Short from</div><div class="v">' + esc(day(pr.firstOutageAt)) + '</div><div class="s">~' + esc(pr.outageHours) + " h" + (pr.creditsModeled ? ", after " + plural(b?.creditsUsed ?? pr.creditsUsed ?? 0, t) : "") + (g && !g.firstOutageAt ? "; none with 1 new " + t + "/week" : "") + "</div></div>"
+      : '<div class="stat ok"><div class="eyebrow">Runway</div><div class="v">No shortfall</div><div class="s">' + (n0?.firstOutageAt && b?.creditsUsed ? "covered by " + plural(b.creditsUsed, "banked " + t) : "next " + Math.round((pr.horizonHours ?? 336) / 24) + " days") + "</div></div>";
+  return '<div class="card-b">' +
+    '<div class="prov-h"><span class="pdot ' + esc(p) + '" style="width:10px;height:10px"></span><h2>' + esc(pname(p)) + '</h2><span class="mut">' + plural(list.length, "account") + "</span>" +
+    (cost.count ? '<span class="mut" title="' + esc(cost.sources.map((x) => SOURCE_TEXT[x] ?? x).join("; ")) + (cost.missing ? "; " + cost.missing + " account(s) unpriced" : "") + '">&middot; ' + usd(cost.usd, 0) + "/mo" + (cost.missing ? "+" : "") + "</span>" : "") +
+    '<span style="margin-left:auto" class="chip ' + cls + '" title="Capacity forecast state' + (f.since ? " since " + esc(dt(f.since)) : "") + '">' + txt + "</span></div>" +
+    '<div class="big"><b class="mono">' + num(remaining) + '</b><span class="mut">of ' + num(total) + " account-weeks left this cycle</span></div>" +
+    '<div class="supply" title="Remaining weekly quota per account">' + live.map((a) => {
+      const w = weekly(a), left = w ? Math.max(0, 100 - w.used) : 0;
+      return '<span style="flex:' + Number(weight(a)) + '" title="' + esc(label(a)) + ": " + Math.round(left) + '% left"><i style="width:' + left + "%;background:var(--" + esc(p) + ')"></i></span>';
+    }).join("") + "</div>" +
+    '<div class="stats">' +
+    '<div class="stat ' + (ratio > 1.2 ? "warn" : "") + '"><div class="eyebrow">Demand</div><div class="v">' + (ratio == null ? "?" : num(ratio, 2) + "x supply") + '</div><div class="s">' + num((f.demand?.unitsPerHour ?? 0) * 168) + " acct-weeks per week</div></div>" +
+    runway +
+    '<div class="stat ' + (lapsing ? "warn" : "") + '"><div class="eyebrow">Banked ' + t + 's</div><div class="v">' + credits + '</div><div class="s">' + (lapsing ? lapsing + " may lapse unused" : saving ? saving + " planned for use" : "none at risk") + "</div></div>" +
+    "</div>" + ladderHtml(p) + paceHtml(p) +
+    live.slice().sort((x, y) => (weekly(x)?.resetAt ?? 0) - (weekly(y)?.resetAt ?? 0)).map((a) => {
+      const w = weekly(a);
+      return '<div class="acct"><div class="name"><span title="' + esc(a.email) + '">' + esc(label(a)) + "</span>" + (up && up.id === a.id ? '<b class="next" title="New sessions route here: the available account whose weekly window resets soonest">next</b>' : "") + "</div>" +
+        meter(w?.used) + '<div class="when" title="Weekly reset ' + esc(w ? dt(w.resetAt) : "") + '">' + (w ? "resets " + inT(w.resetAt) : "") + "</div>" +
+        '<div class="credit">' + (a.creditCount ? "<b>" + esc(a.creditCount) + "</b> " + t + (a.creditCount === 1 ? "" : "s") : '<span class="dim">no ' + t + "s</span>") + "</div></div>";
+    }).join("") + (list.length ? "" : '<p class="mut">No accounts connected.</p>') + "</div>";
+}
+
+/* ---------- 14-day timeline ---------- */
+function timelineHtml() {
+  const start = NOW, span = 14 * D, end = start + span;
+  const x = (v) => ((ts(v) - start) / span) * 100;
+  const inside = (v) => okTime(v) && ts(v) >= start && ts(v) <= end;
+  const dayStart = new Date(start); dayStart.setHours(0, 0, 0, 0);
+  let ticks = "", grid = "";
+  for (let d = dayStart.getTime() + D; d < end; d += D) {
+    const dd = new Date(d), wk = dd.getDay() === 0 || dd.getDay() === 6;
+    ticks += '<span class="tick" style="left:' + x(d) + '%">' + dd.toLocaleDateString(undefined, { weekday: "short" }).slice(0, 2) + " " + dd.getDate() + "</span>";
+    grid += '<span class="gl' + (wk ? " wknd" : "") + '" style="left:' + x(d) + "%;" + (wk ? "width:" + 100 / 14 + "%" : "") + '"></span>';
+  }
+  let rows = "";
+  for (const p of providerIds()) {
+    const pr = cap()[p]?.projection ?? {}, b = sc(p)?.bankedCredits;
+    let band = "";
+    if (pr.firstOutageAt && inside(pr.firstOutageAt)) {
+      const l = x(pr.firstOutageAt), w = Math.min(100 - l, ((pr.outageHours * H) / span) * 100);
+      band = '<span class="band bad" style="left:' + l + "%;width:" + w + '%" title="Projected shortfall' + (pr.creditsModeled ? " after banked credits" : "") + ": about " + esc(pr.outageHours) + " h with every account at its limit, starting " + esc(dt(pr.firstOutageAt)) + '">~' + esc(pr.outageHours) + " h short</span>";
+    }
+    rows += '<div class="tl-row group"><div class="lbl"><span class="pdot ' + esc(p) + '"></span>' + esc(pname(p)) + '</div><div class="track2">' + band + "</div></div>";
+    for (const a of accounts(p).filter((a) => !a.disabled)) {
+      const w = weekly(a);
+      let mks = "";
+      if (w && okTime(w.resetAt)) for (let r = ts(w.resetAt), k = 0; r <= end && k < 4; r += 7 * D, k++) if (r >= start) mks += '<span class="mk reset' + (k ? " proj" : "") + '" style="left:' + x(r) + '%" title="' + (k ? "Following weekly reset " : "Weekly reset ") + esc(dt(r)) + '"></span>';
+      for (const r of b?.redemptions ?? []) if (r.id === a.id && inside(r.at)) mks += '<span class="mk used" style="left:' + x(r.at) + '%" title="Projected: ' + term(p) + " used " + esc(dt(r.at)) + '"></span>';
+      for (const l of b?.lapses ?? []) if (l.id === a.id && inside(l.at)) mks += '<span class="mk lapse" style="left:' + x(l.at) + '%" title="Projected: ' + term(p) + " lapses unused " + esc(dt(l.at)) + '"></span>';
+      // A credit the projection spends (or lets lapse) before it expires gets that marker, not an expiry one.
+      const spent = (b?.redemptions ?? []).filter((r) => r.id === a.id).map((r) => ts(r.at)).sort((p1, p2) => p1 - p2);
+      for (const e of (a.creditExpiries ?? (a.nextCreditExpiry ? [a.nextCreditExpiry] : [])).slice().sort((p1, p2) => ts(p1) - ts(p2))) {
+        const k = spent.findIndex((r) => r <= ts(e));
+        if (k >= 0) { spent.splice(k, 1); continue; }
+        if (inside(e) && !(b?.lapses ?? []).some((l) => l.id === a.id && Math.abs(ts(l.at) - ts(e)) < 2 * H)) mks += '<span class="mk credit" style="left:' + x(e) + '%" title="' + term(p) + " credit expires " + esc(dt(e)) + '"></span>';
+      }
+      rows += '<div class="tl-row"><div class="lbl" title="' + esc(a.email) + '">' + esc(label(a)) + '</div><div class="track2">' + mks + "</div></div>";
+    }
+  }
+  return '<div class="card-h" id="tl-anchor"><h2>Next 14 days</h2><div class="right legend hide-sm"><span><i class="mk reset"></i>Weekly reset</span><span><i class="mk reset proj"></i>Following reset</span><span><i class="mk credit"></i>Credit expires</span><span><i class="mk used"></i>Credit used (projected)</span><span><i class="mk lapse"></i>Credit lapses</span><span><i class="band bad" style="position:static;width:18px;height:10px;padding:0"></i>Projected shortfall</span></div></div>' +
+    '<div class="card-b"><div class="tl"><div class="gridlines">' + grid + '<span class="nowline" style="left:0"></span></div><div class="tl-axis"><div></div><div class="ticks">' + ticks + "</div></div>" + rows + "</div></div>";
+}
+
+/* ---------- Accounts: one table per provider, columns from what that provider reports ---------- */
+const FILTERS = [["all", "All"], ["credits", "Has credits"], ["attention", "Needs attention"]];
+const needsAttention = (a) => !a.disabled && (!!a.refreshError || a.usageStale || a.status === "unknown" || a.routingStatus !== "ready" || a.modelList?.source !== "live" || (weekly(a)?.used ?? 0) >= 80 || modelWins(a).some((w) => w.used >= 85));
+const elapsedPct = (w) => (w?.durationSeconds && okTime(w.resetAt) ? Math.max(0, Math.min(100, 100 - ((ts(w.resetAt) - NOW) / (w.durationSeconds * 1000)) * 100)) : null);
+const notStarted = (a, w) => a.provider === "codex" && w && w.used === 0 && ts(w.resetAt) - NOW > w.durationSeconds * 1000 - 2 * H;
+function statusOf(a) {
+  if (a.disabled) return ["neutral", "Disabled"];
+  if (reauthNeeded(a)) return ["bad", "Sign-in expired"];
+  if (a.status === "exhausted" && !a.usageStale) return ["bad", "At limit"];
+  if (a.usageStale) return ["warn", "Last known"];
+  if (a.status === "unknown") return ["warn", "Not verified"];
+  if (a.routingStatus === "blocked") return ["warn", "Routing paused"];
+  if (a.routingStatus !== "ready") return ["warn", "Not routed"];
+  return ["ok", "Ready"];
+}
+const ROUTING_TEXT = { ready: "ready", blocked: "temporarily unavailable", disabled: "disabled", unknown: "not verified" };
+// What is wrong with an account, cause first: a rejected login explains the usage read's error after it.
+function accountNotes(a) {
+  const out = [], e = a.refreshError;
+  if (e?.code === "reauth_required") out.push(["bad", "Sign-in expired" + (e.since ? " since " + dt(e.since) : "") + ": the provider rejected this account's saved login. Sign in again as " + (a.email || a.id) + "." + (e.message ? " (" + e.message + ")" : "")]);
+  else if (e) out.push(["warn", "Token refresh failing" + (e.since ? " since " + dt(e.since) : "") + (e.attempts > 1 ? " (" + e.attempts + " attempts)" : "") + "; the proxy keeps retrying."]);
+  if (a.error) out.push(["bad", a.error]);
+  if (a.usageStale) out.push(["warn", "Showing last known usage" + (a.usageUpdatedAt ? " from " + dt(a.usageUpdatedAt) : "") + ". Refresh retries automatically."]);
+  if (!a.disabled && a.status === "available" && !a.usageStale && a.routingStatus && a.routingStatus !== "ready") out.push(["warn", "Quota available; routing: " + (ROUTING_TEXT[a.routingStatus] ?? "not verified") + "."]);
+  if (a.routingError) out.push(["bad", a.routingError]);
+  if (a.modelList && a.modelList.source !== "live") out.push(["warn", "Live model list not read yet" + (a.modelList.error ? " (last read failed: " + a.modelList.error + ")" : "") + "; no requests are routed to this account until it is."]);
+  else if (a.modelList?.error) out.push(["warn", "Live model list: last read failed (" + a.modelList.error + "); routing keeps the last good list."]);
+  return out;
+}
+const notesHtml = (a) => accountNotes(a).map(([c, t]) => '<div class="note ' + c + '">' + esc(t) + "</div>").join("");
+function wmeter(w, opts = {}) {
+  if (!w || w.used == null) return '<span class="dim">not reported</span>';
+  const tick = opts.tick ? elapsedPct(w) : null;
+  return '<div class="meter"><div class="track"><div class="fill ' + level(w.used) + '" style="width:' + Math.max(0, Math.min(100, w.used)) + '%"></div>' +
+    (tick == null ? "" : '<span class="mtick" style="left:' + tick + '%"></span>') + '</div><span class="pct">' + Math.round(w.used) + "%</span></div>" + (opts.sub ? '<div class="sub">' + opts.sub + "</div>" : "");
+}
+function creditCell(a) {
+  if (!a.creditsKnown) return '<span class="dim" title="' + esc(a.creditNote ?? "") + '">unknown</span>';
+  if (!a.creditCount) return '<span class="dim">none</span>';
+  const days = a.nextCreditExpiry ? (ts(a.nextCreditExpiry) - NOW) / D : Infinity;
+  const all = (a.creditExpiries ?? []).map(dt).join(", ");
+  return '<div class="pips" title="' + esc(plural(a.creditCount, "banked " + term(a.provider)) + (all ? ": expires " + all : "")) + '">' + "<i></i>".repeat(Math.min(a.creditCount, 6)) + "<b>" + esc(a.creditCount) + "</b></div>" +
+    (a.nextCreditExpiry ? '<div class="sub' + (days < 8 ? " soon" : "") + '" title="' + esc(dt(a.nextCreditExpiry)) + '">next expires in ' + inT(a.nextCreditExpiry) + "</div>" : "");
+}
+function paceCell(a) {
+  const w = weekly(a);
+  if (!w) return "";
+  if (notStarted(a, w)) return '<span class="dim" title="Codex starts the weekly window on first use">not started</span>';
+  const e = elapsedPct(w);
+  if (e == null) return "";
+  const diff = Math.round(w.used - e);
+  return '<span class="' + (diff >= 15 ? "warn-t" : "") + '" title="' + Math.round(w.used) + "% used, " + Math.round(e) + '% of the week elapsed">' + (Math.abs(diff) < 5 ? "on pace" : diff > 0 ? diff + " pts ahead" : -diff + " pts under") + "</span>";
+}
+function planCell(a) {
+  const pr = priceOf(a), name = planName(a);
+  if (!name && !pr) return '<span class="dim">' + (a.planError ? "read failed" : "not read yet") + "</span>";
+  const subs = [];
+  if (pr) subs.push(usd(pr.usd, 0) + "/mo" + (pr.source === "list" ? " list" : ""));
+  if (a.plan?.renewsAt) subs.push((a.plan.status === "ends" ? "ends " : "renews ") + day(a.plan.renewsAt));
+  const tip = [pr ? SOURCE_TEXT[pr.source] ?? pr.source : "", pr?.detail ?? "", a.plan?.readAt ? "read " + ago(a.plan.readAt) : "", a.planError ? "last read failed: " + a.planError : ""].filter(Boolean).join("; ");
+  return '<span title="' + esc(tip) + '">' + esc(name || "?") + (weight(a) !== 1 ? ' <span class="dim">' + esc(weight(a)) + "x</span>" : "") + "</span>" + (subs.length ? '<div class="sub">' + esc(subs.join(" · ")) + "</div>" : "");
+}
+function columnsFor(p, list) {
+  const cols = [{ head: "Account", w: 24, cell: (a, up) => { const [c, t] = statusOf(a); return '<div class="who"><span class="sdot ' + c + '" title="' + t + '"></span><span class="nm" title="' + esc(a.email) + '">' + esc(label(a)) + "</span>" + (up?.id === a.id ? '<b class="next" title="New sessions route here: soonest weekly reset among available accounts">next</b>' : "") + (c !== "ok" ? '<span class="chip ' + c + '">' + t + "</span>" : "") + "</div>" + notesHtml(a) + (reauthNeeded(a) && !a.disabled ? '<div class="note">' + act("Sign in again as " + (a.email || a.id), "signin", { p: a.provider, id: a.id }, { primary: true }) + "</div>" : ""); } }];
+  if (list.some((a) => planName(a) || priceOf(a))) cols.push({ head: "Plan", w: 13, cell: planCell });
+  const seen = new Map();
+  for (const a of list) for (const w of windows(a)) if (w.used != null) seen.set((w.scope ?? "") + "|" + w.label, w);
+  const wins = [...seen.values()].sort((x, y) => (x.common === y.common ? x.durationSeconds - y.durationSeconds : x.common ? -1 : 1));
+  const find = (a, k) => windows(a).find((w) => (w.scope ?? "") + "|" + w.label === k);
+  for (const w of wins) {
+    const k = (w.scope ?? "") + "|" + w.label, isWeekly = w.common && w.label === "Weekly";
+    if (!w.common) cols.push({ head: modelLimit(p, w).name, tip: modelLimit(p, w).detail + " At the limit those requests spill to the next account.", w: 14, sm: true, cell: (a) => { const m = find(a, k), wk = weekly(a); return wmeter(m, { sub: m && wk && Math.abs(ts(m.resetAt) - ts(wk.resetAt)) < H ? "resets with weekly" : m ? "resets in " + inT(m.resetAt) : "" }); } });
+    else if (isWeekly) cols.push({ head: wins.length > 1 ? "Weekly, all models" : "Weekly", tip: "Bar: share used. Tick: share of the week elapsed.", w: wins.length > 1 ? 16 : 20, cell: (a) => wmeter(find(a, k), { tick: true }) });
+    else cols.push({ head: w.label, tip: w.label + " rolling window", w: 13, sm: true, cell: (a) => { const m = find(a, k); return wmeter(m, { sub: m ? (inT(m.resetAt) === "due" ? "reset due" : "resets in " + inT(m.resetAt)) : "" }); } });
+  }
+  if (wins.length === 1) cols.push({ head: "Pace", tip: "Weekly usage against time elapsed in the window", w: 11, sm: true, cell: paceCell });
+  cols.push({ head: "Weekly reset", w: 12, cell: (a) => { const w = weekly(a); if (!w || !okTime(w.resetAt)) return '<span class="dim">not reported</span>'; return ts(w.resetAt) <= NOW ? '<span class="dim">Past estimate</span><div class="sub">latest usage applies</div>' : '<span class="mono">' + inT(w.resetAt) + '</span><div class="sub">' + esc(day(w.resetAt)) + " " + esc(clock(w.resetAt)) + "</div>"; } });
+  if (list.some((a) => a.creditsKnown)) cols.push({ head: "Banked " + term(p) + "s", w: 14, cell: creditCell });
+  return cols;
+}
+function accountsHtml(filter = "all", openRow = null) {
+  const keep = (a) => filter === "all" || (filter === "credits" && a.creditCount > 0) || (filter === "attention" && needsAttention(a));
+  const shown = allAccounts().filter(keep);
+  const bar = '<div class="toolbar"><div class="seg">' + FILTERS.map(([k, t]) => '<button type="button" data-act="filter" data-v="' + k + '" aria-pressed="' + (filter === k) + '">' + t + "</button>").join("") + '</div><span class="mut" style="font-size:13px">' + shown.length + " of " + allAccounts().length + " accounts</span></div>";
+  return bar + '<div class="grid" id="acct-tables">' + providerIds().map((p) => {
+    const all = accounts(p), list = all.filter(keep).sort((x, y) => (weekly(x)?.resetAt ?? 0) - (weekly(y)?.resetAt ?? 0));
+    const cols = columnsFor(p, all), up = nextUp(p), f = cap()[p] ?? {}, [cls, txt] = STATE[f.state] ?? STATE.unknown, cost = planCost(p);
+    const rows = list.map((a) => {
+      const open = openRow === a.id;
+      return '<tr class="row" tabindex="0" data-act="row" data-id="' + esc(a.id) + '" aria-expanded="' + open + '">' + cols.map((c, i) => "<td" + (c.sm ? ' class="hide-sm"' : "") + (i ? ' data-h="' + esc(c.head) + '"' : "") + ">" + c.cell(a, up) + "</td>").join("") + "</tr>" +
+        (open ? '<tr class="detail"><td colspan="' + cols.length + '">' + detailHtml(a) + "</td></tr>" : "");
+    }).join("");
+    return '<div class="card span-12"><div class="card-h"><span class="pdot ' + esc(p) + '" style="width:10px;height:10px"></span><h2>' + esc(pname(p)) + '</h2><span class="mut" style="font-size:13px">' + plural(all.length, "account") + (cost.count ? " &middot; " + usd(cost.usd, 0) + "/mo" : "") + (f.supply ? " &middot; " + num(f.supply.remainingUnits) + " of " + num(f.supply.weightedAccounts) + " account-weeks left" : "") + '</span><span class="chip ' + cls + '">' + txt + "</span>" +
+      '<div class="right"><span class="dim hide-sm" style="font-size:12px">Routing order: soonest weekly reset first</span>' + act("Connect " + pname(p), "signin", { p }) + "</div></div>" +
+      '<div class="tw"><table class="t"><colgroup>' + cols.map((c) => "<col" + (c.sm ? ' class="hide-sm"' : "") + ' style="width:' + c.w + '%">').join("") + "</colgroup><thead><tr>" +
+      cols.map((c) => "<th" + (c.sm ? ' class="hide-sm"' : "") + (c.tip ? ' title="' + esc(c.tip) + '"' : "") + ">" + esc(c.head) + "</th>").join("") + "</tr></thead><tbody>" +
+      (rows || '<tr><td colspan="' + cols.length + '" class="mut">No ' + esc(pname(p)) + " accounts match this filter.</td></tr>") + "</tbody></table></div></div>";
+  }).join("") + "</div>";
+}
+function detailHtml(a) {
+  const models = Object.entries(a.routingModels ?? {}), down = models.filter(([, r]) => r?.status !== "ready");
+  const v = valueRow(a), waste = (V?.waste?.measured ?? []).find((x) => x.id === a.id), pr = priceOf(a);
+  const notes = [a.creditNote, a.planError ? "Plan read failed: " + a.planError : ""].filter(Boolean);
+  return '<div class="dgrid">' +
+    '<div><h4>Quota windows</h4><dl class="kv">' + windows(a).map((w) => "<dt>" + esc(w.scope) + " &middot; " + esc(w.label) + "</dt><dd>" + (w.used == null ? "not reported" : Math.round(w.used) + "% used") + ", resets " + esc(dt(w.resetAt)) + "</dd>").join("") + "</dl>" +
+    '<h4 style="margin-top:16px">Models (' + (models.length - down.length) + " of " + models.length + ' ready)</h4><div class="models">' + models.map(([m, r]) => '<span class="' + (r?.status === "ready" ? "" : "down") + '">' + esc(m) + "</span>").join("") + "</div>" +
+    '<p class="dim" style="font-size:12px;margin:8px 0 0">Live list read ' + esc(a.modelList?.fetchedAt ? ago(a.modelList.fetchedAt) : "never") + "</p></div>" +
+    '<div><h4>Plan, credits &amp; value</h4><dl class="kv">' +
+    "<dt>Plan</dt><dd>" + esc(a.plan?.label ?? (planName(a) || "not read yet")) + (a.plan?.status && a.plan.status !== "active" ? " (" + esc(a.plan.status) + ")" : "") + "</dd>" +
+    "<dt>Price</dt><dd>" + (pr ? usd(pr.usd, 0) + "/mo <span class=\"dim\">(" + esc(SOURCE_TEXT[pr.source] ?? pr.source) + ")</span>" : "unknown") + "</dd>" +
+    (a.plan?.renewsAt ? "<dt>" + (a.plan.status === "ends" ? "Ends" : "Renews") + "</dt><dd>" + esc(dt(a.plan.renewsAt)) + "</dd>" : "") +
+    "<dt>Banked " + term(a.provider) + "s</dt><dd>" + (a.creditsKnown ? esc(a.creditCount) : "unknown") + "</dd>" +
+    "<dt>Expiries</dt><dd>" + ((a.creditExpiries ?? []).length ? esc(a.creditExpiries.map(dt).join(", ")) : a.nextCreditExpiry ? esc(dt(a.nextCreditExpiry)) : "none") + "</dd>" +
+    (v ? "<dt>Requests</dt><dd>" + Number(v.requests ?? 0).toLocaleString() + (v.failedRequests ? ' <span class="dim">(' + esc(v.failedRequests) + " failed)</span>" : "") + "</dd><dt>API-equivalent</dt><dd>" + usd(v.apiEquivalentUsd) + (v.requests ? ' <span class="dim">(' + usd(v.apiEquivalentUsd / v.requests, 4) + "/request)</span>" : "") + "</dd>" +
+      (v.actualUsd != null ? "<dt>Actual cost</dt><dd>" + usd(v.actualUsd) + (v.actualUsdPerRequest != null ? ' <span class="dim">(' + usd(v.actualUsdPerRequest, 4) + "/request)</span>" : ' <span class="dim">(idle)</span>') + "</dd>" : "") +
+      "<dt>Plan weight</dt><dd>" + esc(v.weight) + " account-week</dd>" : "") +
+    (waste?.windowsEnded ? "<dt>Unused at window end</dt><dd>" + num(waste.unusedUnits, 2) + " acct-weeks over " + esc(waste.windowsEnded) + " windows</dd>" : "") +
+    "</dl></div>" +
+    '<div><h4>Actions</h4><div class="dacts">' + act("Refresh usage", "refresh") + act(reauthNeeded(a) ? "Sign in again" : "Reconnect", "signin", { p: a.provider, id: a.id }, { primary: reauthNeeded(a) }) + "</div>" +
+    (notes.length ? '<p style="font-size:12px;margin-top:10px">' + notes.map(esc).join("<br>") + "</p>" : "") +
+    '<p class="dim" style="font-size:12px;margin-top:10px">Id <code>' + esc(a.id) + "</code></p></div></div>";
+}
+
+/* ---------- Usage & value ---------- */
+function ledgerText() {
+  const l = S.usageLedger;
+  return l ? "Ledger: " + (l.enabled === false ? "disabled" : "recording") + ", " + Number(l.rows ?? 0).toLocaleString() + " rows written since the service started" + (l.pending ? ", " + l.pending + " waiting to be written" : "") + (l.lastError ? "; problem: " + l.lastError : "") + "." : "";
+}
+function usageHtml() {
+  if (!V) return '<div class="card"><div class="card-b"><p class="mut">No usage value report yet. It is written about two minutes after the service starts, then hourly.</p><p class="dim">' + esc(ledgerText()) + "</p></div></div>";
+  const acc = V.accounts ?? [], models = V.models ?? [], sess = V.sessions ?? [];
+  const reqs = acc.reduce((s, a) => s + (a.requests ?? 0), 0), failed = acc.reduce((s, a) => s + (a.failedRequests ?? 0), 0);
+  const spend = acc.reduce((s, a) => s + (a.apiEquivalentUsd ?? 0), 0);
+  const days = V.valueWindowDays ?? 0;
+  const ids = providerIds(), costs = Object.fromEntries(ids.map((p) => [p, planCost(p)]));
+  const monthly = ids.reduce((s, p) => s + costs[p].usd, 0);
+  const planShare = monthly * 12 / 365 * days;
+  const multiple = days >= 1 && planShare > 0 ? spend / planShare : null;
+  const byP = (p) => acc.filter((a) => a.provider === p).reduce((s, a) => s + (a.apiEquivalentUsd ?? 0), 0);
+  const maxS = Math.max(1, ...sess.map((x) => x.apiEquivalentUsd ?? 0));
+  const since = days >= (V.config?.valueDays ?? 7) - 0.01 ? "last " + (V.config?.valueDays ?? 7) + " days" : "since " + dt(V.valueFrom ?? V.coverage?.ledgerSince);
+  const fits = Object.entries(V.fits ?? {}).map(([p, f]) => f.status === "ok"
+    ? "<li><b>" + esc(pname(p)) + ":</b> one account-week of quota used about " + usd(f.pooled?.usdPerAccountWeek, 0) + " of API-equivalent usage (fit R² " + num(f.pooled?.r2, 2) + " over " + esc(f.observations) + " account-buckets). By model: " + Object.entries(f.perModel?.models ?? {}).map(([m, r]) => esc(m) + " " + usd(r.usdPerAccountWeek, 0)).join(", ") + ".</li>"
+    : "<li><b>" + esc(pname(p)) + ":</b> " + esc(f.note ?? "not enough data yet") + "</li>").join("");
+  const ended = (V.waste?.measured ?? []).filter((w) => w.windowsEnded);
+  const unpriced = Object.keys(V.coverage?.unpricedModels ?? {});
+  // Actual cost: plan cost over the window, spread over the requests each account served (usage-value.mjs).
+  const ac = V.actualCost ?? {}, acs = Object.values(ac);
+  const actual = acs.some((c) => c.actualUsd != null) ? acs.reduce((s, c) => s + (c.actualUsd ?? 0), 0) : null;
+  const idle = acs.reduce((s, c) => s + (c.idleUsd ?? 0), 0);
+  const costed = acs.reduce((s, c) => s + (c.actualUsd == null ? 0 : (c.requests ?? 0) - (c.uncostedRequests ?? 0)), 0);
+  const dash = '<span class="dim">&mdash;</span>';
+  const money = (x, d = 2) => (x == null || !Number.isFinite(Number(x)) ? dash : usd(x, d));
+  const perReq = (x) => (x == null || !Number.isFinite(Number(x)) ? dash : usd(x, Math.abs(x) < 0.1 ? 4 : 3));
+  const apiPerReq = (x) => (x.requests ? x.apiEquivalentUsd / x.requests : null);
+  const BASIS = { quota: "spread by fitted quota use", api: "spread by API-equivalent dollars (no quota fit yet)", requests: "spread by request count (no priced requests)" };
+  const totals = Object.entries(ac).filter(([, c]) => c.requests).map(([p, c]) => '<tr><td><span class="pdot ' + esc(p) + '"></span> <b>' + esc(pname(p)) + ' total</b></td><td class="num">' + Number(c.requests).toLocaleString() + '</td><td class="num">' + money(c.apiEquivalentUsd) + '</td><td class="num" title="' + esc((c.basis ?? []).map((b) => BASIS[b] ?? b).join("; ")) + '">' + money(c.actualUsd) + (c.idleUsd ? '<div class="sub">+ ' + usd(c.idleUsd) + " idle</div>" : "") + '</td><td class="num">' + perReq(c.apiEquivalentUsdPerRequest) + '</td><td class="num">' + perReq(c.actualUsdPerRequest) + '</td><td class="num hide-sm">' + dash + '</td></tr>').join("");
+  return '<div class="grid">' +
+    '<div class="span-12 kpis">' +
+    '<div class="card kpi"><div class="eyebrow">Requests</div><div class="v mono">' + reqs.toLocaleString() + '</div><div class="s">' + (failed ? failed + " failed &middot; " : "") + esc(since) + "</div></div>" +
+    '<div class="card kpi"><div class="eyebrow">API-equivalent</div><div class="v mono">' + usd(spend, 0) + '</div><div class="s">list-price value' + (reqs ? ", " + perReq(spend / reqs) + "/request" : "") + "</div></div>" +
+    '<div class="card kpi"><div class="eyebrow">Actual cost</div><div class="v mono">' + (actual == null ? "unknown" : usd(actual, 0)) + '</div><div class="s">' + (actual == null ? (V.actualCost ? "needs plan prices" : "report predates actual cost") : "plan cost, " + perReq(costed ? actual / costed : null) + "/request" + (idle >= 0.5 ? " &middot; " + usd(idle, 0) + " idle" : "")) + "</div></div>" +
+    '<div class="card kpi"><div class="eyebrow">Plans</div><div class="v mono">' + (monthly ? usd(monthly, 0) + "/mo" : "?") + '</div><div class="s">' + ids.filter((p) => costs[p].count).map((p) => esc(pname(p)) + " " + usd(costs[p].usd, 0)).join(" &middot; ") + "</div></div>" +
+    '<div class="card kpi"><div class="eyebrow">Value vs plans</div><div class="v mono">' + (multiple == null ? "pending" : num(multiple, 1) + "x") + '</div><div class="s">' + (multiple == null ? (monthly ? "needs a full day of ledger data" : "needs plan prices") : usd(spend, 0) + " vs " + usd(planShare, 0) + " of plan cost") + "</div></div>" +
+    "</div>" +
+    '<div class="card span-12"><div class="card-h"><h2>Quota rates</h2><span class="right mut" style="font-size:12px">what one account-week buys</span></div><div class="card-b"><ul class="plain">' + fits + "</ul></div></div>" +
+    '<div class="card span-12 tw"><div class="card-h"><h2>By model</h2><span class="right mut" style="font-size:12px">API-equivalent vs actual &middot; ' + esc(since) + '</span></div><table class="t"><colgroup><col style="width:26%"><col><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>Model</th><th class="num">Requests</th><th class="num">API cost</th><th class="num">Actual cost</th><th class="num">API / request</th><th class="num">Actual / request</th><th class="num hide-sm">Quota share</th></tr></thead><tbody>' +
+    models.map((m) => '<tr><td title="' + esc(m.model) + '"><span class="pdot ' + esc(m.provider) + '"></span> ' + esc(m.model) + '</td><td class="num">' + Number(m.requests ?? 0).toLocaleString() + '</td><td class="num">' + money(m.apiEquivalentUsd) + '</td><td class="num"' + (m.uncostedRequests ? ' title="' + esc(m.uncostedRequests) + ' requests on accounts without a plan price are not included"' : "") + ">" + money(m.actualUsd) + '</td><td class="num">' + perReq(apiPerReq(m)) + '</td><td class="num">' + perReq(m.actualUsdPerRequest) + '</td><td class="num hide-sm dim">' + (m.shareOfProviderQuota == null ? "&mdash;" : num(m.shareOfProviderQuota * 100) + "%") + "</td></tr>").join("") +
+    totals + "</tbody></table></div>" +
+    '<div class="card span-12 tw"><div class="card-h"><h2>By account</h2><span class="right mut" style="font-size:12px">' + esc(since) + '</span></div><table class="t"><colgroup><col style="width:22%"><col><col><col><col><col><col class="hide-sm"><col class="hide-sm"><col></colgroup><thead><tr><th>Account</th><th class="num">Requests</th><th class="num">API cost</th><th class="num">Actual cost</th><th class="num">API / request</th><th class="num">Actual / request</th><th class="num hide-sm">$ / acct-week</th><th class="num hide-sm">Plan / mo</th><th class="num">Value vs plan</th></tr></thead><tbody>' +
+    acc.slice().sort((a, b) => (b.apiEquivalentUsd ?? 0) - (a.apiEquivalentUsd ?? 0)).map((a) => { const live = allAccounts().find((x) => x.id === a.id), pr = live ? priceOf(live) : (a.planUsdPerMonth != null ? { usd: a.planUsdPerMonth, source: a.planPriceSource ?? "config" } : null); return '<tr><td title="' + esc(a.email) + '"><span class="pdot ' + esc(a.provider) + '"></span> ' + esc(label(a)) + '</td><td class="num">' + Number(a.requests ?? 0).toLocaleString() + '</td><td class="num">' + usd(a.apiEquivalentUsd) + '</td><td class="num" title="plan cost over the window">' + money(a.actualUsd) + (a.actualUsd != null && !a.requests ? '<div class="sub">idle</div>' : "") + '</td><td class="num">' + perReq(a.requests ? a.apiEquivalentUsd / a.requests : null) + '</td><td class="num">' + perReq(a.actualUsdPerRequest) + '</td><td class="num hide-sm dim">' + (a.usdPerAccountWeek == null ? "pending" : usd(a.usdPerAccountWeek, 0)) + '</td><td class="num hide-sm dim" title="' + esc(pr ? SOURCE_TEXT[pr.source] ?? pr.source : "") + '">' + (pr ? usd(pr.usd, 0) : "unknown") + '</td><td class="num dim">' + (a.valueMultiple == null ? "&mdash;" : num(a.valueMultiple) + "x") + "</td></tr>"; }).join("") +
+    "</tbody></table></div>" +
+    '<div class="card span-7"><div class="card-h"><h2>Largest sessions</h2><span class="right mut" style="font-size:12px">API-equivalent &middot; actual</span></div><div class="card-b"><ul class="barlist">' +
+    sess.slice(0, 6).map((x) => '<li style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 84px"><div class="lbl"><span class="pdot ' + esc(x.provider) + '"></span><span title="' + esc(x.sid) + " &middot; " + esc((x.models ?? []).join(", ")) + '">' + esc(x.client) + ' <span class="dim mono">' + esc(String(x.sid ?? "").slice(0, 6)) + '</span></span></div><div class="hbar"><i style="width:' + ((x.apiEquivalentUsd ?? 0) / maxS) * 100 + "%;background:var(--" + esc(x.provider) + ')"></i></div><div class="when">' + usd(x.apiEquivalentUsd, 0) + '<span class="dim" style="display:block;font-size:11px">' + (x.actualUsd == null ? "actual unknown" : usd(x.actualUsd) + " actual") + "</span></div></li>").join("") +
+    "</ul></div></div>" +
+    '<div class="card span-5"><div class="card-h"><h2>Quota left on the table</h2></div><div class="card-b"><p class="mut" style="margin:0 0 12px;font-size:13px">Weekly used % when each recent window ended. Short bars are quota that expired unused.</p>' +
+    (ended.map((w) => { const a = allAccounts().find((x) => x.id === w.id); return '<div class="acct" style="grid-template-columns:minmax(0,1fr) auto 70px"><div class="name"><span class="pdot ' + esc(w.provider) + '"></span><span>' + esc(a ? label(a) : w.id) + '</span></div><div class="ends" title="' + esc((w.ends ?? []).map((e) => day(e.at) + ": " + e.lastUsedPercent + "%").join(", ")) + '">' + (w.ends ?? []).map((e) => '<i class="' + (e.lastUsedPercent < 90 ? "lo" : "") + '" style="height:' + Math.max(3, Number(e.lastUsedPercent) * 0.3) + 'px"></i>').join("") + '</div><div class="when">' + (w.unusedUnits ? num(w.unusedUnits, 2) + " wasted" : "none") + "</div></div>"; }).join("") || '<p class="dim">No windows have ended yet.</p>') +
+    '<p class="dim" style="font-size:12px;margin:12px 0 0">Forecast, next 14 days: ' + (Object.entries(V.waste?.projected ?? {}).map(([p, x]) => esc(pname(p)) + " " + num(x.wastedUnits) + " acct-weeks").join(", ") || "unknown") + ".</p></div></div>" +
+    '<p class="span-12 dim" style="font-size:12px;margin:0">Measured from ' + Number(V.coverage?.ledgerRows ?? 0).toLocaleString() + " requests since " + esc(dt(V.coverage?.ledgerSince)) + ". API cost is what the same tokens would cost at API list prices, not money saved. Actual cost is what the subscriptions cost over the same window: each account's plan price, spread over the requests it served in proportion to the quota they used (fitted per-model rates; API dollars until a fit exists). Plans are paid whether or not the quota is used, so idle quota raises actual cost per request, and an account with no requests shows as idle. \"$ / acct-week\" and value multiples need a full day of data." + (unpriced.length ? " Unpriced models: " + esc(unpriced.join(", ")) + "." : "") + " " + esc(ledgerText()) + " Report updated " + esc(ago(V.generatedAt)) + ".</p>" +
+    "</div>";
+}
+
+/* ---------- Automation, configuration and agent access ---------- */
+function policyHtml() {
+  const pol = S.resetPolicy ?? {};
+  const card = (p) => {
+    const c = pol[p];
+    if (!c) return "";
+    const on = !!S.resetAutomation && c.enabled, last = S.resets?.[p]?.last, la = last && allAccounts().find((a) => a.id === last.accountId);
+    const lvl = c.headroomPercent > 0 ? 100 - c.headroomPercent + "% used or more" : "fully used";
+    return '<div class="card span-6"><div class="card-h"><span class="pdot ' + esc(p) + '"></span><h2>' + esc(pname(p)) + " banked " + term(p) + 's</h2><div class="right"><span class="chip ' + (on ? "ok" : "neutral") + '">' + (on ? "Automatic" : "Off") + '</span></div></div><div class="card-b"><dl>' +
+      (on ? "" : '<div class="setting"><dt>Status</dt><dd>Automatic ' + esc(pname(p)) + " banked " + term(p) + "s: disabled (" + (S.resetAutomation === false ? "resetAutomation is false in state/pool-state.json" : "resetPolicy." + esc(p) + ".enabled is false") + ").</dd></div>") +
+      '<div class="setting"><dt>What it does</dt><dd>' + (term(p) === "refill" ? "Clears usage but keeps the account's weekly reset date." : "Restarts the account's weekly window from now.") + "</dd></div>" +
+      '<div class="setting"><dt>Fires when</dt><dd>Every ' + esc(pname(p)) + " account is " + lvl + " on " + (c.trigger === "weekly" ? "the all-models weekly limit" : "any limit") + "</dd></div>" +
+      '<div class="setting"><dt>Before a credit lapses</dt><dd>' + (c.redeemBeforeLapse ? "Redeem early on an account at the threshold when the forecast says the credit would expire unused" : "Off") + "</dd></div>" +
+      (term(p) === "refill" ? '<div class="setting"><dt>Runway rule</dt><dd>Used only on an account with time to use the refill up before its reset date at the lowest recent demand (never more than ' + esc(c.maxRunwayPercent ?? 50) + "% of the week; " + esc(c.maxRunwayPercent ?? 50) + "% while demand is unknown), unless the credit expires before that date anyway</dd></div>" : "") +
+      (S.resets?.[p]?.error ? '<div class="setting"><dt>Last attempt</dt><dd style="color:var(--bad)">Failed ' + esc(dt(S.resets[p].error.at)) + ": " + esc(S.resets[p].error.message) + "</dd></div>" : "") +
+      '<div class="setting"><dt>Last used</dt><dd>' + (last ? esc(dt(last.at)) + " on " + esc(la ? label(la) : last.accountId) + (last.trigger ? ' <span class="dim">(' + esc(last.trigger) + ")</span>" : "") + ' <span class="chip neutral" style="margin-left:4px">' + esc(last.outcome) + "</span>" : '<span class="dim">never</span>') + "</dd></div>" +
+      (c.problems?.length ? '<div class="setting"><dt>Config problems</dt><dd style="color:var(--bad)">' + esc(c.problems.join("; ")) + "</dd></div>" : "") +
+      "</dl></div></div>";
+  };
+  const bal = S.capacity?.balance;
+  const ep = (path, what) => '<tr><td style="white-space:normal"><code>' + path + '</code></td><td style="white-space:normal">' + what + "</td></tr>";
+  return '<div class="grid">' +
+    '<div class="card span-12"><div class="card-h"><h2>How sessions are routed</h2></div><div class="card-b"><ol class="rules">' +
+    '<li><b>New sessions go to the available account whose weekly window resets soonest</b>, until it is drained. That account is marked <span class="next">next</span>.</li>' +
+    "<li><b>Short windows and model caps spill over.</b> The proxy enforces 5-hour limits and model caps such as Fable (a cap inside the all-models quota, not extra quota) and moves that request to the next account.</li>" +
+    "<li><b>Sessions are sticky.</b> Active sessions stay on their account; sessions idle for over an hour rebind.</li>" +
+    "<li><b>The client picks the provider.</b> The pool routes among accounts of the provider a request names and never moves requests across providers. The capacity forecast publishes a balance signal (now: " + esc(bal?.toward ? "toward " + pname(bal.toward) + ", step " + bal.steps + " of " + bal.maxSteps : "none") + ") on <code>/api/capacity</code> for lane dispatchers; nothing in the pool enforces it.</li>" +
+    "</ol></div></div>" +
+    card("claude") + card("codex") +
+    '<div class="card span-6"><div class="card-h"><h2>Which credit goes first</h2></div><div class="card-b"><ol class="rules"><li><b>Credits expiring within 24 hours</b> are used first.</li><li>Otherwise the account whose <b>natural weekly reset is furthest away</b>.</li><li>A refused credit <b>waits</b> while other accounts stay eligible.</li></ol></div></div>' +
+    '<div class="card span-6" id="config"><div class="card-h"><h2>Configuration</h2></div><div class="card-b"><dl>' +
+    '<div class="setting" style="border:0;padding-top:0"><dt>Plan prices</dt><dd>Read from each provider twice a day. Codex: the subscription and ChatGPT\'s own price table (billed price). Claude: Anthropic reports the tier (Max 20x) but not the price to Claude Code sign-ins, so the claude.com list price for that tier is used. To override, set USD per month under <code>usageLedger.planPrices</code> in <code>state/install.json</code>; an override beats a list price, not a provider-billed one.</dd></div>' +
+    '<div class="setting"><dt>Credit automation</dt><dd><code>resetPolicy</code> in <code>state/install.json</code>; master switch <code>resetAutomation</code> in <code>state/pool-state.json</code> (' + (S.resetAutomation ? "on" : "off") + ").</dd></div>" +
+    '<div class="setting"><dt>Cadence</dt><dd>Usage every 2 minutes; plans twice a day; value report hourly' + (V?.generatedAt ? " (last " + esc(ago(V.generatedAt)) + ")" : "") + ".</dd></div>" +
+    "</dl></div></div>" +
+    '<div class="card span-12" id="agents"><div class="card-h"><h2>Agent access</h2><span class="right mut" style="font-size:12px">read-only, no tokens</span></div><div class="card-b"><p class="mut" style="margin:0 0 10px;font-size:13px">Agents and scripts on this machine read the same data this page shows. From WSL use the Windows host address on port 8318.</p><div class="tw"><table class="t"><thead><tr><th style="width:34%">Endpoint</th><th>What it returns</th></tr></thead><tbody>' +
+    ep("GET http://127.0.0.1:8318/api/summary", "One compact document: per provider cost, credits, forecast with three scenarios (resets only, banked credits, +1 credit/week) and per-account plan, price, windows and credit expiries. Start here.") +
+    ep("GET /api/status", "Full live pool state: accounts, windows, routing, reset journal, policies.") +
+    ep("GET /api/capacity", "capacity-forecast/v1 (also <code>state/capacity-forecast.json</code>): states, balance signal, projections, scenarios.") +
+    ep("GET /api/value", "usage-value/v1 (also <code>state/usage-value.json</code>): API-equivalent dollars, quota rates, value vs plan.") +
+    "</tbody></table></div></div></div>" +
+    "</div>";
+}
+/* ---- I/O below: DOM, fetch, sign-in ---- */
+const $ = (id) => document.getElementById(id);
+let filter = "all", openRow = null, offline = false;
+let toastTimer;
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("on"), 4200);
+}
+function keepOpen(el, html) {
+  const open = new Set([...el.querySelectorAll("details[open]")].map((d) => d.dataset.key));
+  el.innerHTML = html;
+  for (const d of el.querySelectorAll("details")) if (open.has(d.dataset.key)) d.open = true;
+}
+function renderAll() {
+  NOW = Date.now();
+  const items = attentionItems();
+  keepOpen($("attention"), attentionHtml(items));
+  $("att-count").textContent = items.filter((i) => i.sev !== "info").length || "";
+  for (const p of ["claude", "codex"]) $("prov-" + p).innerHTML = providerHtml(p);
+  $("timeline").innerHTML = timelineHtml();
+  $("v-accounts").innerHTML = accountsHtml(filter, openRow);
+  $("v-usage").innerHTML = usageHtml();
+  $("v-policy").innerHTML = policyHtml();
+  const age = S.checkedAt ? NOW - Date.parse(S.checkedAt) : Infinity;
+  $("fresh").className = "fresh" + (offline || S.error || age > 6 * 6e4 ? " bad" : "");
+  $("fresh").innerHTML = '<span class="pulse"></span><span class="t">' + esc(offline ? "Service unavailable" + (S.checkedAt ? "; showing " + clock(S.checkedAt) : "") : S.error ? S.error : "Checked " + clock(S.checkedAt)) + "</span>";
+  renderFinish();
+}
+async function post(route, data = {}) {
+  const r = await fetch("/api/" + route, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Error(j.error || "Request failed");
+  return j;
+}
+let loaded = false;
+async function status() {
+  try {
+    const r = await fetch("/api/status");
+    if (!r.ok) throw Error();
+    S = await r.json();
+    offline = false;
+    loaded = true;
+    checkPendingSignin(S);
+  } catch {
+    offline = true;
+  }
+  if (loaded || offline) renderAll();
+}
+async function loadValue() {
+  try { const r = await fetch("/api/value"); V = r.ok ? await r.json() : null; } catch { V = null; }
+  if (loaded) renderAll();
+}
+async function refreshNow() {
+  try { await post("refresh"); toast("Refreshing provider usage..."); setTimeout(status, 4000); } catch (e) { toast(e.message); }
+}
+
+/* ---------- Sign-in drawer: choose provider, open sign-in, finish (here or from another device) ---------- */
+const callbackProvider = { claude: "anthropic", codex: "codex" };
+const callbackPorts = { 54545: "claude", 1455: "codex" };
+const signinName = (p) => (p === "codex" ? "ChatGPT (Codex)" : "Claude");
+let si = { step: 1, provider: null, accountId: null, url: null };
+function pendingSignin() {
+  try { const p = JSON.parse(localStorage.getItem("pendingSignin")); return p && Date.now() - p.startedAt < 15 * 60e3 ? p : null; } catch { return null; }
+}
+function setMsg(text, kind) { const m = $("si-msg"); if (m) { m.textContent = text; m.style.color = kind === "bad" ? "var(--bad)" : kind === "ok" ? "var(--ok)" : ""; } }
+function renderFinish() {
+  const p = pendingSignin(), el = $("finish");
+  el.hidden = !p || $("drawer").classList.contains("on");
+  if (p) el.innerHTML = '<div class="gap"><div><p><b>Finish ' + esc(signinName(p.provider)) + ' sign-in.</b> <span class="mut">On this PC it finishes by itself. Signed in on another device? Paste the localhost link it opened.</span></p></div><div class="acts">' + act("Finish sign-in", "si-resume", {}, { primary: true }) + act("Cancel", "si-cancel") + "</div></div>";
+}
+function openSignin(provider, accountId) {
+  const p = pendingSignin();
+  si = { step: provider ? 2 : 1, provider: provider ?? null, accountId: accountId ?? null, url: null };
+  if (!provider && p) si = { step: 3, provider: p.provider, accountId: null, url: null };
+  renderSignin();
+  $("scrim").classList.add("on"); $("drawer").classList.add("on");
+  renderFinish();
+}
+function closeSignin() { $("scrim").classList.remove("on"); $("drawer").classList.remove("on"); renderFinish(); }
+function renderSignin() {
+  const acct = si.accountId && allAccounts().find((a) => a.id === si.accountId);
+  $("dr-title").textContent = acct ? "Sign in again" : "Connect an account";
+  const name = signinName(si.provider);
+  const cls = (n) => "step" + (si.step === n ? " active" : si.step > n ? " done" : "");
+  const steps = [
+    ["Choose provider", si.provider ? esc(name) : "", '<div class="choice">' + ["claude", "codex"].map((p) => '<button type="button" data-act="si-provider" data-p="' + p + '" aria-pressed="' + (si.provider === p) + '"><span class="pdot ' + p + '"></span> ' + esc(pname(p)) + "<small>" + accounts(p).length + " connected</small></button>").join("") + "</div>"],
+    ["Sign in with " + name, acct ? "as " + esc(acct.email) : "",
+      (acct ? '<p>Use <b style="color:var(--text)">' + esc(acct.email) + "</b> on the provider page.</p>" : "") + "<p>Opens the provider's page in a new tab. Finish one sign-in before starting another.</p>" +
+      (si.url ? '<a class="btn primary" target="_blank" rel="noopener" href="' + esc(si.url) + '">Continue to ' + esc(si.provider === "codex" ? "ChatGPT" : "Claude") + " sign-in</a>" : act("Open " + name + " sign-in", "si-open", {}, { primary: true, sm: false }))],
+    ["Finish", "", (si.url ? '<p><a class="btn sm" target="_blank" rel="noopener" href="' + esc(si.url) + '">Open the sign-in page</a></p>' : "") + '<p>On this PC the sign-in finishes by itself; keep this panel open to see it confirmed.</p><p>On a phone or another device, the browser ends on a localhost page that will not load. That is expected: copy its address and paste it here.</p><input class="field" id="cb" autocomplete="off" placeholder="http://localhost:' + (si.provider === "codex" ? 1455 : 54545) + '/callback?code=..." /><div style="display:flex;gap:8px;margin-top:8px">' + act("Paste from clipboard", "si-paste") + act("Submit link", "si-submit") + act("Cancel sign-in", "si-cancel") + "</div>"],
+  ];
+  $("steps").innerHTML = steps.map(([h, sub, body], i) => '<li class="' + cls(i + 1) + '"><span class="n">' + (si.step > i + 1 ? "&#10003;" : i + 1) + "</span><div><h3>" + esc(h) + (sub ? ' <span class="mut" style="font-weight:400">' + sub + "</span>" : "") + '</h3><div class="body">' + body + "</div></div></li>").join("") +
+    '<li class="step"><span class="n"></span><div><p class="hint" id="si-msg" role="status" aria-live="polite"></p></div></li>';
+}
+async function login() {
+  const provider = si.provider;
+  setMsg("Preparing " + signinName(provider) + " sign-in...");
+  try {
+    const j = await post("login", { provider });
+    const u = j.url ?? j.auth_url;
+    if (!u) throw Error("Sign-in URL unavailable");
+    localStorage.setItem("pendingSignin", JSON.stringify({
+      provider, startedAt: Date.now(),
+      accounts: accounts(provider).map((a) => a.id),
+      reauth: Object.entries(S.reauth ?? {}).filter(([, v]) => v?.provider === provider).map(([id]) => id),
+    }));
+    si.url = u;
+    si.step = 3;
+    renderSignin();
+    const w = window.open(u, "_blank");
+    if (w) w.opener = null;
+    setMsg(w ? "Complete " + signinName(provider) + " sign-in in the new tab." : "The browser blocked the new tab: use Open the sign-in page above.");
+    waitForSignin(provider);
+  } catch (e) { setMsg(e.message, "bad"); }
+}
+// Done once one of the accounts that needed sign-in no longer does, or a new account of that provider appears.
+function checkPendingSignin(s) {
+  const p = pendingSignin();
+  if (!p || !s) return false;
+  const list = (s.accounts ?? []).filter((a) => a.provider === p.provider);
+  const added = list.find((a) => !p.accounts.includes(a.id));
+  const cleared = p.reauth.filter((id) => !s.reauth?.[id]);
+  if (!added && !cleared.length) return false;
+  const who = added ? added.email || added.id : cleared.map((id) => list.find((a) => a.id === id)?.email || id).join(", ");
+  localStorage.removeItem("pendingSignin");
+  const msg = "Signed in: " + who + " is connected" + (added ? "" : " again") + ".";
+  if ($("drawer").classList.contains("on")) setMsg(msg, "ok");
+  toast(msg);
+  return true;
+}
+let waiting = false;
+async function waitForSignin(provider) {
+  if (waiting) return;
+  waiting = true;
+  try {
+    for (let i = 0; i < 24 && pendingSignin(); i++) {
+      if (i % 4 === 0) post("refresh").catch(() => {});
+      await new Promise((r) => setTimeout(r, i ? 7500 : 3000));
+      await status();
+    }
+    if (pendingSignin()) setMsg(signinName(provider) + " sign-in not confirmed yet. If you signed in on another device, paste the localhost link above; otherwise start again.");
+  } finally { waiting = false; }
+}
+let finishing = false;
+async function finishSignin(raw) {
+  if (finishing) return;
+  let u;
+  try { u = new URL(String(raw ?? "").trim()); } catch { setMsg("That is not the sign-in link. Copy the full address of the localhost page the provider opened.", "bad"); return; }
+  if (!/^(localhost|127\.0\.0\.1)$/.test(u.hostname)) { setMsg("That is not the localhost sign-in link.", "bad"); return; }
+  if (u.searchParams.get("error")) { setMsg("The provider refused the sign-in: " + (u.searchParams.get("error_description") || u.searchParams.get("error")) + ". Start again.", "bad"); return; }
+  if (!u.searchParams.get("code")) { setMsg("That link has no sign-in code. Copy the full address of the localhost page the provider opened.", "bad"); return; }
+  const pending = pendingSignin();
+  const provider = callbackPorts[u.port] ?? pending?.provider ?? si.provider;
+  if (!provider) { setMsg("Choose a provider and open its sign-in first.", "bad"); return; }
+  finishing = true;
+  setMsg("Finishing " + signinName(provider) + " sign-in...");
+  try {
+    await post("callback", { provider: callbackProvider[provider], redirect_url: u.href });
+    if ($("cb")) $("cb").value = "";
+    if (pending?.provider === provider) { setMsg(signinName(provider) + " sign-in submitted; waiting for the account to reconnect..."); waitForSignin(provider); }
+    else setMsg(signinName(provider) + " sign-in submitted. The account shows up after the next refresh.", "ok");
+  } catch (e) { setMsg(e.message, "bad"); } finally { finishing = false; }
+}
+
+/* ---------- Shell ---------- */
+function go(view, anchor) {
+  if (!["overview", "accounts", "usage", "policy"].includes(view)) view = "overview";
+  if (location.hash !== "#" + view) history.replaceState(null, "", "#" + view);
+  for (const s of document.querySelectorAll("section.view")) s.classList.toggle("on", s.id === "v-" + view);
+  for (const a of document.querySelectorAll("#tabs a")) { if (a.dataset.v === view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); }
+  window.scrollTo(0, 0);
+  if (anchor) setTimeout(() => $(anchor)?.scrollIntoView({ block: "start" }), 30);
+}
+function showAccount(id) { filter = "all"; openRow = id; renderAll(); go("accounts"); setTimeout(() => document.querySelector('tr[data-id="' + CSS.escape(id) + '"]')?.scrollIntoView({ block: "center" }), 30); }
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-act]");
+  if (!el || el.disabled) return;
+  const d = el.dataset;
+  switch (d.act) {
+    case "go": go(d.v, d.anchor); break;
+    case "jump": go("overview"); setTimeout(() => $(d.id)?.scrollIntoView({ block: "start" }), 30); break;
+    case "account": showAccount(d.id); break;
+    case "credits": filter = "credits"; openRow = accounts(d.p).filter((a) => a.creditCount > 0 && a.nextCreditExpiry).sort((x, y) => ts(x.nextCreditExpiry) - ts(y.nextCreditExpiry))[0]?.id ?? null; renderAll(); go("accounts"); break;
+    case "filter": filter = d.v; $("v-accounts").innerHTML = accountsHtml(filter, openRow); break;
+    case "row": openRow = openRow === d.id ? null : d.id; $("v-accounts").innerHTML = accountsHtml(filter, openRow); document.querySelector('tr[data-id="' + CSS.escape(d.id) + '"]')?.focus(); break;
+    case "refresh": refreshNow(); break;
+    case "signin": openSignin(d.p, d.id); break;
+    case "si-provider": si.provider = d.p; si.step = 2; si.url = null; renderSignin(); break;
+    case "si-open": login(); break;
+    case "si-resume": openSignin(); break;
+    case "si-cancel": localStorage.removeItem("pendingSignin"); si = { step: 1, provider: null, accountId: null, url: null }; renderSignin(); setMsg("Sign-in cancelled."); renderFinish(); break;
+    case "si-close": closeSignin(); break;
+    case "si-submit": finishSignin($("cb")?.value); break;
+    case "si-paste": navigator.clipboard?.readText ? navigator.clipboard.readText().then(finishSignin, () => { setMsg("This browser did not allow reading the clipboard. Paste the link into the box."); $("cb")?.focus(); }) : $("cb")?.focus(); break;
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("drawer").classList.contains("on")) closeSignin();
+  const row = e.target.closest?.('tr[data-act="row"]');
+  if (row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); row.click(); }
+});
+document.addEventListener("input", (e) => {
+  if (e.target.id === "cb" && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/\S*[?&](code|error)=/.test(e.target.value.trim())) finishSignin(e.target.value);
+});
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { status(); renderFinish(); } });
+window.addEventListener("hashchange", () => go(location.hash.slice(1) || "overview"));
+go(location.hash.slice(1) || "overview");
+status();
+loadValue();
+setInterval(status, 15000);
+setInterval(loadValue, 300000);
+</script>
+</body>
+</html>

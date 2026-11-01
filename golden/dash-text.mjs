@@ -6,7 +6,8 @@
 //
 //   node golden/dash-text.mjs <status.json> <value.json|-> <now ms> [filter] [open]
 //
-// AGENT_POOLS_ROOT finds dashboard.html (read only); SHADOW_EXE the shadow (default
+// The page is reference/agent-pools/dashboard.html (Agent Pools' last dashboard.html, with the
+// actual-cost tables); DASHBOARD_HTML names another. SHADOW_EXE is the shadow (default
 // target/release/pools-shadow.exe). Run with TZ set to the zone the shadow is told
 // (SHADOW_UTC_STANDARD_HOURS, Central by default). Exits 1 when a part differs.
 
@@ -23,8 +24,7 @@ if (!statusPath || !valuePath || !nowArg) {
   process.exit(2);
 }
 const readJson = (p) => JSON.parse(readFileSync(p, "utf8").replace(/^\uFEFF/, ""));
-const root = process.env.AGENT_POOLS_ROOT || "D:\\Users\\ToddS\\AgentPools";
-const page = readFileSync(path.join(root, "dashboard.html"), "utf8");
+const page = readFileSync(process.env.DASHBOARD_HTML || path.join(here, "../reference/agent-pools/dashboard.html"), "utf8");
 const script = page.slice(page.indexOf("<script>") + 8, page.lastIndexOf("</script>"));
 const pure = script.slice(0, script.indexOf("/* ---- I/O below"));
 

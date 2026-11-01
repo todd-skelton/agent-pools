@@ -1,7 +1,11 @@
 # Agent Pools on Corten
 
-A port of Agent Pools (`D:\Users\ToddS\AgentPools`) to Rust and Corten, built beside the live
-service. Nothing here writes to the live install, calls a provider, or restarts the pool.
+Agent Pools in Rust on Corten: the program that runs the pool (`pools-rs.exe`), the scripts
+that install and operate it (`deploy/`, `ops/`, `proxy-build/`, `remote-client/`) and the evidence that
+it does what the Node version did (`golden/`, `reference/agent-pools/`). The live install is
+`D:\Users\ToddS\AgentPools`; since 2026-11-01 it holds only the pool's data (`auth\`, `state\`, `logs\`,
+`proxy.yaml`, `model-*.json`, `calibration-rules.json`), the installed builds (`pool-rs\`, `proxy\`) and the
+proxy's source and toolchain (`proxy-source\`, `build\`). The Node code was removed then (below).
 
 Plan:
 
@@ -45,8 +49,14 @@ Plan:
    dashboard at 16:00Z (about 10 s, proxy adopted, not restarted). Node's tasks for those four
    jobs are disabled, not removed. Model refresh, model recheck, backup and the cloudflare
    tunnel still ran on Node then; the tunnel and backup moved later that day (`tunnel`, `backup`),
-   and the model refresh and recheck into the service (`Cutover-Pool-Rs.ps1 -Step models`,
-   below).
+   and the model refresh and recheck into the service (`Cutover-Pool-Rs.ps1 -Step models`).
+6. Node retired (2026-11-01): the port had run every job for four days. Node's eight disabled
+   tasks were exported (`D:\Users\ToddS\AgentPools-backups\node-tasks-20261101\`) and removed, the
+   `.mjs`, `.vbs` and Node-only scripts deleted from the install, and its git history kept as
+   `AgentPools-backups\agentpools-node-history-20261101.bundle`. What was still only there moved
+   here: the operator scripts (`ops/`), the proxy patch and build (`proxy-build/`), the remote
+   machine installer (`remote-client/`) and the last `dashboard.html` (`reference/agent-pools/`).
+   `Cutover-Pool-Rs.ps1`, which moved jobs between Node's tasks and the port's, went with them.
 
 ## The shadow
 
@@ -112,7 +122,8 @@ use the shadow's `/api/status`, with the live service's memory keys taken from i
 `/api/status` answer, and `state/usage-value.json`. Sign-in and refresh change the pool, so
 the read-only shadow shows them disabled; on a copy they work (below).
 
-`golden/dash-text.mjs` draws every part with the live page's own JavaScript and with
+`golden/dash-text.mjs` draws every part with Agent Pools' page's own JavaScript (its last
+`dashboard.html`, kept in `reference/agent-pools/`; `DASHBOARD_HTML` names another) and with
 `pools-shadow render-dash` from the same documents at the same moment, and compares the words,
 the tooltips and the computed sizes:
 
@@ -460,14 +471,11 @@ through wscript and `Run-Pool-Rs.vbs`, as Agent Pools' own tasks still do.
 2. `Restart-Pool-Rs.ps1 -Root <install> -Step service|inference|gateway|tunnel|all` starts a
    command again on the current version: the service through `state\guardian-stop.request`
    (the proxy is adopted, not restarted), the others by stopping and starting their task.
-3. `Cutover-Pool-Rs.ps1 -Root <install> -Step gateway|inference|service|tunnel|backup [-Undo] [-Tailnet]`
-   moves one job between the Agent Pools task and the port's. It disables the old task (never
-   deletes it) and stops its process: for the service through `state\guardian-stop.request`,
-   which leaves the proxy running; for the tunnel the port's command waits while the old
-   cloudflared runs and starts as it is stopped. It then enables and starts the port's task and
-   waits for the port to listen, the health check to pass and, for the service, the same proxy
-   PID to be adopted. `-Undo` is the same step backwards. A step that is already done is safe
-   to run again. `-WhatIf` changes nothing.
+3. Until 2026-11-01, `Cutover-Pool-Rs.ps1 -Root <install> -Step gateway|inference|service|tunnel|backup|models [-Undo]`
+   moved one job between the Agent Pools task and the port's: it disabled the old task, stopped
+   its process (the service through `state\guardian-stop.request`, leaving the proxy running),
+   enabled the port's and waited for it to listen and pass its health check. Every job had moved
+   by 2026-10-28; the script was removed with the Node code (it is in this repository's history).
 
 The jobs Agent Pools ran through wscript and Windows PowerShell are commands of the program
 (`shadow/src/live/ops.rs`): `tunnel <install>` (Run-Cloudflare-Tunnel.vbs), `backup <install>`
@@ -504,6 +512,46 @@ gateway") on the rehearsal's ports, against the stand-in proxy. The port's tasks
 Found and fixed while rehearsing: the scripts read the port's owner from `netstat`, since
 `Get-NetTCPConnection` took 27 s per call here. They also match the service's command line with
 the install path unquoted, as the guardian starts it.
+
+### Operating the install
+
+`ops/` holds the scripts that change the install or this machine's clients, each with `-Root`
+(default: the live install, `deploy/common.ps1`'s `$LiveRoot`):
+
+| Script | Does |
+|---|---|
+| `Set-Pool-Secret.ps1 -Name <key>` | one named secret into `state/secrets.json`, from hidden input |
+| `Remote-Client.ps1 -Add <name> \| -Remove <name> \| -List` | machines allowed through the public gateway (`state/remote-clients.json`, key hashes only; the new key goes to the clipboard) |
+| `Protect-Pool-Files.ps1 [-Report]` | `auth`, `profiles`, `state`, `logs` and `proxy.yaml` readable by this account, SYSTEM and Administrators only |
+| `Set-Desktop-Relay.ps1 -Enable \| -Disable` | the Codex desktop's `chatgpt_base_url` and `CODEX_API_BASE_URL` at the service's backend relay, with its certificate in `state/certs` |
+| `Set-Inference-Relay.ps1 -Enable \| -Disable` | `openai_base_url` in `~/.codex/config.toml` at the inference relay, after its task answers `/health`; the replaced value is kept in `state/inference-config.json` for `-Disable` |
+| `Set-Public-Gateway.ps1 [-Hostname <h>] [-Remove]` | the Cloudflare tunnel, its DNS route and `state/cloudflared/config.yml`, `install.json`'s `publicGateway`, and the gateway and tunnel tasks |
+| `Invoke-PooledLane.ps1 ...` | one chase-sets lane (`.orchestrator/dispatch-lane.ps1`) with the pool's key and the install's `profiles` |
+| `Start-Claude-Browser.ps1` | `claude --chrome` signed in as itself, with the pool's variables unset |
+
+`Set-Inference-Relay.ps1`'s config edit is `ops/InferenceConfig.ps1` (inference-config.mjs's, without a
+TOML parser: only a plain one-line root key is set or removed, anything else is refused, every
+other byte is kept); `pwsh -File ops/tests/InferenceConfig.Tests.ps1` checks it on scratch files.
+`remote-client/Connect-AgentPools.ps1 -Url https://<public hostname>` runs on a remote machine: it
+points Claude Desktop there at the gateway with the key `Remote-Client.ps1 -Add` issued.
+
+### The proxy build
+
+The pool's proxy is CLIProxyAPI 5b27856 (`<install>\proxy-upstream-5b27856.tar.gz`) with
+`proxy-build/pool.patch`, built from `<install>\proxy-source` with the install's own Go and
+llvm-mingw (`<install>\build`).
+
+1. `New-Proxy-Source.ps1 -Target <dir>` writes upstream with the patch applied into a new
+   directory; `-WritePatch` writes `pool.patch` from `proxy-source`, so the repository keeps what
+   each version was built from. The patch here was written from the source 7.2.158-pool.31 was
+   built from (2026-10-31, no file changed after the build), and applying it to upstream gives that
+   source exactly (the same git tree).
+2. `Build-Pool-Proxy.ps1 -Version 7.2.158-pool.N` runs the proxy's test gate and builds
+   `build\candidate.exe`.
+3. `Deploy-Pool-Proxy.ps1 -Root <install> -Live -Version 7.2.158-pool.N` builds, installs to
+   `proxy\<version>`, points `install.json`'s `proxyBinary` at it and restarts the service, whose
+   takeover plan retires the old proxy and starts the new one; `-Rollback` restores the previous
+   `install.json`. It refuses while requests are held by the outage hold unless `-Force`.
 
 ### The tailnet view
 
@@ -635,7 +683,7 @@ switches too; a browser's cross-site write or switch is Corten's 403 unless
 ## Golden outputs
 
 `reference/agent-pools/` is the JavaScript at Agent Pools commit `5c696f6`, copied with
-Since then `usage-value.mjs` and `pool-summary.mjs` there are Agent Pools' later versions with actual cost (plan cost spread over requests, `actualCost`), and the value and summary outputs were captured again from them.
+Since then `usage-value.mjs` and `pool-summary.mjs` there are Agent Pools' later versions with actual cost (plan cost spread over requests, `actualCost`), and the value and summary outputs were captured again from them. `dashboard.html` there is Agent Pools' last (90d2df1), for `golden/dash-text.mjs`. Nothing here reads Agent Pools' code from the install any more: `golden/registry-hook.mjs` answers model-arena.mjs's `hyparquet` import with a stand-in (the registry calls never read a parquet file).
 `git archive` (the files the outputs come from; none of them had uncommitted changes).
 
 `golden/inputs/` is a scrubbed snapshot of the live install, taken once by
