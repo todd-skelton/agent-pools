@@ -514,19 +514,131 @@ async fn the_live_dashboard_through_the_gateway_when_asked() {
     assert_eq!(login.status(), 303);
     let cookie = login.headers()["set-cookie"].to_str().unwrap().split(';').next().unwrap().to_string();
 
-    let direct = http.get(format!("{service}/")).send().await.unwrap();
-    let direct_csp = direct.headers()["content-security-policy"].to_str().unwrap().to_string();
-    let direct_body = direct.text().await.unwrap();
     let page = ask("/", Some(&cookie)).send().await.unwrap();
     assert_eq!(page.status(), 200);
     let csp: Vec<String> = page.headers().get_all("content-security-policy").iter().map(|v| v.to_str().unwrap().to_string()).collect();
-    assert_eq!(csp, std::slice::from_ref(&direct_csp), "the service's own policy");
     let body = page.text().await.unwrap();
-    assert_eq!(body, direct_body, "the page as the service sends it");
+    // The page is drawn per request (relative times, sizes from data), so its policy is not the
+    // same bytes twice; it is the service's own, one header, allowing the page's style block by
+    // its hash and no style attribute.
+    assert_eq!(csp.len(), 1, "{csp:?}");
+    let direct_csp = csp[0].clone();
+    assert!(!direct_csp.contains("style-src-attr"), "{direct_csp}");
+    if let Some(style) = body.split("<style>").nth(1).and_then(|s| s.split("</style>").next()) {
+        use base64::Engine;
+        use sha2::Digest;
+        let hash = base64::engine::general_purpose::STANDARD.encode(sha2::Sha256::digest(style.as_bytes()));
+        assert!(direct_csp.contains(&format!("'sha256-{hash}'")), "the page's style block is allowed by its hash: {direct_csp}");
+    }
+    // The other tabs and the page's stylesheets come the same way (reads only).
+    for path in ["/accounts", "/usage", "/policy"] {
+        assert_eq!(ask(path, Some(&cookie)).send().await.unwrap().status(), 200, "{path}");
+    }
+    let sheets: Vec<&str> = body.split("href=\"").skip(1).filter_map(|s| s.split('"').next()).filter(|h| h.starts_with("/assets/") && h.ends_with(".css")).collect();
+    assert!(!sheets.is_empty(), "the page links its stylesheets");
+    for sheet in &sheets {
+        let r = ask(sheet, Some(&cookie)).send().await.unwrap();
+        assert_eq!(r.status(), 200, "{sheet}");
+        assert!(r.headers()["content-type"].to_str().unwrap().starts_with("text/css"), "{sheet}");
+        assert_eq!(ask(sheet, None).send().await.unwrap().status(), 404, "{sheet} needs a session");
+    }
     let status = ask("/api/status", Some(&cookie)).send().await.unwrap();
     assert_eq!(status.status(), 200);
     let doc: Value = serde_json::from_str(&status.text().await.unwrap()).unwrap();
     assert!(doc["accounts"].as_array().is_some_and(|a| !a.is_empty()));
     println!("live dashboard through the gateway: {} bytes, CSP {direct_csp:?}, {} accounts in /api/status", body.len(), doc["accounts"].as_array().unwrap().len());
+}
+
+/// The dashboard's other pages, its live updates and its files reach the service for a session
+/// only; without one a page goes to the sign-in form and a file the gateway lacks is a 404. The
+/// gateway's own files (the sign-in page's stylesheet) never need one, and the service's other
+/// pages (summary, parity) stay closed.
+#[tokio::test]
+async fn the_dashboard_pages_live_updates_and_files_need_a_session() {
+    let f = fixture().await;
+    for path in ["/accounts", "/usage", "/policy", "/signin", "/live?tab=overview"] {
+        let r = f.call("GET", path, &[], None).await;
+        assert_eq!((r.status, r.headers.get("location").map(|v| v.to_str().unwrap().to_string())), (303, Some("/login".into())), "{path}");
+    }
+    assert_eq!(f.call("GET", "/assets/0123456789ab/base.css", &[], None).await.status, 404);
+    let login = f.call("GET", "/login", &[], None).await;
+    let own = login.body.split("href=\"").nth(1).and_then(|s| s.split('"').next()).unwrap().to_string();
+    assert!(own.starts_with("/assets/") && own.ends_with(".css"), "{own}");
+    assert_eq!(f.call("GET", &own, &[], None).await.status, 200, "the sign-in page's own stylesheet, without a session");
+    assert_eq!(f.service_seen().len(), 0, "nothing reached the service without a session");
+
+    let cookie = f.login().await;
+    let page = f.call("GET", "/accounts?filter=credits&open=a", &[("cookie", &cookie), ("corten", "nav"), ("x-api-key", MACHINE_KEY)], None).await;
+    assert_eq!(page.status, 200, "{}", page.body);
+    let got = f.service_seen().pop().unwrap();
+    assert_eq!(got.path, "/accounts?filter=credits&open=a");
+    assert_eq!(got.headers["corten"], "nav", "Corten's runtime asks for a part of the page");
+    for gone in ["cookie", "x-api-key", "origin"] {
+        assert!(!got.headers.contains_key(gone), "{gone} reached the service");
+    }
+    for path in ["/usage", "/policy", "/signin?provider=claude", "/live?tab=accounts&filter=credits"] {
+        assert_eq!(f.call("GET", path, &[("cookie", &cookie)], None).await.status, 200, "{path}");
+        assert_eq!(f.service_seen().pop().unwrap().path, path);
+    }
+    let file = f.call("GET", "/assets/0123456789ab/base.css", &[("cookie", &cookie)], None).await;
+    assert_eq!(file.status, 200);
+    assert_eq!(f.service_seen().pop().unwrap().path, "/assets/0123456789ab/base.css");
+    let before = f.service_seen().len();
+    assert_eq!(f.call("GET", &own, &[("cookie", &cookie)], None).await.status, 200);
+    assert_eq!(f.service_seen().len(), before, "the gateway's own file is its own");
+    for path in ["/summary", "/parity", "/api/parity"] {
+        assert!([404, 405].contains(&f.call("GET", path, &[("cookie", &cookie)], None).await.status), "{path}");
+    }
+    assert_eq!(f.service_seen().len(), before, "the service's other pages stay closed");
+}
+
+/// The dashboard's forms (Refresh and the sign-in steps) need a session, the public origin and a
+/// form body; the service gets them from its own origin, without the cookie.
+#[tokio::test]
+async fn the_dashboard_forms_need_a_session_the_public_origin_and_a_form() {
+    let f = fixture().await;
+    let form = ("content-type", "application/x-www-form-urlencoded");
+    let anon = f.call("POST", "/refresh", &[("origin", ORIGIN), form], Some("open=")).await;
+    assert_eq!((anon.status, anon.headers.get("location").map(|v| v.to_str().unwrap().to_string())), (303, Some("/login".into())));
+    let cookie = f.login().await;
+    let evil = f.call("POST", "/refresh", &[("cookie", &cookie), ("origin", "https://evil.test"), form], Some("open=")).await;
+    assert_eq!(evil.status, 403);
+    let none = f.call("POST", "/refresh", &[("cookie", &cookie), form], Some("open=")).await;
+    assert_eq!(none.status, 403, "no Origin is not the public origin");
+    let json = f.call("POST", "/refresh", &[("cookie", &cookie), ("origin", ORIGIN), ("content-type", "application/json")], Some("{}")).await;
+    assert_eq!(json.status, 415);
+    assert_eq!(f.service_seen().len(), 0);
+
+    for (path, body) in [("/refresh", "open="), ("/signin", "provider=codex"), ("/signin/finish", "provider=codex&link=http%3A%2F%2Flocalhost%3A1455%2Fcallback%3Fcode%3Dx"), ("/signin/cancel", "")] {
+        let r = f.call("POST", path, &[("cookie", &cookie), ("origin", ORIGIN), ("corten", "action"), form], Some(body)).await;
+        assert_eq!(r.status, 200, "{path}: {}", r.body);
+        let got = f.service_seen().pop().unwrap();
+        assert_eq!((got.path.as_str(), got.body.as_str()), (path, body));
+        assert_eq!(got.headers["origin"], f.service.url.as_str(), "a write from the service's own origin");
+        assert_eq!(got.headers["host"], f.service.url.trim_start_matches("http://"));
+        assert_eq!(got.headers["content-type"], "application/x-www-form-urlencoded");
+        assert_eq!(got.headers["corten"], "action");
+        assert!(!got.headers.contains_key("cookie"));
+    }
+    let refreshes = f.call("POST", "/api/shutdown", &[("cookie", &cookie), ("origin", ORIGIN), form], Some("")).await;
+    assert!([404, 405].contains(&refreshes.status), "{}", refreshes.status);
+}
+
+/// A form's answer is the service's own: its redirect reaches the browser, which then asks for
+/// the page itself, rather than the gateway following it and leaving the browser at the form.
+#[tokio::test]
+async fn a_forms_redirect_reaches_the_browser() {
+    let service: Handler = Arc::new(|s| {
+        if s.path == "/refresh" {
+            Response::builder().status(303).header("location", "/accounts?open=a#acct-a").body(Body::empty()).unwrap()
+        } else {
+            Response::builder().header("content-type", "text/html").body(Body::from("page")).unwrap()
+        }
+    });
+    let f = fixture_with(sse_pool(), service, |_| {}).await;
+    let cookie = f.login().await;
+    let r = f.call("POST", "/refresh", &[("cookie", &cookie), ("origin", ORIGIN), ("content-type", "application/x-www-form-urlencoded")], Some("open=a")).await;
+    assert_eq!((r.status, r.headers["location"].to_str().unwrap()), (303, "/accounts?open=a#acct-a"));
+    assert_eq!(f.service_seen().iter().map(|s| s.path.as_str()).collect::<Vec<_>>(), ["/refresh"], "the gateway did not follow it");
 }
 

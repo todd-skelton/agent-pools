@@ -606,9 +606,18 @@ install's own inputs (398 rungs; not committed, since its inputs are not scrubbe
 [corten#162 Upgrade and Relay](https://github.com/todd-skelton/corten/pull/162)). Inference routes
 take a machine key and relay the pool's answer as it streams, sent with the pool's key. The
 dashboard routes take a session cookie signed as Agent Pools signs it (the same secret keeps
-today's cookies valid; a test holds the token to Agent Pools' bytes). Everything else is closed.
+today's cookies valid; a test holds the token to Agent Pools' bytes). Since the dashboard became
+several pages, they are all the gateway's dashboard routes, so a remote machine signed in at
+`https://<hostname>/login` with its machine key uses the whole dashboard: the four tabs and the
+sign-in steps (a page goes to `/login` without a session), their live updates (`/live`), the
+stylesheets the gateway does not have itself (`/assets/..`, `/corten/..`, a 404 without a
+session), and the dashboard's forms (`/refresh`, `/signin`, `/signin/finish`, `/signin/cancel`):
+a form body, from the public origin, sent on to the service from its own origin, so a signed-in
+machine can refresh and connect accounts as this PC can. A redirect the service answers goes to
+the browser as it is. The summary and parity pages and the service's JSON writes stay closed.
+Everything else is closed.
 `cargo test -p pools-gateway` runs Agent Pools' 12 gateway tests over real sockets, plus four of
-the port's own: the session token, a client that leaves a stream (the upstream request ends
+the port's own and three for the dashboard's pages, files and forms: the session token, a client that leaves a stream (the upstream request ends
 with it), one that holds Corten's own failures under `/v1` to the gateway's shape, and one that holds a
 relayed page to its own CSP.
 

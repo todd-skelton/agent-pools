@@ -9,6 +9,9 @@
 //! | `GET /login`, `POST /login` | anyone | the sign-in form; a machine key gives a signed session cookie (30 days) |
 //! | `/logout` | anyone | clears the cookie |
 //! | `GET /`, `/api/status`, `/api/capacity`, `/api/ladders`, `/api/value`, `/api/summary`, `/api/health` | a session | the service's answer |
+//! | `GET /accounts`, `/usage`, `/policy`, `/signin`, `/live` | a session (else to `/login`) | the dashboard's other pages and its live updates, from the service |
+//! | `GET /assets/..`, `/corten/..` the gateway does not have | a session | the dashboard's stylesheets and scripts, from the service |
+//! | `POST /refresh`, `/signin`, `/signin/finish`, `/signin/cancel` | a session, from the public origin, a form | the dashboard's own forms, to the service as a write from its own origin |
 //! | `POST /api/refresh` | a session, from the public origin, JSON | the service's answer |
 //!
 //! Machine keys never reach the pool, and cookies never spend quota. Repeated failures from one
@@ -147,7 +150,10 @@ pub fn app(config: Config) -> Result<App<Headers>, String> {
     }
     let pool = Upstream::parse(&config.pool)?;
     let service = Upstream::parse(&config.service)?;
-    let http = reqwest::Client::builder().no_proxy().build().map_err(|e| e.to_string())?;
+    // An upstream's redirect goes to the browser as it is (the dashboard's forms answer 303), as
+    // public-gateway.mjs's http.request passes it on; following it here would leave the browser
+    // at the form's address.
+    let http = reqwest::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).build().map_err(|e| e.to_string())?;
     let gw = Gw(Arc::new(Inner {
         public_origin: format!("https://{}", config.hostname),
         pool,
@@ -163,7 +169,7 @@ pub fn app(config: Config) -> Result<App<Headers>, String> {
         .policy(policy)
         // Streams run for many minutes; a model may think long before its first byte.
         .deadline(None)
-        .middleware(Headers { hostname: config.hostname.clone() })
+        .middleware(Headers { hostname: config.hostname.clone(), gw: gw.clone() })
         .api(move |routes| v1::api(routes, gw).deadline(None).errors(anthropic_error)))
 }
 
@@ -196,15 +202,18 @@ fn anthropic_error(status: StatusCode, message: &str) -> AnthropicError {
 /// Agent Pools' `securityHeaders` on every answer: never cached, never indexed.
 pub struct Headers {
     hostname: String,
+    gw: Gw,
 }
 
 impl corten::Middleware for Headers {
     async fn call(&self, req: Request, next: impl corten::Next) -> Response {
         let host = req.headers().get(header::HOST).and_then(|v| v.to_str().ok()).unwrap_or("");
-        let mut res = if host.eq_ignore_ascii_case(&self.hostname) {
-            next.run(req).await
-        } else {
+        let mut res = if !host.eq_ignore_ascii_case(&self.hostname) {
             error(StatusCode::NOT_FOUND, "Not found", "not_found_error").into_response()
+        } else if shared_file(&req) {
+            self.own_or_service_file(req, next).await
+        } else {
+            next.run(req).await
         };
         let h = res.headers_mut();
         h.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
@@ -213,10 +222,58 @@ impl corten::Middleware for Headers {
     }
 }
 
+/// A `GET` under the paths where Corten serves an app's files: the gateway's own (the sign-in
+/// page's stylesheet, Corten's runtime) or the service's (the dashboard's).
+fn shared_file(req: &Request) -> bool {
+    let path = req.uri().path();
+    matches!(*req.method(), Method::GET | Method::HEAD) && (path.starts_with("/assets/") || path.starts_with("/corten/"))
+}
+
+impl Headers {
+    /// The gateway's own file; else, for a session, the service's (the dashboard's stylesheets,
+    /// and Corten's runtime should the two builds ever differ). Without a session a file the
+    /// gateway does not have stays a 404.
+    async fn own_or_service_file(&self, req: Request, next: impl corten::Next) -> Response {
+        let (parts, body) = req.into_parts();
+        let (method, headers) = (parts.method.clone(), parts.headers.clone());
+        let path_q = parts.uri.path_and_query().map_or_else(|| parts.uri.path().to_string(), |p| p.as_str().to_string());
+        let own = next.run(Request::from_parts(parts, body)).await;
+        if own.status() != StatusCode::NOT_FOUND || !matches!(self.gw.session(&headers), Ok(Some(_))) {
+            return own;
+        }
+        let gw = &self.gw;
+        gw.forward(&gw.0.service, method, &path_q, gw.read_headers(&headers), reqwest::Body::from(""), |_| {}).await.into_response()
+    }
+}
+
 #[corten::routes(state = Gw)]
 pub mod url {
     #[route("/", get = dashboard_read)]
     pub struct Home;
+
+    #[route("/accounts", get = dashboard_read)]
+    pub struct Accounts;
+
+    #[route("/usage", get = dashboard_read)]
+    pub struct Usage;
+
+    #[route("/policy", get = dashboard_read)]
+    pub struct PolicyTab;
+
+    #[route("/live", get = dashboard_read)]
+    pub struct Live;
+
+    #[route("/signin", get = dashboard_read, post = dashboard_write)]
+    pub struct Signin;
+
+    #[route("/signin/finish", post = dashboard_write)]
+    pub struct SigninFinish;
+
+    #[route("/signin/cancel", post = dashboard_write)]
+    pub struct SigninCancel;
+
+    #[route("/refresh", post = dashboard_write)]
+    pub struct RefreshForm;
 
     #[route("/login", get = login_page, post = login)]
     pub struct Login;
@@ -500,6 +557,21 @@ impl Gw {
         Ok(read_session(&secret, token, &(self.c().clients)(), (self.c().now)()))
     }
 
+    /// The headers a read of the dashboard sends the service: its own `Host`, and what the page
+    /// and Corten's runtime ask with (`corten: nav`/`action`, a live stream's `Last-Event-ID`, a
+    /// cached file's validators). Never the cookie or the edge's headers.
+    fn read_headers(&self, from: &HeaderMap) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, HeaderValue::from_str(&self.0.service.host).expect("checked host"));
+        headers.insert(header::ACCEPT, from.get(header::ACCEPT).cloned().unwrap_or(HeaderValue::from_static("*/*")));
+        for name in ["corten", "last-event-id", "if-none-match", "if-modified-since", "accept-language"] {
+            if let Some(v) = from.get(name) {
+                headers.insert(HeaderName::from_static(name), v.clone());
+            }
+        }
+        headers
+    }
+
     /// `forward`: the request to `target`, its answer relayed as it arrives, less hop-by-hop
     /// headers and `Set-Cookie`. `done` gets the status once the answer has been read to its end
     /// (502 when the upstream cannot be reached).
@@ -695,16 +767,48 @@ async fn dashboard_read(State(gw): State<Gw>, req: Request) -> Out {
     };
     let path = parts.uri.path();
     if client.is_none() {
-        if path == "/" {
+        // A page goes to the sign-in form; the JSON reads answer 401.
+        if !path.starts_with("/api/") {
             return see_other("/login", None);
         }
         return error(StatusCode::UNAUTHORIZED, "Sign in at /login", "authentication_error");
     }
-    let mut headers = HeaderMap::new();
-    headers.insert(header::HOST, HeaderValue::from_str(&gw.0.service.host).expect("checked host"));
-    headers.insert(header::ACCEPT, parts.headers.get(header::ACCEPT).cloned().unwrap_or(HeaderValue::from_static("*/*")));
+    let headers = gw.read_headers(&parts.headers);
     let path_q = parts.uri.path_and_query().map_or(path.to_string(), |p| p.as_str().to_string());
     gw.forward(&gw.0.service, parts.method, &path_q, headers, reqwest::Body::from(""), |_| {}).await
+}
+
+/// The dashboard's own forms (Refresh, and the sign-in steps: open, finish with a pasted link,
+/// cancel), for a session and only from the public origin. The service gets them as a write from
+/// its own origin, so they act as they do on this PC; the session is what admits them here.
+async fn dashboard_write(State(gw): State<Gw>, req: Request) -> Out {
+    let (parts, body) = req.into_parts();
+    match gw.session(&parts.headers) {
+        Ok(Some(_)) => {}
+        Ok(None) => return see_other("/login", None),
+        Err(e) => return unavailable(&gw, &e),
+    }
+    if parts.headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) != Some(gw.0.public_origin.as_str()) {
+        return error(StatusCode::FORBIDDEN, "Same-origin request required", "permission_error");
+    }
+    let kind = parts.headers.get(header::CONTENT_TYPE).cloned();
+    let form = kind.as_ref().and_then(|v| v.to_str().ok()).is_some_and(|t| {
+        let t = t.to_ascii_lowercase();
+        t.starts_with("application/x-www-form-urlencoded") || t.starts_with("multipart/form-data")
+    });
+    let Some(kind) = kind.filter(|_| form) else {
+        return error(StatusCode::UNSUPPORTED_MEDIA_TYPE, "Form required", "error");
+    };
+    let Ok(body) = corten::axum::body::to_bytes(body, 64 * 1024).await else {
+        return error(StatusCode::PAYLOAD_TOO_LARGE, "Body too large", "error");
+    };
+    let s = &gw.0.service;
+    let mut headers = gw.read_headers(&parts.headers);
+    headers.insert(header::ORIGIN, HeaderValue::from_str(&s.origin).expect("checked origin"));
+    headers.insert(header::CONTENT_TYPE, kind);
+    headers.insert(header::CONTENT_LENGTH, HeaderValue::from(body.len()));
+    let path_q = parts.uri.path_and_query().map_or_else(|| parts.uri.path().to_string(), |p| p.as_str().to_string());
+    gw.forward(s, Method::POST, &path_q, headers, reqwest::Body::from(body), |_| {}).await
 }
 
 async fn refresh(State(gw): State<Gw>, req: Request) -> Out {
