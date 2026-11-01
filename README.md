@@ -595,6 +595,7 @@ switches too; a browser's cross-site write or switch is Corten's 403 unless
 ## Golden outputs
 
 `reference/agent-pools/` is the JavaScript at Agent Pools commit `5c696f6`, copied with
+Since then `usage-value.mjs` and `pool-summary.mjs` there are Agent Pools' later versions with actual cost (plan cost spread over requests, `actualCost`), and the value and summary outputs were captured again from them.
 `git archive` (the files the outputs come from; none of them had uncommitted changes).
 
 `golden/inputs/` is a scrubbed snapshot of the live install, taken once by

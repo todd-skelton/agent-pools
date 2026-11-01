@@ -168,6 +168,36 @@
    "note": null
   }
  ],
+ "actualCost": {
+  "claude": {
+   "requests": 31933,
+   "apiEquivalentUsd": 2865.63,
+   "apiEquivalentUsdPerRequest": 0.0897,
+   "planUsd": 39.45,
+   "actualUsd": 39.45,
+   "idleUsd": 0,
+   "actualUsdPerRequest": 0.0012,
+   "uncostedRequests": 0,
+   "unpricedAccounts": 0,
+   "basis": [
+    "quota"
+   ]
+  },
+  "codex": {
+   "requests": 60724,
+   "apiEquivalentUsd": 1612.06,
+   "apiEquivalentUsdPerRequest": 0.0265,
+   "planUsd": 46.03,
+   "actualUsd": 46.03,
+   "idleUsd": 0,
+   "actualUsdPerRequest": 0.0008,
+   "uncostedRequests": 0,
+   "unpricedAccounts": 0,
+   "basis": [
+    "quota"
+   ]
+  }
+ },
  "accounts": [
   {
    "id": "claude-0e602f2d-user1@example.invalid.json",
@@ -177,9 +207,16 @@
    "requests": 1550,
    "failedRequests": 1,
    "apiEquivalentUsd": 136.07,
+   "apiEquivalentUsdPerRequest": 0.0878,
    "usdByModel": {
     "claude-opus-5-5": 136.07
    },
+   "actualUsd": 13.15,
+   "actualUsdPerRequest": 0.0085,
+   "actualUsdByModel": {
+    "claude-opus-5-5": 13.15
+   },
+   "actualCostBasis": "quota",
    "weeklyPercentUsed": 5,
    "quotaUnitsUsed": 0.05,
    "quotaSource": "samples",
@@ -198,9 +235,16 @@
    "requests": 1158,
    "failedRequests": 0,
    "apiEquivalentUsd": 265.08,
+   "apiEquivalentUsdPerRequest": 0.2289,
    "usdByModel": {
     "claude-opus-5-5": 265.08
    },
+   "actualUsd": 13.15,
+   "actualUsdPerRequest": 0.0114,
+   "actualUsdByModel": {
+    "claude-opus-5-5": 13.15
+   },
+   "actualCostBasis": "quota",
    "weeklyPercentUsed": 13,
    "quotaUnitsUsed": 0.13,
    "quotaSource": "samples",
@@ -219,6 +263,7 @@
    "requests": 29225,
    "failedRequests": 19,
    "apiEquivalentUsd": 2464.47,
+   "apiEquivalentUsdPerRequest": 0.0843,
    "usdByModel": {
     "claude-opus-5-5": 2433.97,
     "claude-sonnet-5-5": 3.79,
@@ -227,6 +272,17 @@
     "claude-sonnet-5": 0,
     "claude-opus-5": 3.47
    },
+   "actualUsd": 13.15,
+   "actualUsdPerRequest": 0.0004,
+   "actualUsdByModel": {
+    "claude-opus-5-5": 12.99,
+    "claude-sonnet-5-5": 0.02,
+    "claude-fable-5-1": 0.12,
+    "claude-haiku-4-5-20251001": 0,
+    "claude-sonnet-5": 0,
+    "claude-opus-5": 0.02
+   },
+   "actualCostBasis": "quota",
    "weeklyPercentUsed": 99,
    "quotaUnitsUsed": 0.99,
    "quotaSource": "samples",
@@ -245,11 +301,20 @@
    "requests": 18424,
    "failedRequests": 942,
    "apiEquivalentUsd": 466.24,
+   "apiEquivalentUsdPerRequest": 0.0253,
    "usdByModel": {
     "gpt-6.1-sol": 314.88,
     "gpt-6-astra": 151.35,
     "gpt-6-luna": 0.01
    },
+   "actualUsd": 13.15,
+   "actualUsdPerRequest": 0.0007,
+   "actualUsdByModel": {
+    "gpt-6.1-sol": 8.88,
+    "gpt-6-astra": 4.27,
+    "gpt-6-luna": 0
+   },
+   "actualCostBasis": "quota",
    "weeklyPercentUsed": 40,
    "quotaUnitsUsed": 0.4,
    "quotaSource": "samples",
@@ -268,11 +333,20 @@
    "requests": 12015,
    "failedRequests": 564,
    "apiEquivalentUsd": 386.39,
+   "apiEquivalentUsdPerRequest": 0.0322,
    "usdByModel": {
     "gpt-6.1-sol": 196.82,
     "gpt-6-astra": 189.53,
     "gpt-6-luna": 0.04
    },
+   "actualUsd": 13.15,
+   "actualUsdPerRequest": 0.0011,
+   "actualUsdByModel": {
+    "gpt-6.1-sol": 6.7,
+    "gpt-6-astra": 6.45,
+    "gpt-6-luna": 0
+   },
+   "actualCostBasis": "quota",
    "weeklyPercentUsed": 33,
    "quotaUnitsUsed": 0.33,
    "quotaSource": "samples",
@@ -291,11 +365,20 @@
    "requests": 28297,
    "failedRequests": 1342,
    "apiEquivalentUsd": 707.54,
+   "apiEquivalentUsdPerRequest": 0.025,
    "usdByModel": {
     "gpt-6.1-sol": 462.44,
     "gpt-6-astra": 245.05,
     "gpt-6-luna": 0.05
    },
+   "actualUsd": 13.15,
+   "actualUsdPerRequest": 0.0005,
+   "actualUsdByModel": {
+    "gpt-6.1-sol": 8.6,
+    "gpt-6-astra": 4.55,
+    "gpt-6-luna": 0
+   },
+   "actualCostBasis": "quota",
    "weeklyPercentUsed": 61,
    "quotaUnitsUsed": 0.61,
    "quotaSource": "samples",
@@ -314,10 +397,18 @@
    "requests": 1988,
    "failedRequests": 8,
    "apiEquivalentUsd": 51.9,
+   "apiEquivalentUsdPerRequest": 0.0261,
    "usdByModel": {
     "gpt-6.1-sol": 48.42,
     "gpt-6-astra": 3.48
    },
+   "actualUsd": 6.58,
+   "actualUsdPerRequest": 0.0033,
+   "actualUsdByModel": {
+    "gpt-6.1-sol": 6.13,
+    "gpt-6-astra": 0.44
+   },
+   "actualCostBasis": "quota",
    "weeklyPercentUsed": 18,
    "quotaUnitsUsed": 0.09,
    "quotaSource": "samples",
@@ -338,6 +429,9 @@
    "sessions": 193,
    "apiEquivalentUsd": 2835.12,
    "usdPerRequest": 0.09,
+   "actualUsd": 39.29,
+   "actualUsdPerRequest": 0.0012,
+   "uncostedRequests": 0,
    "tokens": {
     "in": 199667,
     "cr": 5968908273,
@@ -356,6 +450,9 @@
    "sessions": 439,
    "apiEquivalentUsd": 1022.56,
    "usdPerRequest": 0.018,
+   "actualUsd": 30.31,
+   "actualUsdPerRequest": 0.0005,
+   "uncostedRequests": 0,
    "tokens": {
     "in": 138675047,
     "cr": 5904437120,
@@ -374,6 +471,9 @@
    "sessions": 78,
    "apiEquivalentUsd": 589.41,
    "usdPerRequest": 0.141,
+   "actualUsd": 15.71,
+   "actualUsdPerRequest": 0.0038,
+   "uncostedRequests": 0,
    "tokens": {
     "in": 15244077,
     "cr": 357849984,
@@ -392,6 +492,9 @@
    "sessions": 2,
    "apiEquivalentUsd": 23.25,
    "usdPerRequest": 0.137,
+   "actualUsd": 0.12,
+   "actualUsdPerRequest": 0.0007,
+   "uncostedRequests": 0,
    "tokens": {
     "in": 340,
     "cr": 29947901,
@@ -410,6 +513,9 @@
    "sessions": 6,
    "apiEquivalentUsd": 3.79,
    "usdPerRequest": 0.038,
+   "actualUsd": 0.02,
+   "actualUsdPerRequest": 0.0002,
+   "uncostedRequests": 0,
    "tokens": {
     "in": 1236,
     "cr": 10438563,
@@ -428,6 +534,9 @@
    "sessions": 1,
    "apiEquivalentUsd": 3.47,
    "usdPerRequest": 0.133,
+   "actualUsd": 0.02,
+   "actualUsdPerRequest": 0.0007,
+   "uncostedRequests": 0,
    "tokens": {
     "in": 52,
     "cr": 3256234,
@@ -446,6 +555,9 @@
    "sessions": 43,
    "apiEquivalentUsd": 0.09,
    "usdPerRequest": 0.001,
+   "actualUsd": 0,
+   "actualUsdPerRequest": 0,
+   "uncostedRequests": 0,
    "tokens": {
     "in": 652704,
     "cr": 1575552,
@@ -464,6 +576,9 @@
    "sessions": 2,
    "apiEquivalentUsd": 0,
    "usdPerRequest": 0,
+   "actualUsd": 0,
+   "actualUsdPerRequest": 0,
+   "uncostedRequests": 0,
    "tokens": {
     "in": 765,
     "cr": 0,
@@ -482,6 +597,9 @@
    "sessions": 3,
    "apiEquivalentUsd": 0,
    "usdPerRequest": 0,
+   "actualUsd": 0,
+   "actualUsdPerRequest": 0,
+   "uncostedRequests": 0,
    "tokens": {
     "in": 1278,
     "cr": 545946,
@@ -502,6 +620,7 @@
    "lastAt": "2026-10-27T02:41:25.369Z",
    "requests": 6657,
    "apiEquivalentUsd": 548.36,
+   "actualUsd": 5.06,
    "models": [
     "claude-opus-5-5"
    ],
@@ -515,6 +634,7 @@
    "lastAt": "2026-10-27T02:38:29.219Z",
    "requests": 5681,
    "apiEquivalentUsd": 460.04,
+   "actualUsd": 4.62,
    "models": [
     "claude-opus-5-5"
    ],
@@ -528,6 +648,7 @@
    "lastAt": "2026-10-27T02:41:26.454Z",
    "requests": 7127,
    "apiEquivalentUsd": 362.03,
+   "actualUsd": 7.27,
    "models": [
     "claude-opus-5-5",
     "claude-sonnet-5-5",
@@ -544,6 +665,7 @@
    "lastAt": "2026-10-27T02:40:39.403Z",
    "requests": 2426,
    "apiEquivalentUsd": 223.38,
+   "actualUsd": 2.75,
    "models": [
     "claude-opus-5-5"
    ],
@@ -557,6 +679,7 @@
    "lastAt": "2026-10-27T02:41:24.874Z",
    "requests": 701,
    "apiEquivalentUsd": 219.36,
+   "actualUsd": 9.69,
    "models": [
     "claude-opus-5-5"
    ],
@@ -570,6 +693,7 @@
    "lastAt": "2026-10-27T02:41:33.269Z",
    "requests": 852,
    "apiEquivalentUsd": 185.5,
+   "actualUsd": 1.71,
    "models": [
     "claude-opus-5-5"
    ],
@@ -583,6 +707,7 @@
    "lastAt": "2026-10-27T02:41:28.472Z",
    "requests": 1730,
    "apiEquivalentUsd": 165.14,
+   "actualUsd": 1.59,
    "models": [
     "claude-opus-5-5"
    ],
@@ -596,6 +721,7 @@
    "lastAt": "2026-10-27T02:13:20.946Z",
    "requests": 252,
    "apiEquivalentUsd": 64.5,
+   "actualUsd": 0.62,
    "models": [
     "claude-opus-5-5"
    ],
@@ -609,6 +735,7 @@
    "lastAt": "2026-10-25T15:11:15.446Z",
    "requests": 271,
    "apiEquivalentUsd": 51.31,
+   "actualUsd": 1.34,
    "models": [
     "gpt-6-astra"
    ],
@@ -622,6 +749,7 @@
    "lastAt": "2026-10-27T02:02:59.280Z",
    "requests": 124,
    "apiEquivalentUsd": 42.25,
+   "actualUsd": 0.74,
    "models": [
     "claude-opus-5-5"
    ],
@@ -635,6 +763,7 @@
    "lastAt": "2026-10-27T00:52:10.519Z",
    "requests": 1577,
    "apiEquivalentUsd": 31,
+   "actualUsd": 0.64,
    "models": [
     "gpt-6.1-sol"
    ],
@@ -648,6 +777,7 @@
    "lastAt": "2026-10-27T00:47:48.536Z",
    "requests": 189,
    "apiEquivalentUsd": 26.82,
+   "actualUsd": 0.14,
    "models": [
     "claude-opus-5-5"
    ],
@@ -661,6 +791,7 @@
    "lastAt": "2026-10-25T14:13:18.959Z",
    "requests": 210,
    "apiEquivalentUsd": 26.25,
+   "actualUsd": 0.6,
    "models": [
     "gpt-6-astra"
    ],
@@ -674,6 +805,7 @@
    "lastAt": "2026-10-25T03:51:36.408Z",
    "requests": 210,
    "apiEquivalentUsd": 22.89,
+   "actualUsd": 2.21,
    "models": [
     "claude-opus-5-5"
    ],
@@ -687,6 +819,7 @@
    "lastAt": "2026-10-25T09:11:18.745Z",
    "requests": 259,
    "apiEquivalentUsd": 22.02,
+   "actualUsd": 1.2,
    "models": [
     "claude-opus-5-5"
    ],

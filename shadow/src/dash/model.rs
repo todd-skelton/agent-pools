@@ -1648,6 +1648,16 @@ impl<'a> Ctx<'a> {
                 note: (failed != 0.0 && !failed.is_nan()).then(|| format!("({} failed)", cat(v.get("failedRequests")))),
             });
             rows.push(kv("API-equivalent", usd_v(v.get("apiEquivalentUsd"), 2)));
+            if let Some(api) = rows.last_mut() {
+                api.note = truthy(v.get("requests")).then(|| format!("({}/request)", usd(n(v.get("apiEquivalentUsd")) / n(v.get("requests")), 4)));
+            }
+            if !js::nullish(v.get("actualUsd")) {
+                rows.push(KV {
+                    key: "Actual cost".into(),
+                    value: usd_v(v.get("actualUsd"), 2),
+                    note: Some(if js::nullish(v.get("actualUsdPerRequest")) { "(idle)".into() } else { format!("({}/request)", usd_v(v.get("actualUsdPerRequest"), 4)) }),
+                });
+            }
             rows.push(kv("Plan weight", format!("{} account-week", cat(v.get("weight")))));
         }
         if let Some(w) = waste.filter(|w| truthy(w.get("windowsEnded"))) {
@@ -1837,8 +1847,35 @@ pub struct Bar {
     pub title: String,
     /// Percent of the longest bar.
     pub width: f64,
-    pub inside: String,
     pub right: String,
+    /// Under `right` (a session's actual cost).
+    pub sub: String,
+}
+
+/// A row of "By model": API-equivalent against actual cost.
+pub struct ModelCost {
+    pub provider: String,
+    pub model: String,
+    pub requests: String,
+    pub api: String,
+    pub actual: String,
+    pub actual_title: Option<String>,
+    pub api_per: String,
+    pub actual_per: String,
+    pub share: String,
+}
+
+/// A provider's total row under "By model" (the value report's `actualCost`).
+pub struct ProviderCost {
+    pub provider: String,
+    pub name: String,
+    pub requests: String,
+    pub api: String,
+    pub actual: String,
+    pub actual_title: String,
+    pub idle: Option<String>,
+    pub api_per: String,
+    pub actual_per: String,
 }
 
 pub struct AccountValue {
@@ -1847,6 +1884,10 @@ pub struct AccountValue {
     pub email: String,
     pub requests: String,
     pub usd: String,
+    pub actual: String,
+    pub idle: bool,
+    pub api_per: String,
+    pub actual_per: String,
     pub per_week: String,
     pub plan: String,
     pub plan_title: String,
@@ -1865,13 +1906,44 @@ pub struct Ends {
 pub struct UsageView {
     pub kpis: Vec<Kpi>,
     pub fits: Vec<(String, String)>,
-    pub models: Vec<Bar>,
+    pub models: Vec<ModelCost>,
+    pub totals: Vec<ProviderCost>,
     pub sessions: Vec<Bar>,
     pub since: String,
     pub accounts: Vec<AccountValue>,
     pub ends: Vec<Ends>,
     pub projected: String,
     pub footnote: String,
+}
+
+const DASH: &str = "\u{2014}";
+
+/// usageHtml's `perReq(x)`: four places under ten cents, else three; a dash when unknown.
+fn per_req(x: Option<f64>) -> String {
+    match x.filter(|x| x.is_finite()) {
+        None => DASH.into(),
+        Some(x) => usd(x, if x.abs() < 0.1 { 4 } else { 3 }),
+    }
+}
+
+/// `perReq(v)` for a document's value.
+fn per_req_v(v: Option<&Value>) -> String {
+    per_req((!js::nullish(v)).then(|| n(v)))
+}
+
+/// usageHtml's `money(x, d)`: a dash when unknown.
+fn money_v(v: Option<&Value>, d: usize) -> String {
+    if js::nullish(v) || !n(v).is_finite() { DASH.into() } else { usd(n(v), d) }
+}
+
+/// `BASIS[b] ?? b`
+fn basis_text(b: &str) -> String {
+    match b {
+        "quota" => "spread by fitted quota use".into(),
+        "api" => "spread by API-equivalent dollars (no quota fit yet)".into(),
+        "requests" => "spread by request count (no priced requests)".into(),
+        other => other.into(),
+    }
 }
 
 impl<'a> Ctx<'a> {
@@ -1908,7 +1980,6 @@ impl<'a> Ctx<'a> {
         let monthly: f64 = costs.iter().map(|(_, c)| c.usd).sum();
         let plan_share = monthly * 12.0 / 365.0 * days;
         let multiple = (days >= 1.0 && plan_share > 0.0).then(|| spend / plan_share);
-        let max_m = models.iter().map(|m| or(m.get("apiEquivalentUsd"), 0.0)).fold(1.0, f64::max);
         let max_s = sess.iter().map(|x| or(x.get("apiEquivalentUsd"), 0.0)).fold(1.0, f64::max);
         let value_days = or(get(get(v, "config"), "valueDays"), 7.0);
         let since = if days >= value_days - 0.01 {
@@ -1916,13 +1987,38 @@ impl<'a> Ctx<'a> {
         } else {
             format!("since {}", self.dt(js::coalesce([get(v, "valueFrom"), get(get(v, "coverage"), "ledgerSince")])))
         };
+        // Actual cost: plan cost over the window, spread over the requests each account served.
+        let ac = get(v, "actualCost");
+        let acs: Vec<(String, &Value)> = js::entries(ac);
+        let actual = acs.iter().any(|(_, c)| !js::nullish(c.get("actualUsd"))).then(|| acs.iter().fold(0.0, |s, (_, c)| s + or(c.get("actualUsd"), 0.0)));
+        let idle = acs.iter().fold(0.0, |s, (_, c)| s + or(c.get("idleUsd"), 0.0));
+        let costed = acs.iter().fold(0.0, |s, (_, c)| {
+            s + if js::nullish(c.get("actualUsd")) { 0.0 } else { or(c.get("requests"), 0.0) - or(c.get("uncostedRequests"), 0.0) }
+        });
         let kpis = vec![
             Kpi {
                 label: "Requests",
                 value: fmt::locale(reqs, 0, 3),
                 sub: format!("{}{since}", if failed != 0.0 { format!("{} failed · ", js::number_to_string(failed)) } else { String::new() }),
             },
-            Kpi { label: "API-equivalent", value: usd(spend, 0), sub: "list-price value, not money saved".into() },
+            Kpi {
+                label: "API-equivalent",
+                value: usd(spend, 0),
+                sub: format!("list-price value{}", if reqs != 0.0 { format!(", {}/request", per_req(Some(spend / reqs))) } else { String::new() }),
+            },
+            Kpi {
+                label: "Actual cost",
+                value: actual.map_or_else(|| "unknown".to_string(), |a| usd(a, 0)),
+                sub: match actual {
+                    None if truthy(ac) => "needs plan prices".into(),
+                    None => "report predates actual cost".into(),
+                    Some(a) => format!(
+                        "plan cost, {}/request{}",
+                        per_req((costed != 0.0).then(|| a / costed)),
+                        if idle >= 0.5 { format!(" · {} idle", usd(idle, 0)) } else { String::new() }
+                    ),
+                },
+            },
             Kpi {
                 label: "Plans",
                 value: if monthly != 0.0 { format!("{}/mo", usd(monthly, 0)) } else { "?".into() },
@@ -1963,13 +2059,32 @@ impl<'a> Ctx<'a> {
             .collect();
         let models = models
             .iter()
-            .map(|m| Bar {
+            .map(|m| ModelCost {
                 provider: text(m.get("provider")),
-                label: text(m.get("model")),
-                title: text(m.get("model")),
-                width: or(m.get("apiEquivalentUsd"), 0.0) / max_m * 100.0,
-                inside: format!("{} · {} req", usd_v(m.get("apiEquivalentUsd"), 0), cat(m.get("requests"))),
-                right: usd_v(m.get("usdPerRequest"), 3),
+                model: text(m.get("model")),
+                requests: fmt::locale(or(m.get("requests"), 0.0), 0, 3),
+                api: money_v(m.get("apiEquivalentUsd"), 2),
+                actual: money_v(m.get("actualUsd"), 2),
+                actual_title: truthy(m.get("uncostedRequests"))
+                    .then(|| format!("{} requests on accounts without a plan price are not included", cat(m.get("uncostedRequests")))),
+                api_per: per_req(truthy(m.get("requests")).then(|| n(m.get("apiEquivalentUsd")) / n(m.get("requests")))),
+                actual_per: per_req_v(m.get("actualUsdPerRequest")),
+                share: if js::nullish(m.get("shareOfProviderQuota")) { DASH.into() } else { format!("{}%", num(n(m.get("shareOfProviderQuota")) * 100.0, 1)) },
+            })
+            .collect();
+        let totals = acs
+            .iter()
+            .filter(|(_, c)| truthy(c.get("requests")))
+            .map(|(p, c)| ProviderCost {
+                provider: p.clone(),
+                name: format!("{} total", self.pname(p)),
+                requests: fmt::locale(n(c.get("requests")), 0, 3),
+                api: money_v(c.get("apiEquivalentUsd"), 2),
+                actual: money_v(c.get("actualUsd"), 2),
+                actual_title: arr(c.get("basis")).iter().map(|b| basis_text(&text(Some(b)))).collect::<Vec<_>>().join("; "),
+                idle: truthy(c.get("idleUsd")).then(|| format!("+ {} idle", usd_v(c.get("idleUsd"), 2))),
+                api_per: per_req_v(c.get("apiEquivalentUsdPerRequest")),
+                actual_per: per_req_v(c.get("actualUsdPerRequest")),
             })
             .collect();
         let sessions = sess
@@ -1983,8 +2098,8 @@ impl<'a> Ctx<'a> {
                     label: format!("{} {}", text(x.get("client")), sid.chars().take(6).collect::<String>()),
                     title: format!("{sid} · {}", models.join(", ")),
                     width: or(x.get("apiEquivalentUsd"), 0.0) / max_s * 100.0,
-                    inside: String::new(),
                     right: usd_v(x.get("apiEquivalentUsd"), 0),
+                    sub: if js::nullish(x.get("actualUsd")) { "actual unknown".into() } else { format!("{} actual", usd_v(x.get("actualUsd"), 2)) },
                 }
             })
             .collect();
@@ -2008,6 +2123,10 @@ impl<'a> Ctx<'a> {
                     email: text(a.get("email")),
                     requests: fmt::locale(or(a.get("requests"), 0.0), 0, 3),
                     usd: usd_v(a.get("apiEquivalentUsd"), 2),
+                    actual: money_v(a.get("actualUsd"), 2),
+                    idle: !js::nullish(a.get("actualUsd")) && !truthy(a.get("requests")),
+                    api_per: per_req(truthy(a.get("requests")).then(|| n(a.get("apiEquivalentUsd")) / n(a.get("requests")))),
+                    actual_per: per_req_v(a.get("actualUsdPerRequest")),
                     per_week: if js::nullish(a.get("usdPerAccountWeek")) { "pending".into() } else { usd_v(a.get("usdPerAccountWeek"), 0) },
                     plan_title: pr.as_ref().map_or_else(String::new, |p| source_text(&p.source)),
                     plan: pr.as_ref().map_or_else(|| "unknown".to_string(), |p| usd(p.usd, 0)),
@@ -2037,7 +2156,7 @@ impl<'a> Ctx<'a> {
             .collect();
         let unpriced: Vec<String> = js::entries(get(get(v, "coverage"), "unpricedModels")).into_iter().map(|(k, _)| k).collect();
         let footnote = format!(
-            "Measured from {} requests since {}. Dollars are what the same tokens would cost at API list prices, not money saved. \"$ / acct-week\" and value multiples need a full day of data.{} {} Report updated {}.",
+            "Measured from {} requests since {}. API cost is what the same tokens would cost at API list prices, not money saved. Actual cost is what the subscriptions cost over the same window: each account's plan price, spread over the requests it served in proportion to the quota they used (fitted per-model rates; API dollars until a fit exists). Plans are paid whether or not the quota is used, so idle quota raises actual cost per request, and an account with no requests shows as idle. \"$ / acct-week\" and value multiples need a full day of data.{} {} Report updated {}.",
             fmt::locale(or(get(get(v, "coverage"), "ledgerRows"), 0.0), 0, 3),
             self.dt(get(get(v, "coverage"), "ledgerSince")),
             if unpriced.is_empty() { String::new() } else { format!(" Unpriced models: {}.", unpriced.join(", ")) },
@@ -2048,6 +2167,7 @@ impl<'a> Ctx<'a> {
             kpis,
             fits,
             models,
+            totals,
             sessions,
             since,
             accounts,

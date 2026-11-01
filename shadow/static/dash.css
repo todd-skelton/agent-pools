@@ -178,7 +178,7 @@ td .sub.soon { color: var(--warn); }
 #acct-tables .card-h { flex-wrap: wrap; }
 
 /* Usage */
-.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
 .kpi { padding: 16px; }
 .kpi .v { font-size: 26px; font-weight: 650; letter-spacing: -.02em; margin-top: 4px; }
 .kpi .s { font-size: 12px; color: var(--mut); }
@@ -278,8 +278,9 @@ p.mt8 { margin: 8px 0 0; }
 .eyebrow.healthy { align-self: center; margin-right: 4px; }
 .band.swatch { position: static; width: 18px; height: 10px; padding: 0; }
 .nowline { left: 0; }
-.barlist.sessions li { grid-template-columns: minmax(0,1.3fr) minmax(0,1fr) 54px; }
-col.w30 { width: 30%; } th.w34 { width: 34%; }
+.barlist.sessions li { grid-template-columns: minmax(0,1.3fr) minmax(0,1fr) 84px; }
+.when-sub { display: block; font-size: 11px; }
+col.w30 { width: 30%; } th.w34 { width: 34%; } col.w26 { width: 26%; } col.w22 { width: 22%; }
 td.wrap { white-space: normal; }
 .acct.ends-row { grid-template-columns: minmax(0,1fr) auto 70px; }
 .ends-intro { margin: 0 0 12px; }

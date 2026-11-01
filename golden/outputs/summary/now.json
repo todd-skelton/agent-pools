@@ -13,7 +13,8 @@
   "pace: how fast to use the provider to get the most out of it. Units are weighted account-weeks per hour (x168 = account-weeks per week). Objective: total usage over the run (work done plus quota still available at the end); running short loses nothing, quota is lost only when a window resets unused or a credit lapses. maxUnits = usage when draining as fast as possible; atDemand = usage at the observed pace (lostUnits = what it leaves unused); fullUse = lowest steady pace within 1% of maxUnits (null: only as fast as possible gets there), then = the lower floor after its last credit is spent; noGap = highest pace that never runs out and what that costs; steps[k-1] = pace that uses k credits; curve = usage at a ladder of paces. Reused for up to 10 minutes (computedAt); a signal for dispatchers, not enforced.",
   "creditPlan (refill providers): per banked credit, what automation does and whether it gets used. action: redeem-now (the account is out and redeeming now beats waiting for every account to run out), drain-first (routing sends new sessions to that account before its weekly reset order so it reaches its limit before drainBy, the credit expiry; a refill only applies at the limit), wait (acting early would not add usage). Each action is taken only when it is never worse at the low, measured and planning paces and better at one. outcome = the credit's fate at the measured pace under the plan (used, lapses, banked); planned false = too little demand evidence or automation off, nothing is acted on; needUnitsPerHour = lowest steady pace that uses it (x168 = account-weeks per week), null when none does. AgentPools applies these itself; a lapsing outcome means more work on that provider is the only remedy.",
   "Model limits: a cap sits inside the all-models quota; a reserve adds capacity outside it. Kind and share are measured or configured, and stay unknown without evidence.",
-  "priceSource: provider = the provider's own billing data; list = public list price for the plan tier the provider reports; config = install.json usageLedger.planPrices."
+  "priceSource: provider = the provider's own billing data; list = public list price for the plan tier the provider reports; config = install.json usageLedger.planPrices.",
+  "value: apiEquivalentUsd = the window's requests at API list prices; actualUsd = what the subscriptions cost over the same windowDays, each account's plan price spread over the requests it served by fitted quota use (idleUsd = plan cost of accounts that served none); per-request figures divide by the requests they cover."
  ],
  "providers": {
   "codex": {
@@ -197,6 +198,10 @@
    },
    "value": {
     "apiEquivalentUsd": 4160.16,
+    "apiEquivalentUsdPerRequest": 0.024,
+    "actualUsd": 115.07,
+    "actualUsdPerRequest": 0.0007,
+    "idleUsd": 0,
     "windowDays": 5
    }
   },
@@ -384,6 +389,10 @@
    },
    "value": {
     "apiEquivalentUsd": 6698.82,
+    "apiEquivalentUsdPerRequest": 0.0874,
+    "actualUsd": 98.63,
+    "actualUsdPerRequest": 0.0013,
+    "idleUsd": 0,
     "windowDays": 5
    }
   }
@@ -439,7 +448,9 @@
    "value": {
     "apiEquivalentUsd": 2106.51,
     "valueMultiple": 63.9,
-    "requests": 25209
+    "requests": 25209,
+    "actualUsd": 32.88,
+    "actualUsdPerRequest": 0.0013
    }
   },
   {
@@ -492,7 +503,9 @@
    "value": {
     "apiEquivalentUsd": 2127.84,
     "valueMultiple": 64.54,
-    "requests": 22253
+    "requests": 22253,
+    "actualUsd": 32.88,
+    "actualUsdPerRequest": 0.0015
    }
   },
   {
@@ -545,7 +558,9 @@
    "value": {
     "apiEquivalentUsd": 2464.47,
     "valueMultiple": 74.76,
-    "requests": 29225
+    "requests": 29225,
+    "actualUsd": 32.88,
+    "actualUsdPerRequest": 0.0011
    }
   },
   {
@@ -584,7 +599,9 @@
    "value": {
     "apiEquivalentUsd": 1323.15,
     "valueMultiple": 40.14,
-    "requests": 58678
+    "requests": 58678,
+    "actualUsd": 32.88,
+    "actualUsdPerRequest": 0.0006
    }
   },
   {
@@ -623,7 +640,9 @@
    "value": {
     "apiEquivalentUsd": 908,
     "valueMultiple": 27.54,
-    "requests": 39435
+    "requests": 39435,
+    "actualUsd": 32.88,
+    "actualUsdPerRequest": 0.0008
    }
   },
   {
@@ -663,7 +682,9 @@
    "value": {
     "apiEquivalentUsd": 1527.42,
     "valueMultiple": 46.33,
-    "requests": 62325
+    "requests": 62325,
+    "actualUsd": 32.88,
+    "actualUsdPerRequest": 0.0005
    }
   },
   {
@@ -702,7 +723,9 @@
    "value": {
     "apiEquivalentUsd": 401.59,
     "valueMultiple": 24.36,
-    "requests": 13113
+    "requests": 13113,
+    "actualUsd": 16.44,
+    "actualUsdPerRequest": 0.0013
    }
   }
  ]

@@ -862,6 +862,7 @@ struct AccountAgg {
     failed: f64,
     usd: f64,
     usd_by_model: NumObj,
+    requests_by_model: NumObj,
 }
 
 struct ModelAgg {
@@ -872,6 +873,7 @@ struct ModelAgg {
     usd: f64,
     tokens: [f64; 5],
     sessions: HashSet<String>,
+    parts: Parts,
 }
 
 struct Session {
@@ -883,6 +885,7 @@ struct Session {
     requests: f64,
     usd: f64,
     usd_by_model: NumObj,
+    parts: Parts,
 }
 
 struct AccountUsage {
@@ -892,6 +895,56 @@ struct AccountUsage {
     refills: Vec<Refill>,
     source: &'static str,
     fit_source: &'static str,
+}
+
+/// `{ [account]: { [model]: { usd, requests } } }` (usage-value.mjs `addPart`): the value window's
+/// requests of one model or session by account, for spreading each account's plan cost.
+#[derive(Default)]
+struct Parts(Ordered<Ordered<(f64, f64)>>);
+
+impl Parts {
+    fn add(&mut self, acct: &str, model: &str, usd: f64) {
+        let p = self.0.entry(acct, Ordered::default).entry(model, || (0.0, 0.0));
+        p.0 += usd;
+        p.1 += 1.0;
+    }
+}
+
+/// `Object.entries(o)` over an `Ordered` built as an object: integer-like keys first.
+fn own_entries<V>(o: &Ordered<V>) -> Vec<(&String, &V)> {
+    let mut ints: Vec<(u32, &String, &V)> = o.iter().filter_map(|(k, v)| array_index(k).map(|n| (n, k, v))).collect();
+    ints.sort_by_key(|(n, ..)| *n);
+    ints.into_iter()
+        .map(|(_, k, v)| (k, v))
+        .chain(o.iter().filter(|(k, _)| array_index(k).is_none()))
+        .collect()
+}
+
+/// What an account's plan cost is spread by: fitted quota units, API dollars, or requests.
+#[derive(Clone, Copy)]
+enum CostBasis {
+    Quota,
+    Api,
+    Requests,
+}
+
+impl CostBasis {
+    fn name(self) -> &'static str {
+        match self {
+            CostBasis::Quota => "quota",
+            CostBasis::Api => "api",
+            CostBasis::Requests => "requests",
+        }
+    }
+}
+
+/// usage-value.mjs `accountCost`: the plan price over the value window and the dollars per unit
+/// of weight that make the account's requests add up to it.
+struct AccountCost {
+    provider: String,
+    plan_usd: Option<f64>,
+    basis: Option<CostBasis>,
+    per_weight: Option<f64>,
 }
 
 /// What `buildUsageReports` reads besides the ledger rows.
@@ -1128,6 +1181,7 @@ pub fn build_usage_reports(
             }
             a.usd += usd;
             a.usd_by_model.add(&model, usd);
+            a.requests_by_model.add(&model, 1.0);
             let mk = format!("{provider}|{model}");
             let m = models_agg.entry(&mk, || ModelAgg {
                 provider: provider.clone(),
@@ -1137,12 +1191,14 @@ pub fn build_usage_reports(
                 usd: 0.0,
                 tokens: [0.0; 5],
                 sessions: HashSet::new(),
+                parts: Parts::default(),
             });
             m.requests += 1.0;
             if row.failed {
                 m.failed += 1.0;
             }
             m.usd += usd;
+            m.parts.add(&key, &model, usd);
             for t in 0..5 {
                 m.tokens[t] += row.tokens[t];
             }
@@ -1157,10 +1213,12 @@ pub fn build_usage_reports(
                     requests: 0.0,
                     usd: 0.0,
                     usd_by_model: NumObj::default(),
+                    parts: Parts::default(),
                 });
                 s.requests += 1.0;
                 s.usd += usd;
                 s.usd_by_model.add(&model, usd);
+                s.parts.add(&key, &model, usd);
                 s.first_at = js::min([s.first_at, at]);
                 s.last_at = js::max([s.last_at, at]);
             }
@@ -1765,6 +1823,60 @@ pub fn build_usage_reports(
             None => (None, Value::Null),
         }
     };
+    // Actual cost per account (usage-value.mjs `accountCost`, `actualOf`).
+    let cost_weight = |c: &AccountCost, m: &str, usd: f64, requests: f64| -> f64 {
+        match c.basis {
+            Some(CostBasis::Quota) => rate_for(&c.provider, m).unwrap_or(0.0) * usd,
+            Some(CostBasis::Api) => usd,
+            Some(CostBasis::Requests) => requests,
+            None => 0.0,
+        }
+    };
+    let mut account_cost: HashMap<String, AccountCost> = HashMap::new();
+    for a in accounts {
+        let id = text(js::get(Some(a), "id"));
+        let provider = text(js::get(Some(a), "provider"));
+        let agg = accounts_agg.get(&id);
+        let (monthly, _) = plan_price(&id, &provider);
+        let plan_usd = monthly.map(|m| m * 12.0 / 365.0 * window_days);
+        let entries = agg.map(|g| g.usd_by_model.entries()).unwrap_or_default();
+        let mut c = AccountCost { provider, plan_usd, basis: None, per_weight: None };
+        let mut total = 0.0;
+        if let Some(g) = agg.filter(|g| g.requests != 0.0 && !g.requests.is_nan()) {
+            let rates: Vec<Option<f64>> = entries.iter().map(|(m, _)| rate_for(&c.provider, m)).collect();
+            c.basis = Some(
+                if rates.iter().all(Option::is_some) && entries.iter().zip(&rates).any(|((_, v), k)| k.unwrap() * v > 0.0) {
+                    CostBasis::Quota
+                } else if g.usd > 0.0 {
+                    CostBasis::Api
+                } else {
+                    CostBasis::Requests
+                },
+            );
+            total = entries.iter().fold(0.0, |s, (m, v)| s + cost_weight(&c, m, *v, g.requests_by_model.get(m).unwrap_or(0.0)));
+        }
+        c.per_weight = match plan_usd {
+            Some(p) if total > 0.0 => Some(p / total),
+            _ => None,
+        };
+        account_cost.insert(id, c);
+    }
+    // (dollars, costed requests, uncosted requests) of a model's or session's parts.
+    let actual_of = |parts: &Parts| -> (Option<f64>, f64, f64) {
+        let (mut usd, mut costed, mut uncosted) = (0.0, 0.0, 0.0);
+        for (acct, models) in own_entries(&parts.0) {
+            for (m, &(p_usd, p_requests)) in own_entries(models) {
+                match account_cost.get(acct.as_str()).and_then(|c| c.per_weight.map(|w| (c, w))) {
+                    None => uncosted += p_requests,
+                    Some((c, w)) => {
+                        usd += cost_weight(c, m, p_usd, p_requests) * w;
+                        costed += p_requests;
+                    }
+                }
+            }
+        }
+        ((costed != 0.0).then_some(usd), costed, uncosted)
+    };
     let empty_agg = AccountAgg::default();
     let account_rows: Vec<Value> = accounts
         .iter()
@@ -1797,6 +1909,10 @@ pub fn build_usage_reports(
             row.insert("failedRequests".into(), json!(agg.failed));
             row.insert("apiEquivalentUsd".into(), round(agg.usd, 2));
             row.insert(
+                "apiEquivalentUsdPerRequest".into(),
+                if agg.requests != 0.0 && !agg.requests.is_nan() { round(agg.usd / agg.requests, 4) } else { Value::Null },
+            );
+            row.insert(
                 "usdByModel".into(),
                 obj(agg
                     .usd_by_model
@@ -1805,6 +1921,28 @@ pub fn build_usage_reports(
                     .map(|(m, v)| (m.to_string(), round(v, 2)))
                     .collect()),
             );
+            let cost = &account_cost[&id];
+            row.insert("actualUsd".into(), round_opt(cost.plan_usd, 2));
+            row.insert(
+                "actualUsdPerRequest".into(),
+                match (cost.per_weight, cost.plan_usd) {
+                    (Some(_), Some(p)) => round(p / agg.requests, 4),
+                    _ => Value::Null,
+                },
+            );
+            row.insert(
+                "actualUsdByModel".into(),
+                match cost.per_weight {
+                    None => json!({}),
+                    Some(w) => obj(agg
+                        .usd_by_model
+                        .entries()
+                        .into_iter()
+                        .map(|(m, v)| (m.to_string(), round(cost_weight(cost, m, v, agg.requests_by_model.get(m).unwrap_or(0.0)) * w, 2)))
+                        .collect()),
+                },
+            );
+            row.insert("actualCostBasis".into(), cost.basis.map_or(Value::Null, |b| json!(b.name())));
             row.insert("weeklyPercentUsed".into(), round(used_percent, 1));
             row.insert("quotaUnitsUsed".into(), round(used_units, 4));
             row.insert(
@@ -1868,6 +2006,16 @@ pub fn build_usage_reports(
                 "usdPerRequest".into(),
                 if m.requests != 0.0 { round(m.usd / m.requests, 3) } else { Value::Null },
             );
+            let (actual_usd, costed, uncosted) = actual_of(&m.parts);
+            row.insert("actualUsd".into(), round_opt(actual_usd, 2));
+            row.insert(
+                "actualUsdPerRequest".into(),
+                match actual_usd {
+                    Some(u) if costed != 0.0 => round(u / costed, 4),
+                    _ => Value::Null,
+                },
+            );
+            row.insert("uncostedRequests".into(), json!(uncosted));
             row.insert(
                 "tokens".into(),
                 json!({ "in": m.tokens[0], "cr": m.tokens[1], "cw": m.tokens[2], "out": m.tokens[3], "rsn": m.tokens[4] }),
@@ -1904,6 +2052,7 @@ pub fn build_usage_reports(
             row.insert("lastAt".into(), json!(js::iso(s.last_at)));
             row.insert("requests".into(), json!(s.requests));
             row.insert("apiEquivalentUsd".into(), round(s.usd, 2));
+            row.insert("actualUsd".into(), round_opt(actual_of(&s.parts).0, 2));
             row.insert(
                 "models".into(),
                 json!(s
@@ -1922,6 +2071,59 @@ pub fn build_usage_reports(
         .collect();
     js::sort_by(&mut session_rows, |a, b| b.0 - a.0);
     let session_rows: Vec<Value> = session_rows.into_iter().take(15).map(|(_, r)| r).collect();
+
+    // Per provider (usage-value.mjs `actualCost`): plan cost over the window, how much of it the
+    // window's requests used and how much sat on accounts that served none.
+    let row_provider = |r: &Value| r.get("provider").map(|p| text(Some(p)));
+    let mut cost_providers: Vec<Option<String>> = Vec::new();
+    for p in account_rows.iter().chain(model_rows.iter()).map(row_provider) {
+        if !cost_providers.contains(&p) {
+            cost_providers.push(p);
+        }
+    }
+    cost_providers.sort_by(|a, b| match (a, b) {
+        (None, None) => std::cmp::Ordering::Equal,
+        (None, _) => std::cmp::Ordering::Greater,
+        (_, None) => std::cmp::Ordering::Less,
+        (Some(x), Some(y)) => x.cmp(y),
+    });
+    let num_of = |r: &Value, k: &str| js::to_number(r.get(k));
+    let plan_of_row = |a: &Value| account_cost.get(&text(a.get("id"))).and_then(|c| c.plan_usd).unwrap_or(f64::NAN);
+    let mut actual_cost = Map::new();
+    for p in &cost_providers {
+        let mine: Vec<&Value> = account_rows.iter().filter(|a| &row_provider(a) == p).collect();
+        let priced: Vec<&Value> = mine.iter().copied().filter(|a| !a["actualUsd"].is_null()).collect();
+        let used: Vec<&Value> = priced.iter().copied().filter(|a| !a["actualUsdPerRequest"].is_null()).collect();
+        let models: Vec<&Value> = model_rows.iter().filter(|m| &row_provider(m) == p).collect();
+        let requests = models.iter().fold(0.0, |s, m| s + num_of(m, "requests"));
+        let uncosted = models.iter().fold(0.0, |s, m| s + num_of(m, "uncostedRequests"));
+        let plan_usd = priced.iter().fold(0.0, |s, a| s + plan_of_row(a));
+        let allocated = used.iter().fold(0.0, |s, a| s + plan_of_row(a));
+        let api = models.iter().fold(0.0, |s, m| s + num_of(m, "apiEquivalentUsd"));
+        let mut basis: Vec<String> = Vec::new();
+        for a in &used {
+            let b = text(a.get("actualCostBasis"));
+            if !basis.contains(&b) {
+                basis.push(b);
+            }
+        }
+        let basis = sorted_strings(basis);
+        actual_cost.insert(
+            p.clone().unwrap_or_else(|| "undefined".into()),
+            json!({
+                "requests": requests,
+                "apiEquivalentUsd": round(api, 2),
+                "apiEquivalentUsdPerRequest": if requests != 0.0 && !requests.is_nan() { round(api / requests, 4) } else { Value::Null },
+                "planUsd": if priced.is_empty() { Value::Null } else { round(plan_usd, 2) },
+                "actualUsd": if used.is_empty() { Value::Null } else { round(allocated, 2) },
+                "idleUsd": if priced.is_empty() { Value::Null } else { round(plan_usd - allocated, 2) },
+                "actualUsdPerRequest": if !used.is_empty() && requests > uncosted { round(allocated / (requests - uncosted), 4) } else { Value::Null },
+                "uncostedRequests": uncosted,
+                "unpricedAccounts": mine.len() - priced.len(),
+                "basis": basis,
+            }),
+        );
+    }
 
     let mut basis_providers: Vec<String> = vec!["codex".into(), "claude".into()];
     for p in analysis_sessions
@@ -2108,6 +2310,7 @@ pub fn build_usage_reports(
         },
         "fits": fits_value,
         "modelLimits": model_limits,
+        "actualCost": Value::Object(actual_cost),
         "accounts": account_rows,
         "models": model_rows,
         "sessions": session_rows,

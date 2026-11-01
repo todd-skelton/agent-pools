@@ -513,44 +513,51 @@ pub fn usage<'a>(u: &'a Result<UsageView, String>) -> impl Render + 'a {
                         <div class="card-h"><h2>"Quota rates"</h2><span class="right mut fs12">"what one account-week buys"</span></div>
                         <div class="card-b"><ul class="plain">for (p, f) in &u.fits { <li><b>{p}":"</b>" "{f}</li> }</ul></div>
                     </div>
-                    <div class="card span-7">
-                        <div class="card-h"><h2>"By model"</h2><span class="right mut fs12">"API-equivalent · per request"</span></div>
-                        <div class="card-b"><ul class="barlist">
-                            for m in &u.models {
-                                <li>
-                                    <div class="lbl"><span class={("pdot ", m.provider.as_str())}></span><span title={&m.title}>{&m.label}</span></div>
-                                    <div class="hbar">
-                                        <i style={format!("width:{}%;background:var(--{})", m.width, m.provider)}></i>
-                                        <em class={(m.width < 30.0).then_some("out")} style={(m.width < 30.0).then(|| format!("left:calc({}% + 6px)", m.width))}>{&m.inside}</em>
-                                    </div>
-                                    <div class="when">{&m.right}</div>
-                                </li>
-                            }
-                        </ul></div>
+                    <div class="card span-12 tw">
+                        <div class="card-h"><h2>"By model"</h2><span class="right mut fs12">"API-equivalent vs actual · "{&u.since}</span></div>
+                        <table class="t">
+                            <colgroup><col class="w26"><col><col><col><col><col><col class="hide-sm"></colgroup>
+                            <thead><tr><th>"Model"</th><th class="num">"Requests"</th><th class="num">"API cost"</th><th class="num">"Actual cost"</th><th class="num">"API / request"</th><th class="num">"Actual / request"</th><th class="num hide-sm">"Quota share"</th></tr></thead>
+                            <tbody>
+                                for m in &u.models {
+                                    <tr>
+                                        <td title={&m.model}><span class={("pdot ", m.provider.as_str())}></span>" "{&m.model}</td>
+                                        <td class="num">{&m.requests}</td>
+                                        <td class="num">{&m.api}</td>
+                                        <td class="num" title={m.actual_title.as_deref()}>{&m.actual}</td>
+                                        <td class="num">{&m.api_per}</td>
+                                        <td class="num">{&m.actual_per}</td>
+                                        <td class="num hide-sm dim">{&m.share}</td>
+                                    </tr>
+                                }
+                                for t in &u.totals {
+                                    <tr>
+                                        <td><span class={("pdot ", t.provider.as_str())}></span>" "<b>{&t.name}</b></td>
+                                        <td class="num">{&t.requests}</td>
+                                        <td class="num">{&t.api}</td>
+                                        <td class="num" title={&t.actual_title}>{&t.actual}if let Some(i) = &t.idle { <div class="sub">{i}</div> }</td>
+                                        <td class="num">{&t.api_per}</td>
+                                        <td class="num">{&t.actual_per}</td>
+                                        <td class="num hide-sm"><span class="dim">"—"</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="card span-5">
-                        <div class="card-h"><h2>"Largest sessions"</h2></div>
-                        <div class="card-b"><ul class="barlist sessions">
-                            for s in &u.sessions {
-                                <li>
-                                    <div class="lbl"><span class={("pdot ", s.provider.as_str())}></span><span title={&s.title}>{&s.label}</span></div>
-                                    <div class="hbar"><i style={format!("width:{}%;background:var(--{})", s.width, s.provider)}></i></div>
-                                    <div class="when">{&s.right}</div>
-                                </li>
-                            }
-                        </ul></div>
-                    </div>
-                    <div class="card span-8 tw">
+                    <div class="card span-12 tw">
                         <div class="card-h"><h2>"By account"</h2><span class="right mut fs12">{&u.since}</span></div>
                         <table class="t">
-                            <colgroup><col class="w30"><col><col><col class="hide-sm"><col class="hide-sm"><col></colgroup>
-                            <thead><tr><th>"Account"</th><th class="num">"Requests"</th><th class="num">"API-equiv."</th><th class="num hide-sm">"$ / acct-week"</th><th class="num hide-sm">"Plan / mo"</th><th class="num">"Value vs plan"</th></tr></thead>
+                            <colgroup><col class="w22"><col><col><col><col><col><col class="hide-sm"><col class="hide-sm"><col></colgroup>
+                            <thead><tr><th>"Account"</th><th class="num">"Requests"</th><th class="num">"API cost"</th><th class="num">"Actual cost"</th><th class="num">"API / request"</th><th class="num">"Actual / request"</th><th class="num hide-sm">"$ / acct-week"</th><th class="num hide-sm">"Plan / mo"</th><th class="num">"Value vs plan"</th></tr></thead>
                             <tbody>
                                 for a in &u.accounts {
                                     <tr>
                                         <td title={&a.email}><span class={("pdot ", a.provider.as_str())}></span>" "{&a.name}</td>
                                         <td class="num">{&a.requests}</td>
                                         <td class="num">{&a.usd}</td>
+                                        <td class="num" title="plan cost over the window">{&a.actual}if a.idle { <div class="sub">"idle"</div> }</td>
+                                        <td class="num">{&a.api_per}</td>
+                                        <td class="num">{&a.actual_per}</td>
                                         <td class="num hide-sm dim">{&a.per_week}</td>
                                         <td class="num hide-sm dim" title={&a.plan_title}>{&a.plan}</td>
                                         <td class="num dim">{&a.multiple}</td>
@@ -559,7 +566,19 @@ pub fn usage<'a>(u: &'a Result<UsageView, String>) -> impl Render + 'a {
                             </tbody>
                         </table>
                     </div>
-                    <div class="card span-4">
+                    <div class="card span-7">
+                        <div class="card-h"><h2>"Largest sessions"</h2><span class="right mut fs12">"API-equivalent · actual"</span></div>
+                        <div class="card-b"><ul class="barlist sessions">
+                            for s in &u.sessions {
+                                <li>
+                                    <div class="lbl"><span class={("pdot ", s.provider.as_str())}></span><span title={&s.title}>{&s.label}</span></div>
+                                    <div class="hbar"><i style={format!("width:{}%;background:var(--{})", s.width, s.provider)}></i></div>
+                                    <div class="when">{&s.right}<span class="dim when-sub">{&s.sub}</span></div>
+                                </li>
+                            }
+                        </ul></div>
+                    </div>
+                    <div class="card span-5">
                         <div class="card-h"><h2>"Quota left on the table"</h2></div>
                         <div class="card-b">
                             <p class="mut fs13 ends-intro">"Weekly used % when each recent window ended. Short bars are quota that expired unused."</p>

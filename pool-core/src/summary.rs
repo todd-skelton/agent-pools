@@ -9,13 +9,14 @@ use serde_json::{json, Map, Value};
 pub const SUMMARY_FORMAT: &str = "agent-pools-summary/v1";
 pub const STATUS_MAX_AGE_MS: f64 = 5.0 * 60.0 * 1000.0;
 
-const NOTES: [&str; 6] = [
+const NOTES: [&str; 7] = [
     "Routing: the pool picks among its own accounts; forecast.state and the published balance are signals the model-routing skill and dispatch-lane.ps1 read, not limits the pool enforces.",
     "Scenarios: naturalOnly = window resets alone; bankedCredits = banked credits spent the way the pool spends them (the headline); weeklyGrant = bankedCredits plus an assumed new credit each week, which providers do not promise.",
     "pace: how fast to use the provider to get the most out of it. Units are weighted account-weeks per hour (x168 = account-weeks per week). Objective: total usage over the run (work done plus quota still available at the end); running short loses nothing, quota is lost only when a window resets unused or a credit lapses. maxUnits = usage when draining as fast as possible; atDemand = usage at the observed pace (lostUnits = what it leaves unused); fullUse = lowest steady pace within 1% of maxUnits (null: only as fast as possible gets there), then = the lower floor after its last credit is spent; noGap = highest pace that never runs out and what that costs; steps[k-1] = pace that uses k credits; curve = usage at a ladder of paces. Reused for up to 10 minutes (computedAt); a signal for dispatchers, not enforced.",
     "creditPlan (refill providers): per banked credit, what automation does and whether it gets used. action: redeem-now (the account is out and redeeming now beats waiting for every account to run out), drain-first (routing sends new sessions to that account before its weekly reset order so it reaches its limit before drainBy, the credit expiry; a refill only applies at the limit), wait (acting early would not add usage). Each action is taken only when it is never worse at the low, measured and planning paces and better at one. outcome = the credit's fate at the measured pace under the plan (used, lapses, banked); planned false = too little demand evidence or automation off, nothing is acted on; needUnitsPerHour = lowest steady pace that uses it (x168 = account-weeks per week), null when none does. AgentPools applies these itself; a lapsing outcome means more work on that provider is the only remedy.",
     "Model limits: a cap sits inside the all-models quota; a reserve adds capacity outside it. Kind and share are measured or configured, and stay unknown without evidence.",
     "priceSource: provider = the provider's own billing data; list = public list price for the plan tier the provider reports; config = install.json usageLedger.planPrices.",
+    "value: apiEquivalentUsd = the window's requests at API list prices; actualUsd = what the subscriptions cost over the same windowDays, each account's plan price spread over the requests it served by fitted quota use (idleUsd = plan cost of accounts that served none); per-request figures divide by the requests they cover.",
 ];
 
 // --- freshness -------------------------------------------------------------------------
@@ -251,6 +252,8 @@ pub fn summary_account(a: &Value, value_row: Option<&Value>) -> Value {
                 "apiEquivalentUsd": or_null(js::get(value_row, "apiEquivalentUsd")),
                 "valueMultiple": or_null(js::get(value_row, "valueMultiple")),
                 "requests": or_null(js::get(value_row, "requests")),
+                "actualUsd": or_null(js::get(value_row, "actualUsd")),
+                "actualUsdPerRequest": or_null(js::get(value_row, "actualUsdPerRequest")),
             })
         } else {
             Value::Null
@@ -538,7 +541,15 @@ pub fn build_summary(
                         .unwrap_or(json!(0)),
                 ))
             });
-            json!({ "apiEquivalentUsd": round2(usd), "windowDays": or_null(js::get(value, "valueWindowDays")) })
+            let cost = js::get(js::get(value, "actualCost"), id);
+            json!({
+                "apiEquivalentUsd": round2(usd),
+                "apiEquivalentUsdPerRequest": or_null(js::get(cost, "apiEquivalentUsdPerRequest")),
+                "actualUsd": or_null(js::get(cost, "actualUsd")),
+                "actualUsdPerRequest": or_null(js::get(cost, "actualUsdPerRequest")),
+                "idleUsd": or_null(js::get(cost, "idleUsd")),
+                "windowDays": or_null(js::get(value, "valueWindowDays")),
+            })
         } else {
             Value::Null
         };

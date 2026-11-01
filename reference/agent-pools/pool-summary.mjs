@@ -34,7 +34,8 @@ export function summaryAccount(a, valueRow) {
     priceSource: price ? price.source : valueRow?.planUsdPerMonth != null ? valueRow.planPriceSource ?? "config" : null,
     windows,
     credits: { known: a.creditsKnown === true, count: Number.isInteger(a.creditCount) ? a.creditCount : expiries.length, expiries },
-    value: valueRow ? { apiEquivalentUsd: valueRow.apiEquivalentUsd ?? null, valueMultiple: valueRow.valueMultiple ?? null, requests: valueRow.requests ?? null } : null,
+    value: valueRow ? { apiEquivalentUsd: valueRow.apiEquivalentUsd ?? null, valueMultiple: valueRow.valueMultiple ?? null, requests: valueRow.requests ?? null,
+      actualUsd: valueRow.actualUsd ?? null, actualUsdPerRequest: valueRow.actualUsdPerRequest ?? null } : null,
   };
 }
 
@@ -90,6 +91,10 @@ export function buildSummary({ state, providers, forecast = null, value = null, 
       } : null,
       value: value ? {
         apiEquivalentUsd: round(sum(mine.map((a) => a.value?.apiEquivalentUsd ?? 0))),
+        apiEquivalentUsdPerRequest: value.actualCost?.[id]?.apiEquivalentUsdPerRequest ?? null,
+        actualUsd: value.actualCost?.[id]?.actualUsd ?? null,
+        actualUsdPerRequest: value.actualCost?.[id]?.actualUsdPerRequest ?? null,
+        idleUsd: value.actualCost?.[id]?.idleUsd ?? null,
         windowDays: value.valueWindowDays ?? null,
       } : null,
     };
@@ -111,6 +116,7 @@ export function buildSummary({ state, providers, forecast = null, value = null, 
       "creditPlan (refill providers): per banked credit, what automation does and whether it gets used. action: redeem-now (the account is out and redeeming now beats waiting for every account to run out), drain-first (routing sends new sessions to that account before its weekly reset order so it reaches its limit before drainBy, the credit expiry; a refill only applies at the limit), wait (acting early would not add usage). Each action is taken only when it is never worse at the low, measured and planning paces and better at one. outcome = the credit's fate at the measured pace under the plan (used, lapses, banked); planned false = too little demand evidence or automation off, nothing is acted on; needUnitsPerHour = lowest steady pace that uses it (x168 = account-weeks per week), null when none does. AgentPools applies these itself; a lapsing outcome means more work on that provider is the only remedy.",
       "Model limits: a cap sits inside the all-models quota; a reserve adds capacity outside it. Kind and share are measured or configured, and stay unknown without evidence.",
       "priceSource: provider = the provider's own billing data; list = public list price for the plan tier the provider reports; config = install.json usageLedger.planPrices.",
+      "value: apiEquivalentUsd = the window's requests at API list prices; actualUsd = what the subscriptions cost over the same windowDays, each account's plan price spread over the requests it served by fitted quota use (idleUsd = plan cost of accounts that served none); per-request figures divide by the requests they cover.",
     ],
     providers: out,
     accounts,
