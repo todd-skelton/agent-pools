@@ -230,7 +230,7 @@
        "state": "conserve",
        "stale": false,
        "demandUnitsPerHour": 0.03006,
-       "remainingUnits": 0.88,
+       "remainingUnits": 0.53,
        "nextResetAt": "2026-10-28T12:59:59.697Z",
        "horizonHours": 336,
        "naturalOnly": {
@@ -970,7 +970,7 @@
        "state": "conserve",
        "stale": false,
        "demandUnitsPerHour": 0.03006,
-       "remainingUnits": 0.88,
+       "remainingUnits": 0.53,
        "nextResetAt": "2026-10-28T12:59:59.697Z",
        "horizonHours": 336,
        "naturalOnly": {
@@ -2106,7 +2106,7 @@
        "state": "conserve",
        "stale": false,
        "demandUnitsPerHour": 0.03006,
-       "remainingUnits": 0.88,
+       "remainingUnits": 0.53,
        "nextResetAt": "2026-10-28T12:59:59.697Z",
        "horizonHours": 336,
        "naturalOnly": {

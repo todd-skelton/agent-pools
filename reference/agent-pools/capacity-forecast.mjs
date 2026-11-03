@@ -90,6 +90,8 @@ export function capacityWeight(provider, accountId, weights = {}) {
 }
 
 export const weeklyWindowId = (provider) => PROVIDERS[provider]?.capacity?.weeklyWindowId ?? null;
+const claudeWeeklyWindow = (w) => !!w?.common && w.durationSeconds === 604800;
+const claudeWeeklySelector = (provider, window) => provider === "claude" && window === "limit:1";
 const startsOnFirstUse = (provider) => !!PROVIDERS[provider]?.capacity?.windowStartsOnFirstUse;
 // "refill" (Claude): a redeemed credit clears usage but keeps the reset date.
 const refills = (provider) => PROVIDERS[provider]?.redemption === "refill";
@@ -98,7 +100,7 @@ export const defaultMaxRunwayPercent = (provider) => PROVIDERS[provider]?.resetD
 // Consumption increments in account-units, plus per-hour exhaustion flags,
 // from an ordered sample stream. A window that reset (used fell, or resetAt
 // moved by more than the jitter tolerance) contributes its new used value.
-export function replaySamples(samples, weights = {}) {
+export function replaySamples(samples, weights = {}, accounts = []) {
   const last = new Map();
   const events = [];
   const marks = [];
@@ -106,14 +108,17 @@ export function replaySamples(samples, weights = {}) {
     if (!s || !Number.isFinite(s.used) || typeof s.window !== "string") continue;
     const at = Date.parse(s.at);
     if (!Number.isFinite(at)) continue;
-    const key = s.provider + "|" + s.window + "|" + s.accountId;
+    const account = accounts.find((a) => a.id === s.accountId || a.accountId === s.accountId);
+    const source = account?.quotaWindows?.find((w) => w.id === s.window);
+    const window = s.provider === "claude" && claudeWeeklyWindow(source) ? "limit:1" : s.window;
+    const key = s.provider + "|" + window + "|" + s.accountId;
     const prev = last.get(key);
     last.set(key, { used: s.used, resetAt: s.resetAt });
-    marks.push({ at, provider: s.provider, window: s.window, accountId: s.accountId, used: s.used });
+    marks.push({ at, provider: s.provider, window, accountId: s.accountId, used: s.used });
     if (!prev) continue;
     const moved = Number.isFinite(s.resetAt) && Number.isFinite(prev.resetAt) && Math.abs(s.resetAt - prev.resetAt) > RESET_JITTER_MS;
     const delta = moved || s.used < prev.used ? s.used : s.used - prev.used;
-    if (delta > 0) events.push({ at, provider: s.provider, window: s.window, units: (capacityWeight(s.provider, s.accountId, weights) * delta) / 100 });
+    if (delta > 0) events.push({ at, provider: s.provider, window, units: (capacityWeight(s.provider, s.accountId, weights) * delta) / 100 });
   }
   return { events, marks };
 }
@@ -183,17 +188,23 @@ export function demandRate(events, censored, { now = Date.now(), halfLifeHours =
 // unknown, cooling down, or a Claude grant withheld until the server reports
 // the account at its limit) cannot be claimed automatically, so it is
 // reported as unmodeled rather than counted as supply.
-export function supplyFor(accounts, provider, window, weights = {}) {
+export function supplyFor(accounts, provider, window, weights = {}, semanticWeekly = false) {
   return accounts
     .filter((a) => a.provider === provider && !a.disabled)
     .map((a) => {
-      const w = (a.quotaWindows ?? []).find((x) => x.id === window && Number.isFinite(x.used) && Number.isFinite(x.durationSeconds) && x.durationSeconds > 0);
+      const w = (a.quotaWindows ?? []).find((x) => (semanticWeekly && claudeWeeklySelector(provider, window) ? claudeWeeklyWindow(x) : provider === "claude" && !semanticWeekly ? !x.common && x.id === window : x.id === window) && Number.isFinite(x.used) && Number.isFinite(x.durationSeconds) && x.durationSeconds > 0);
       if (!w) return null;
       const listed = (a.credits ?? []).map((c) => Date.parse(c.expires_at ?? c.expiresAt ?? "")).map((t) => (Number.isFinite(t) ? t : Infinity)).sort((x, y) => x - y);
       const count = Math.max(listed.length, Number.isInteger(a.creditCount) ? a.creditCount : 0);
       const credits = listed.length ? Array.from({ length: count }, (_, i) => listed[Math.min(i, listed.length - 1)]) : [];
       const unmodeledCredits = count - credits.length;
       const used = Math.min(100, Math.max(0, w.used));
+      const caps = provider === "claude" && semanticWeekly ? (a.quotaWindows ?? []).filter((x) => {
+        return !claudeWeeklyWindow(x) && Number.isFinite(x.used) && Number.isFinite(x.durationSeconds) && x.durationSeconds > 0;
+      }).map((x) => ({
+        used: Math.min(100, Math.max(0, x.used)), resetAt: Number.isFinite(x.resetAt) ? x.resetAt : null,
+        periodMs: x.durationSeconds * 1000, floating: !Number.isFinite(x.resetAt), scope: x.scope ?? null, label: x.label ?? null,
+      })) : [];
       return {
         id: a.id,
         weight: capacityWeight(provider, a.id, weights),
@@ -203,6 +214,7 @@ export function supplyFor(accounts, provider, window, weights = {}) {
         firstUse: startsOnFirstUse(provider),
         floating: startsOnFirstUse(provider) && used === 0,
         refill: refills(provider),
+        caps,
         credits,
         unmodeledCredits,
         stale: !!a.usageStale || a.status === "unknown",
@@ -212,6 +224,11 @@ export function supplyFor(accounts, provider, window, weights = {}) {
     })
     .filter(Boolean);
 }
+
+const effectiveRoom = (a) => Math.min(
+  a.weight * (100 - a.used) / 100,
+  a.caps.reduce((left, c) => Math.min(left, a.weight * (100 - c.used) / 100), a.weight),
+);
 
 // Hour-by-hour simulation at a constant demand rate. Accounts drain
 // earliest-reset-first (routing.mjs rankAccounts), floating (unused,
@@ -235,7 +252,8 @@ export function supplyFor(accounts, provider, window, weights = {}) {
 //                when it can be used before their reset counting the quota
 //                drained ahead of them (routing.mjs refillRunwayOk)
 export function simulate(supply, rate, { now = Date.now(), horizonHours = 336, useCredits = true, maxRunwayPercent = 50, grants = [], grantLifetimeHours = 168, drainFirst = null, earlyRefill = null } = {}) {
-  const A = supply.map((a) => ({ ...a, credits: [...a.credits], resetAt: a.floating ? null : a.resetAt ?? now + a.periodMs }));
+  const A = supply.map((a) => ({ ...a, credits: [...a.credits], caps: a.caps.map((c) => ({ ...c })), resetAt: a.floating ? null : a.resetAt ?? now + a.periodMs }));
+  const room = effectiveRoom;
   const pendingGrants = [...grants].sort((x, y) => x - y);
   let creditsGranted = 0;
   const rateAt = typeof rate === "function" ? rate : () => rate;
@@ -244,7 +262,7 @@ export function simulate(supply, rate, { now = Date.now(), horizonHours = 336, u
     if (!a.refill) return true;
     if (a.resetAt === null || a.resetAt <= t) return false;
     if (a.credits[0] <= a.resetAt) return true;
-    const need = rate > 0 ? (a.weight / rate) * HOUR : Infinity;
+    const need = rate > 0 ? (room(a) / rate) * HOUR : Infinity;
     return a.resetAt - t >= Math.min(need, (maxRunwayPercent / 100) * a.periodMs);
   };
   let outageHours = 0, firstOutageAt = null, expiringUnits = 0, creditsUsed = 0, creditsExpired = 0, creditUnitsExpired = 0;
@@ -253,8 +271,13 @@ export function simulate(supply, rate, { now = Date.now(), horizonHours = 336, u
   for (let h = 0; h < horizonHours; h++) {
     const t = now + h * HOUR;
     for (const a of A) {
+      for (const c of a.caps) while (c.resetAt !== null && c.resetAt <= t) {
+        c.used = 0;
+        if (c.floating) { c.resetAt = null; c.floating = true; }
+        else c.resetAt += c.periodMs;
+      }
       while (a.resetAt !== null && a.resetAt <= t) {
-        expiringUnits += (a.weight * (100 - a.used)) / 100;
+        expiringUnits += room(a);
         a.used = 0;
         if (a.firstUse) { a.resetAt = null; a.floating = true; }
         else a.resetAt += a.periodMs;
@@ -272,23 +295,28 @@ export function simulate(supply, rate, { now = Date.now(), horizonHours = 336, u
     let need = r;
     if (useCredits && earlyRefill?.size) {
       for (const a of A) {
-        if (!earlyRefill.has(a.id) || !a.refill || !a.credits.length || a.used < 100 - 1e-9) continue;
+        if (!earlyRefill.has(a.id) || !a.refill || !a.credits.length || room(a) > 1e-12) continue;
         if (!refillRunway(a, A, t, r, maxRunwayPercent, key)) continue;
         a.credits.shift();
         creditsUsed++;
         redemptions.push({ id: a.id, at: t, early: true });
         a.used = 0;
+        for (const c of a.caps) c.used = 0;
       }
     }
     const drain = () => {
       const order = [...A].sort((x, y) => key(x) - key(y));
       for (const a of order) {
         if (need <= 1e-12) break;
-        const room = (a.weight * (100 - a.used)) / 100;
-        if (room <= 1e-12) continue;
-        const take = Math.min(room, need);
+        const available = room(a);
+        if (available <= 1e-12) continue;
+        const take = Math.min(available, need);
         if (a.resetAt === null) { a.resetAt = t + a.periodMs; a.floating = false; }
         a.used += (take / a.weight) * 100;
+        for (const c of a.caps) {
+          if (c.resetAt === null) { c.resetAt = t + c.periodMs; c.floating = false; }
+          c.used += (take / a.weight) * 100;
+        }
         need -= take;
       }
     };
@@ -304,12 +332,13 @@ export function simulate(supply, rate, { now = Date.now(), horizonHours = 336, u
       creditsUsed++;
       redemptions.push({ id: holder.id, at: t });
       holder.used = 0;
+      for (const c of holder.caps) c.used = 0;
       if (!holder.refill) holder.resetAt = null;
       drain();
     }
     if (need > 1e-12) { unmetUnits += need; outageHours++; firstOutageAt ??= t; outages.push(t); }
   }
-  const remainingUnits = A.reduce((s, a) => s + (a.weight * (100 - a.used)) / 100, 0);
+  const remainingUnits = A.reduce((s, a) => s + room(a), 0);
   const creditUnitsLeft = A.reduce((s, a) => s + a.weight * a.credits.length, 0);
   return { unmetUnits, remainingUnits, creditUnitsLeft, outageHours, firstOutageAt, expiringUnits, creditsUsed, creditsExpired, creditUnitsExpired, wastedUnits: expiringUnits + creditUnitsExpired, redemptions, lapses, creditsGranted, outages };
 }
@@ -333,10 +362,10 @@ export function refillRunway(a, all, t, rate, maxRunwayPercent, key = (x) => x.r
   if (a.credits[0] <= a.resetAt) return true;
   const cap = (maxRunwayPercent / 100) * a.periodMs;
   if (!(rate > 0)) return a.resetAt - t >= cap;
-  let units = a.weight;
+  let units = effectiveRoom(a);
   for (const b of all) {
     if (b === a || b.id === a.id || b.resetAt === null || b.resetAt <= t || !(key(b) < a.resetAt)) continue;
-    units += Math.min((b.weight * (100 - b.used)) / 100, (rate * (b.resetAt - t)) / HOUR);
+    units += Math.min(effectiveRoom(b), (rate * (b.resetAt - t)) / HOUR);
   }
   return a.resetAt - t >= Math.min((units / rate) * HOUR, cap);
 }
@@ -387,12 +416,12 @@ export function refillCreditPlan(supply, paces, { now, horizonHours, maxRunwayPe
   const resetOf = (a) => a.resetAt ?? Infinity;
   const banked = supply.filter((a) => a.credits.length && Number.isFinite(a.credits[0]) && a.credits[0] > now);
   const usable = banked.filter((a) => !a.stale);
-  const deadline = usable.filter((a) => a.used < 100 && a.credits[0] < resetOf(a));
+  const deadline = usable.filter((a) => effectiveRoom(a) > 1e-12 && a.credits[0] < resetOf(a));
   const early = new Set(deadline.map((a) => a.id));
-  const redeemed = (sup, id) => sup.map((b) => (b.id === id ? { ...b, used: 0, credits: b.credits.slice(1) } : b));
+  const redeemed = (sup, id) => sup.map((b) => (b.id === id ? { ...b, used: 0, caps: b.caps.map((c) => ({ ...c, used: 0 })), credits: b.credits.slice(1) } : b));
   const low = rates[0];
   const holders = [];
-  for (const a of usable.filter((x) => x.used >= 100)) {
+  for (const a of usable.filter((x) => effectiveRoom(x) <= 1e-12)) {
     if (!refillRunway(a, supply, now, paces.low > 0 ? paces.low : 0, maxRunwayPercent)) continue;
     const after = redeemed(supply, a.id);
     if (better((r) => total(after, r, { earlyRefill: early }), (r) => total(supply, r, { earlyRefill: early }))) holders.push(a.id);
@@ -423,7 +452,7 @@ export function refillCreditPlan(supply, paces, { now, horizonHours, maxRunwayPe
       // The lowest steady pace that uses it, with this account drained first
       // where that applies and redeeming once it is out (more pace is what
       // turns those actions on).
-      const forced = { drainFirst: drainBy !== null && a.used < 100 ? new Map([...drainFirst, [a.id, a.credits[0]]]) : drainFirst, earlyRefill: new Set([...early, a.id]) };
+      const forced = { drainFirst: drainBy !== null && effectiveRoom(a) > 1e-12 ? new Map([...drainFirst, [a.id, a.credits[0]]]) : drainFirst, earlyRefill: new Set([...early, a.id]) };
       const saved = (r) => fate(simulate(planned, r, { ...opts, ...forced }), a.id) === "used";
       const top = PACE.maxFactor * natural, eps = PACE.precision * natural;
       if (natural > 0 && saved(top)) {
@@ -432,7 +461,7 @@ export function refillCreditPlan(supply, paces, { now, horizonHours, maxRunwayPe
         needUnitsPerHour = hi;
       }
     }
-    return { accountId: a.id, expiresAt: a.credits[0], resetAt: a.resetAt, out: a.used >= 100, unitsLeft: (a.weight * (100 - a.used)) / 100, stale: !!a.stale, action, drainBy, outcome, needUnitsPerHour };
+    return { accountId: a.id, expiresAt: a.credits[0], resetAt: a.resetAt, out: effectiveRoom(a) <= 1e-12, unitsLeft: effectiveRoom(a), stale: !!a.stale, action, drainBy, outcome, needUnitsPerHour };
   });
   return { holders: holders.sort(), drainFirst, credits };
 }
@@ -594,8 +623,8 @@ export function nextState(prev, m, config, now) {
   return { state: want, since: new Date(now).toISOString(), ...keep };
 }
 
-export function forecastClass({ provider, window, accounts, replay, config, now, prev, creditsEnabled = true, maxRunwayPercent = defaultMaxRunwayPercent(provider) }) {
-  const supply = supplyFor(accounts, provider, window, config.weights);
+export function forecastClass({ provider, window, accounts, replay, config, now, prev, creditsEnabled = true, maxRunwayPercent = defaultMaxRunwayPercent(provider), semanticWeekly = false }) {
+  const supply = supplyFor(accounts, provider, window, config.weights, semanticWeekly);
   const roster = supply.map((a) => a.id);
   const end = Math.floor(now / HOUR);
   const censored = censoredHours(replay.marks, provider, window, roster, end - config.lookbackHours + 1, end);
@@ -634,8 +663,8 @@ export function forecastClass({ provider, window, accounts, replay, config, now,
   const refill = creditsEnabled && refills(provider) && planEvidence && refillRate > 0
     ? { unitsPerHour: Math.round(refillRate * 1e5) / 1e5, weights: Object.fromEntries(supply.map((a) => [a.id, a.weight])) }
     : null;
-  const remainingUnits = supply.reduce((s, a) => s + (a.weight * (100 - a.used)) / 100, 0);
-  const exhaustedNow = supply.length > 0 && supply.every((a) => a.used >= 100);
+  const remainingUnits = supply.reduce((s, a) => s + effectiveRoom(a), 0);
+  const exhaustedNow = supply.length > 0 && supply.every((a) => effectiveRoom(a) <= 1e-12);
   const allStale = supply.length > 0 && supply.every((a) => a.stale);
   const freshAt = allStale ? prev?.freshAt ?? null : new Date(now).toISOString();
   // A short read outage holds the last state instead of flipping to unknown.
@@ -797,7 +826,7 @@ export function refillDemandOf(forecast, provider, now = Date.now()) {
 }
 
 export function buildForecast({ accounts, samples, config, now = Date.now(), previous = null, resetPolicies = {}, resetAutomation = true }) {
-  const replay = replaySamples(samples, config.weights);
+  const replay = replaySamples(samples, config.weights, accounts);
   const providers = [...new Set(accounts.map((a) => a.provider))].filter((p) => PROVIDERS[p]?.capacity).sort();
   const out = {};
   for (const provider of providers) {
@@ -805,13 +834,13 @@ export function buildForecast({ accounts, samples, config, now = Date.now(), pre
     const creditsEnabled = resetAutomation !== false && resetPolicies[provider]?.enabled !== false;
     const maxRunwayPercent = resetPolicies[provider]?.maxRunwayPercent ?? defaultMaxRunwayPercent(provider);
     const prevP = previous?.providers?.[provider];
-    const main = forecastClass({ provider, window: weekly, accounts, replay, config, now, prev: prevP, creditsEnabled, maxRunwayPercent });
+    const main = forecastClass({ provider, window: weekly, accounts, replay, config, now, prev: prevP, creditsEnabled, maxRunwayPercent, semanticWeekly: true });
     // Model-specific limits (for example Claude's Fable weekly) are forecast
     // separately; credits are not assumed to restore them.
-    const modelIds = [...new Set(accounts.filter((a) => a.provider === provider).flatMap((a) => (a.quotaWindows ?? []).filter((w) => !w.common && w.id !== weekly && Number.isFinite(w.durationSeconds) && w.durationSeconds >= 86400).map((w) => w.id)))].sort();
+    const modelIds = [...new Set(accounts.filter((a) => a.provider === provider).flatMap((a) => (a.quotaWindows ?? []).filter((w) => !w.common && Number.isFinite(w.durationSeconds) && w.durationSeconds >= 86400).map((w) => w.id)))].sort();
     const modelWindows = modelIds.map((id) => {
       const prevW = prevP?.modelWindows?.find((w) => w.window === id);
-      const f = forecastClass({ provider, window: id, accounts, replay, config, now, prev: prevW, creditsEnabled: false });
+      const f = forecastClass({ provider, window: id, accounts, replay, config, now, prev: prevW, creditsEnabled: false, semanticWeekly: false });
       return { window: id, scope: f.scope, state: f.state, since: f.since, ...(f.pendingState ? { pendingState: f.pendingState } : {}), ...(f.lastKnownState ? { lastKnownState: f.lastKnownState } : {}), freshAt: f.freshAt, ...(f.stale ? { stale: true } : {}), demand: f.demand, supply: { remainingUnits: f.supply.remainingUnits, nextRefillAt: f.supply.nextRefillAt }, projection: { creditsModeled: f.projection.creditsModeled, creditsUsed: f.projection.creditsUsed, outageHours: f.projection.outageHours, firstOutageAt: f.projection.firstOutageAt, wastedUnits: f.projection.wastedUnits } };
     });
     out[provider] = { ...main, modelWindows };

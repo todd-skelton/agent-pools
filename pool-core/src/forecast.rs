@@ -9,6 +9,7 @@
 
 use crate::js;
 use crate::providers::{self, Redemption};
+use crate::quota::WEEK_SECONDS;
 use crate::resets::ResetPolicy;
 use serde_json::{json, Map, Value};
 use std::cmp::Ordering;
@@ -21,6 +22,54 @@ pub const HOUR: f64 = 3_600_000.0;
 pub const RESET_JITTER_MS: f64 = HOUR;
 pub const FORECAST_MODES: [&str; 2] = ["shadow", "active"];
 const INF: f64 = f64::INFINITY;
+
+// Claude's usage response does not give windows stable ids. `limit:0` is the
+// weekly all-models bucket when no session limit is present, while it becomes
+// the session bucket when one is present and the weekly bucket moves to
+// `limit:1`. Keep the published selector for compatibility, but resolve it by
+// semantic properties below.
+const CLAUDE_WEEKLY_SELECTOR: &str = "limit:1";
+const CLAUDE_WEEKLY_KEY: &str = "__claude_weekly";
+
+fn claude_weekly_window(w: &Value) -> bool {
+    js::truthy(js::get(Some(w), "common"))
+        && js::finite(js::get(Some(w), "durationSeconds")) == Some(WEEK_SECONDS)
+}
+
+fn replay_window(provider: Option<&str>, raw: &str, source: Option<&Value>) -> String {
+    if provider != Some("claude") {
+        return raw.to_string();
+    }
+    if source.is_some_and(claude_weekly_window) {
+        CLAUDE_WEEKLY_KEY.to_string()
+    } else {
+        raw.to_string()
+    }
+}
+
+fn forecast_replay_window(provider: &str, window: &str, semantic_weekly: bool) -> String {
+    if provider != "claude" {
+        return window.to_string();
+    }
+    if semantic_weekly {
+        CLAUDE_WEEKLY_KEY.to_string()
+    } else {
+        window.to_string()
+    }
+}
+
+/// A quota cap attached to an account's all-models weekly budget. Claude's
+/// five-hour and model-specific windows are not extra account-weeks: they are
+/// gates on the same weekly usage.
+#[derive(Clone, Debug)]
+pub struct Cap {
+    pub used: f64,
+    pub reset_at: Option<f64>,
+    pub period_ms: f64,
+    pub floating: bool,
+    pub scope: Value,
+    pub label: Value,
+}
 
 macro_rules! forecast_config {
     ($($field:ident $key:literal = $default:literal, max $max:literal;)*) => {
@@ -236,8 +285,9 @@ pub struct Replay {
 
 /// `replaySamples(samples, weights)`: consumption increments from an ordered sample stream. A
 /// window that reset (used fell, or resetAt moved by more than the jitter) contributes its
-/// new used value.
-pub fn replay_samples(samples: &[Value], weights: &Map<String, Value>) -> Replay {
+/// new used value. Claude's weekly all-models bucket is canonicalized here because the upstream
+/// array index (`limit:N`) changes when a session bucket is present.
+pub fn replay_samples(samples: &[Value], weights: &Map<String, Value>, accounts: &[Value]) -> Replay {
     let mut last: HashMap<String, (f64, Option<f64>)> = HashMap::new();
     let mut out = Replay::default();
     for s in samples {
@@ -245,15 +295,27 @@ pub fn replay_samples(samples: &[Value], weights: &Map<String, Value>) -> Replay
         let Some(used) = js::finite(js::get(s, "used")) else {
             continue;
         };
-        let Some(Value::String(window)) = js::get(s, "window") else {
+        let Some(Value::String(raw_window)) = js::get(s, "window") else {
             continue;
         };
+        let provider = js::get(s, "provider");
+        let account = js::get(s, "accountId");
+        let source = accounts
+            .iter()
+            .find(|a| {
+                js::get(Some(a), "id").and_then(Value::as_str)
+                    == account.and_then(Value::as_str)
+                    || js::get(Some(a), "accountId").and_then(Value::as_str)
+                        == account.and_then(Value::as_str)
+            })
+            .and_then(|a| js::get(Some(a), "quotaWindows"))
+            .and_then(|ws| ws.as_array())
+            .and_then(|ws| ws.iter().find(|w| js::get(Some(w), "id").and_then(Value::as_str) == Some(raw_window)));
+        let window = replay_window(provider.and_then(Value::as_str), raw_window, source);
         let at = js::date_parse_value(js::get(s, "at"));
         if !at.is_finite() {
             continue;
         }
-        let provider = js::get(s, "provider");
-        let account = js::get(s, "accountId");
         let key = format!(
             "{}|{window}|{}",
             js::to_string(provider),
@@ -310,7 +372,11 @@ pub fn censored_hours(
     start_hour: f64,
     end_hour: f64,
 ) -> HashSet<i64> {
-    let weekly = weekly_window_id(provider);
+    let weekly = if provider == "claude" {
+        Some(CLAUDE_WEEKLY_KEY)
+    } else {
+        weekly_window_id(provider)
+    };
     let ids: HashSet<&str> = roster.iter().map(String::as_str).collect();
     let mut rel: Vec<&Mark> = marks
         .iter()
@@ -464,6 +530,7 @@ pub struct Supply {
     pub first_use: bool,
     pub floating: bool,
     pub refill: bool,
+    pub caps: Vec<Cap>,
     /// Credit expiries, soonest first (`Infinity` for none listed).
     pub credits: Vec<f64>,
     pub unmodeled_credits: f64,
@@ -476,6 +543,16 @@ impl Supply {
     fn units_left(&self) -> f64 {
         (self.weight * (100.0 - self.used)) / 100.0
     }
+
+    fn cap_units_left(&self) -> f64 {
+        self.caps.iter().fold(self.weight, |left, cap| {
+            left.min((self.weight * (100.0 - cap.used)) / 100.0)
+        })
+    }
+
+    fn effective_units_left(&self) -> f64 {
+        self.units_left().min(self.cap_units_left())
+    }
 }
 
 /// `supplyFor(accounts, provider, window, weights)`.
@@ -484,6 +561,7 @@ pub fn supply_for(
     provider: &str,
     window: &str,
     weights: &Map<String, Value>,
+    semantic_weekly: bool,
 ) -> Vec<Supply> {
     accounts
         .iter()
@@ -499,7 +577,15 @@ pub fn supply_for(
             };
             let w = windows.iter().find(|x| {
                 let x = Some(*x);
-                js::get(x, "id").and_then(Value::as_str) == Some(window)
+                let selected = if semantic_weekly && provider == "claude" && window == CLAUDE_WEEKLY_SELECTOR {
+                    x.is_some_and(claude_weekly_window)
+                } else if provider == "claude" && !semantic_weekly {
+                    !js::truthy(js::get(x, "common"))
+                        && js::get(x, "id").and_then(Value::as_str) == Some(window)
+                } else {
+                    js::get(x, "id").and_then(Value::as_str) == Some(window)
+                };
+                selected
                     && js::finite(js::get(x, "used")).is_some()
                     && js::finite(js::get(x, "durationSeconds")).is_some_and(|d| d > 0.0)
             })?;
@@ -542,6 +628,35 @@ pub fn supply_for(
             ]);
             let id = js::to_string(js::get(a, "id"));
             let first_use = starts_on_first_use(provider);
+            let caps = if semantic_weekly && provider == "claude" {
+                windows
+                    .iter()
+                    .filter_map(|cap| {
+                        if claude_weekly_window(cap) {
+                            return None;
+                        }
+                        let duration = js::finite(js::get(Some(cap), "durationSeconds"))?;
+                        if duration <= 0.0 {
+                            return None;
+                        }
+                        let cap_used = js::finite(js::get(Some(cap), "used"))?;
+                        Some(Cap {
+                            used: js::min([100.0, js::max([0.0, cap_used])]),
+                            reset_at: js::finite(js::get(Some(cap), "resetAt")),
+                            period_ms: duration * 1000.0,
+                            floating: js::finite(js::get(Some(cap), "resetAt")).is_none(),
+                            scope: js::coalesce([js::get(Some(cap), "scope")])
+                                .cloned()
+                                .unwrap_or(Value::Null),
+                            label: js::coalesce([js::get(Some(cap), "label")])
+                                .cloned()
+                                .unwrap_or(Value::Null),
+                        })
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
             Some(Supply {
                 weight: capacity_weight(provider, &id, weights),
                 id,
@@ -551,6 +666,7 @@ pub fn supply_for(
                 first_use,
                 floating: first_use && used == 0.0,
                 refill: refills(provider),
+                caps,
                 unmodeled_credits: count - credits.len() as f64,
                 credits,
                 stale: js::truthy(js::get(a, "usageStale"))
@@ -680,7 +796,7 @@ pub fn refill_runway(
     if rate.partial_cmp(&0.0) != Some(Ordering::Greater) {
         return reset - t >= cap;
     }
-    let mut units = a.weight;
+    let mut units = a.effective_units_left();
     for b in all {
         if std::ptr::eq(b, a) || b.id == a.id {
             continue;
@@ -691,7 +807,7 @@ pub fn refill_runway(
         if b_reset <= t || key(b).partial_cmp(&reset) != Some(Ordering::Less) {
             continue;
         }
-        units += js::min([b.units_left(), (rate * (b_reset - t)) / HOUR]);
+        units += js::min([b.effective_units_left(), (rate * (b_reset - t)) / HOUR]);
     }
     reset - t >= js::min([(units / rate) * HOUR, cap])
 }
@@ -706,7 +822,7 @@ fn drain(accounts: &mut [Supply], need: &mut f64, t: f64, drain_first: Option<&D
             break;
         }
         let a = &mut accounts[i];
-        let room = a.units_left();
+        let room = a.effective_units_left();
         if room <= 1e-12 {
             continue;
         }
@@ -716,6 +832,13 @@ fn drain(accounts: &mut [Supply], need: &mut f64, t: f64, drain_first: Option<&D
             a.floating = false;
         }
         a.used += (take / a.weight) * 100.0;
+        for cap in &mut a.caps {
+            if cap.reset_at.is_none() {
+                cap.reset_at = Some(t + cap.period_ms);
+                cap.floating = false;
+            }
+            cap.used += (take / a.weight) * 100.0;
+        }
         *need -= take;
     }
 }
@@ -754,7 +877,7 @@ pub fn simulate(supply: &[Supply], rate: &dyn Fn(f64) -> f64, o: &SimOptions) ->
             return true;
         }
         let need = if rate > 0.0 {
-            (a.weight / rate) * HOUR
+            (a.effective_units_left() / rate) * HOUR
         } else {
             INF
         };
@@ -765,8 +888,18 @@ pub fn simulate(supply: &[Supply], rate: &dyn Fn(f64) -> f64, o: &SimOptions) ->
     while h < o.horizon_hours {
         let t = now + h * HOUR;
         for a in accts.iter_mut() {
+            for cap in &mut a.caps {
+                while let Some(reset) = cap.reset_at.filter(|r| *r <= t) {
+                    cap.used = 0.0;
+                    if cap.floating {
+                        cap.reset_at = None;
+                    } else {
+                        cap.reset_at = Some(reset + cap.period_ms);
+                    }
+                }
+            }
             while let Some(reset) = a.reset_at.filter(|r| *r <= t) {
-                r.expiring_units += a.units_left();
+                r.expiring_units += a.effective_units_left();
                 a.used = 0.0;
                 if a.first_use {
                     a.reset_at = None;
@@ -805,7 +938,7 @@ pub fn simulate(supply: &[Supply], rate: &dyn Fn(f64) -> f64, o: &SimOptions) ->
                     if !early.contains(&a.id)
                         || !a.refill
                         || a.credits.is_empty()
-                        || a.used < 100.0 - 1e-9
+                        || a.effective_units_left() > 1e-12
                     {
                         continue;
                     }
@@ -820,6 +953,9 @@ pub fn simulate(supply: &[Supply], rate: &dyn Fn(f64) -> f64, o: &SimOptions) ->
                         at: t,
                     });
                     a.used = 0.0;
+                    for cap in &mut a.caps {
+                        cap.used = 0.0;
+                    }
                 }
             }
         }
@@ -860,6 +996,9 @@ pub fn simulate(supply: &[Supply], rate: &dyn Fn(f64) -> f64, o: &SimOptions) ->
             if !a.refill {
                 a.reset_at = None;
             }
+            for cap in &mut a.caps {
+                cap.used = 0.0;
+            }
             drain(&mut accts, &mut need, t, o.drain_first);
         }
         if need > 1e-12 {
@@ -869,7 +1008,9 @@ pub fn simulate(supply: &[Supply], rate: &dyn Fn(f64) -> f64, o: &SimOptions) ->
         }
         h += 1.0;
     }
-    r.remaining_units = accts.iter().fold(0.0, |s, a| s + a.units_left());
+    r.remaining_units = accts
+        .iter()
+        .fold(0.0, |s, a| s + a.effective_units_left());
     r.credit_units_left = accts
         .iter()
         .fold(0.0, |s, a| s + a.weight * a.credits.len() as f64);
@@ -936,6 +1077,9 @@ fn redeemed(sup: &[Supply], id: &str) -> Vec<Supply> {
             let mut c = b.clone();
             if b.id == id {
                 c.used = 0.0;
+                for cap in &mut c.caps {
+                    cap.used = 0.0;
+                }
                 c.credits = b.credits.iter().skip(1).copied().collect();
             }
             c
@@ -996,12 +1140,12 @@ pub fn refill_credit_plan(
     let deadline: Vec<&Supply> = usable
         .iter()
         .copied()
-        .filter(|a| a.used < 100.0 && a.credits[0] < reset_or_inf(a))
+        .filter(|a| a.effective_units_left() > 1e-12 && a.credits[0] < reset_or_inf(a))
         .collect();
     let early: HashSet<String> = deadline.iter().map(|a| a.id.clone()).collect();
     let low = if paces.low > 0.0 { paces.low } else { 0.0 };
     let mut holders: Vec<String> = Vec::new();
-    for a in usable.iter().filter(|x| x.used >= 100.0) {
+    for a in usable.iter().filter(|x| x.effective_units_left() <= 1e-12) {
         if !refill_runway(a, supply, now, low, max_runway_percent, &reset_or_inf) {
             continue;
         }
@@ -1068,7 +1212,7 @@ pub fn refill_credit_plan(
                     );
                     outcome = Some(fate(&x, &a.id));
                 }
-                let forced_df = if drain_by.is_some() && a.used < 100.0 {
+                let forced_df = if drain_by.is_some() && a.effective_units_left() > 1e-12 {
                     drain_first.with(&a.id, a.credits[0])
                 } else {
                     drain_first.clone()
@@ -1106,8 +1250,8 @@ pub fn refill_credit_plan(
                 account_id: a.id.clone(),
                 expires_at: a.credits[0],
                 reset_at: a.reset_at,
-                out: a.used >= 100.0,
-                units_left: a.units_left(),
+                out: a.effective_units_left() <= 1e-12,
+                units_left: a.effective_units_left(),
                 stale: a.stale,
                 action,
                 drain_by,
@@ -1720,15 +1864,17 @@ fn forecast_class(
     prev: Option<&Value>,
     credits_enabled: bool,
     max_runway_percent: f64,
+    semantic_weekly: bool,
     full: bool,
 ) -> Map<String, Value> {
-    let supply = supply_for(accounts, provider, window, &config.weights);
+    let supply = supply_for(accounts, provider, window, &config.weights, semantic_weekly);
+    let replay_window = forecast_replay_window(provider, window, semantic_weekly);
     let roster: Vec<String> = supply.iter().map(|a| a.id.clone()).collect();
     let end = (now / HOUR).floor();
     let censored = censored_hours(
         &replay.marks,
         provider,
-        window,
+        &replay_window,
         &roster,
         end - config.lookback_hours + 1.0,
         end,
@@ -1736,11 +1882,11 @@ fn forecast_class(
     let events: Vec<&Event> = replay
         .events
         .iter()
-        .filter(|e| e.provider.as_deref() == Some(provider) && e.window == window)
+        .filter(|e| e.provider.as_deref() == Some(provider) && e.window == replay_window)
         .collect();
     let mut first_mark = INF;
     for m in &replay.marks {
-        if m.provider.as_deref() == Some(provider) && m.window == window && m.at < first_mark {
+        if m.provider.as_deref() == Some(provider) && m.window == replay_window && m.at < first_mark {
             first_mark = m.at;
         }
     }
@@ -1852,8 +1998,15 @@ fn forecast_class(
     } else {
         Value::Null
     };
-    let remaining_units = supply.iter().fold(0.0, |s, a| s + a.units_left());
-    let exhausted_now = !supply.is_empty() && supply.iter().all(|a| a.used >= 100.0);
+    let remaining_units = supply
+        .iter()
+        .fold(0.0, |s, a| s + a.effective_units_left());
+    // A full session/model cap blocks the weekly budget just like a full
+    // weekly window. Caps are constraints, not additional supply.
+    let exhausted_now = !supply.is_empty()
+        && supply
+            .iter()
+            .all(|a| a.effective_units_left() <= 1e-12);
     let all_stale = !supply.is_empty() && supply.iter().all(|a| a.stale);
     let fresh_at: Value = if all_stale {
         js::coalesce([js::get(prev, "freshAt")])
@@ -2174,7 +2327,7 @@ pub fn build_forecast(
     reset_policies: &[ResetPolicy],
     reset_automation: bool,
 ) -> Value {
-    let replay = replay_samples(samples, &config.weights);
+    let replay = replay_samples(samples, &config.weights, accounts);
     let mut ids: Vec<&str> = Vec::new();
     for a in accounts {
         if let Some(p) = js::get(Some(a), "provider").and_then(Value::as_str) {
@@ -2204,6 +2357,7 @@ pub fn build_forecast(
             credits_enabled,
             max_runway,
             true,
+            true,
         );
         // Model-specific limits are forecast separately; credits are not assumed to restore
         // them.
@@ -2218,7 +2372,10 @@ pub fn build_forecast(
             for w in ws {
                 let w = Some(w);
                 let id = js::get(w, "id");
-                if js::truthy(js::get(w, "common")) || is_str(id, weekly) {
+                // The main class is semantic (common weekly for Claude), not a
+                // positional id. A model cap may legitimately reuse that id
+                // when the provider omitted a session window.
+                if js::truthy(js::get(w, "common")) {
                     continue;
                 }
                 if !js::finite(js::get(w, "durationSeconds")).is_some_and(|d| d >= 86400.0) {
@@ -2250,6 +2407,7 @@ pub fn build_forecast(
                     prev_w,
                     false,
                     default_max_runway_percent(provider),
+                    false,
                     false,
                 );
                 model_window_summary(id, &f)
@@ -2365,5 +2523,35 @@ mod hook_tests {
         assert_eq!(refill_demand_of(Some(&doc), "claude", now), Some(json!({ "unitsPerHour": 0.02, "weights": {} })));
         assert_eq!(refill_demand_of(Some(&doc), "claude", now + 60_000.0), None, "stale at staleAfter");
         assert_eq!(lapsing_holders(None, "claude", now), None);
+    }
+
+    #[test]
+    fn claude_weekly_supply_is_semantic_and_caps_do_not_add_capacity() {
+        let accounts = vec![
+            json!({
+                "id": "a", "provider": "claude", "quotaWindows": [
+                    {"id":"limit:0", "scope":"All models", "label":"Weekly", "used":20, "resetAt":2_000_000.0, "durationSeconds":604800, "common":true},
+                    {"id":"limit:1", "scope":"Fable", "label":"Weekly", "used":100, "resetAt":2_000_000.0, "durationSeconds":604800, "common":false}
+                ]
+            }),
+            json!({
+                "id": "b", "provider": "claude", "quotaWindows": [
+                    {"id":"limit:0", "scope":"5-hour", "label":"5-hour", "used":100, "resetAt":1_500_000.0, "durationSeconds":18000, "common":true},
+                    {"id":"limit:1", "scope":"All models", "label":"Weekly", "used":20, "resetAt":2_000_000.0, "durationSeconds":604800, "common":true},
+                    {"id":"limit:2", "scope":"Fable", "label":"Weekly", "used":0, "resetAt":2_000_000.0, "durationSeconds":604800, "common":false}
+                ]
+            }),
+        ];
+        let weights = Map::new();
+        let weekly = supply_for(&accounts, "claude", "limit:1", &weights, true);
+        assert_eq!(weekly.len(), 2);
+        assert_eq!(weekly.iter().map(|a| a.used).collect::<Vec<_>>(), vec![20.0, 20.0]);
+        assert_eq!(weekly.iter().map(|a| a.caps.len()).collect::<Vec<_>>(), vec![1, 2]);
+        assert_eq!(weekly.iter().map(Supply::effective_units_left).sum::<f64>(), 0.0);
+
+        let fable = supply_for(&accounts, "claude", "limit:1", &weights, false);
+        assert_eq!(fable.len(), 1, "the common weekly row must not be treated as Fable");
+        assert_eq!(fable[0].id, "a");
+        assert_eq!(fable[0].used, 100.0);
     }
 }

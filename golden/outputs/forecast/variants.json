@@ -1150,7 +1150,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 6,
@@ -1188,9 +1188,7 @@
         "demandFactor": 1.5,
         "evidence": true,
         "windowDays": 14,
-        "holders": [
-         "claude-0e602f2d-user1@example.invalid.json"
-        ],
+        "holders": [],
         "refill": {
          "unitsPerHour": 0.02306,
          "weights": {
@@ -1201,12 +1199,7 @@
         },
         "method": "counterfactual",
         "planned": true,
-        "drainFirst": [
-         {
-          "accountId": "claude-550c2ce1-user4@example.invalid.json",
-          "until": "2026-10-29T14:41:33.487Z"
-         }
-        ],
+        "drainFirst": [],
         "credits": [
          {
           "accountId": "claude-0e602f2d-user1@example.invalid.json",
@@ -1215,34 +1208,34 @@
           "out": true,
           "unitsLeft": 0,
           "stale": false,
-          "action": "redeem-now",
+          "action": "wait",
           "drainBy": "2026-10-28T08:41:33.487Z",
           "outcome": "used",
-          "needUnitsPerHour": null
+          "needUnitsPerHour": 0.00002
          },
          {
           "accountId": "claude-550c2ce1-user4@example.invalid.json",
           "expiresAt": "2026-10-29T14:41:33.487Z",
           "resetAt": "2026-11-01T09:00:00.738Z",
           "out": false,
-          "unitsLeft": 0.87,
+          "unitsLeft": 0.53,
           "stale": false,
-          "action": "drain-first",
+          "action": "wait",
           "drainBy": "2026-10-29T14:41:33.487Z",
-          "outcome": "lapses",
-          "needUnitsPerHour": 0.03117
+          "outcome": "used",
+          "needUnitsPerHour": 0.01452
          },
          {
           "accountId": "claude-b1dc4342-user3@example.invalid.json",
           "expiresAt": "2026-10-30T20:41:33.487Z",
           "resetAt": "2026-11-01T02:00:00.816Z",
-          "out": false,
-          "unitsLeft": 0.01,
+          "out": true,
+          "unitsLeft": 0,
           "stale": false,
           "action": "wait",
           "drainBy": "2026-10-30T20:41:33.487Z",
-          "outcome": "used",
-          "needUnitsPerHour": 0.00035
+          "outcome": "lapses",
+          "needUnitsPerHour": 0.00002
          }
         ]
        },
@@ -1341,38 +1334,38 @@
         "demandUnitsPerHour": 0.03006,
         "naturalUnitsPerHour": 0.01786,
         "credits": 6,
-        "maxUnits": 15.88,
+        "maxUnits": 15.54,
         "maxCreditsLapsing": 0,
         "atDemand": {
          "unitsPerHour": 0.03006,
          "usedUnits": 11.817,
-         "lostUnits": 4.063,
+         "lostUnits": 3.723,
          "creditsUsed": 3,
          "creditsLapsing": 3,
          "shortHours": 131,
          "firstShortAt": "2026-11-04T03:41:33.487Z"
         },
         "fullUse": {
-         "unitsPerHour": 0.06553,
-         "usedUnits": 15.864,
-         "lostUnits": 0.016,
+         "unitsPerHour": 0.06156,
+         "usedUnits": 15.387,
+         "lostUnits": 0.153,
          "creditsUsed": 6,
          "creditsLapsing": 0,
-         "shortHours": 264,
-         "firstShortAt": "2026-11-02T08:41:33.487Z"
+         "shortHours": 256,
+         "firstShortAt": "2026-11-02T10:41:33.487Z"
         },
         "noGap": {
          "unitsPerHour": 0.01822,
          "usedUnits": 10.314,
-         "lostUnits": 5.566,
+         "lostUnits": 5.226,
          "creditsUsed": 1,
          "creditsLapsing": 5,
          "shortHours": 0,
          "firstShortAt": null
         },
         "then": {
-         "from": "2026-10-31T11:41:33.487Z",
-         "unitsPerHour": 0.06553
+         "from": "2026-10-31T18:41:33.487Z",
+         "unitsPerHour": 0.06156
         },
         "steps": [
          {
@@ -1396,27 +1389,27 @@
          {
           "credits": 4,
           "reachable": true,
-          "unitsPerHour": 0.03638,
-          "spentBy": "2026-10-31T23:41:33.487Z"
+          "unitsPerHour": 0.0353,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          },
          {
           "credits": 5,
           "reachable": true,
-          "unitsPerHour": 0.04921,
-          "spentBy": "2026-10-31T22:41:33.487Z"
+          "unitsPerHour": 0.04708,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          },
          {
           "credits": 6,
           "reachable": true,
-          "unitsPerHour": 0.06553,
-          "spentBy": "2026-10-31T10:41:33.487Z"
+          "unitsPerHour": 0.05734,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          }
         ],
         "curve": [
          {
           "unitsPerHour": 0.00893,
           "usedUnits": 7.134,
-          "lostUnits": 8.746,
+          "lostUnits": 8.406,
           "creditsUsed": 0,
           "creditsLapsing": 6,
           "shortHours": 0,
@@ -1425,7 +1418,7 @@
          {
           "unitsPerHour": 0.01786,
           "usedUnits": 10.268,
-          "lostUnits": 5.612,
+          "lostUnits": 5.272,
           "creditsUsed": 1,
           "creditsLapsing": 5,
           "shortHours": 0,
@@ -1434,7 +1427,7 @@
          {
           "unitsPerHour": 0.02679,
           "usedUnits": 11.402,
-          "lostUnits": 4.478,
+          "lostUnits": 4.138,
           "creditsUsed": 2,
           "creditsLapsing": 4,
           "shortHours": 107,
@@ -1442,17 +1435,17 @@
          },
          {
           "unitsPerHour": 0.03571,
-          "usedUnits": 12.25,
-          "lostUnits": 3.63,
-          "creditsUsed": 3,
-          "creditsLapsing": 3,
-          "shortHours": 169,
-          "firstShortAt": "2026-11-01T01:41:33.487Z"
+          "usedUnits": 12.286,
+          "lostUnits": 3.254,
+          "creditsUsed": 4,
+          "creditsLapsing": 2,
+          "shortHours": 168,
+          "firstShortAt": "2026-11-03T10:41:33.487Z"
          },
          {
           "unitsPerHour": 0.05357,
           "usedUnits": 14.804,
-          "lostUnits": 1.076,
+          "lostUnits": 0.736,
           "creditsUsed": 5,
           "creditsLapsing": 1,
           "shortHours": 230,
@@ -1469,12 +1462,12 @@
          },
          {
           "unitsPerHour": 0.17857,
-          "usedUnits": 15.88,
-          "lostUnits": 0,
+          "usedUnits": 15.25,
+          "lostUnits": 0.29,
           "creditsUsed": 6,
           "creditsLapsing": 0,
-          "shortHours": 421,
-          "firstShortAt": "2026-10-28T10:41:33.487Z"
+          "shortHours": 424,
+          "firstShortAt": "2026-10-28T18:41:33.487Z"
          }
         ]
        },
@@ -2941,7 +2934,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 6,
@@ -2979,9 +2972,7 @@
         "demandFactor": 1.5,
         "evidence": true,
         "windowDays": 14,
-        "holders": [
-         "claude-0e602f2d-user1@example.invalid.json"
-        ],
+        "holders": [],
         "refill": {
          "unitsPerHour": 0.02306,
          "weights": {
@@ -2992,12 +2983,7 @@
         },
         "method": "counterfactual",
         "planned": true,
-        "drainFirst": [
-         {
-          "accountId": "claude-550c2ce1-user4@example.invalid.json",
-          "until": "2026-10-29T14:41:33.487Z"
-         }
-        ],
+        "drainFirst": [],
         "credits": [
          {
           "accountId": "claude-0e602f2d-user1@example.invalid.json",
@@ -3006,34 +2992,34 @@
           "out": true,
           "unitsLeft": 0,
           "stale": false,
-          "action": "redeem-now",
+          "action": "wait",
           "drainBy": "2026-10-28T08:41:33.487Z",
           "outcome": "used",
-          "needUnitsPerHour": null
+          "needUnitsPerHour": 0.00002
          },
          {
           "accountId": "claude-550c2ce1-user4@example.invalid.json",
           "expiresAt": "2026-10-29T14:41:33.487Z",
           "resetAt": "2026-11-01T09:00:00.738Z",
           "out": false,
-          "unitsLeft": 0.87,
+          "unitsLeft": 0.53,
           "stale": false,
-          "action": "drain-first",
+          "action": "wait",
           "drainBy": "2026-10-29T14:41:33.487Z",
-          "outcome": "lapses",
-          "needUnitsPerHour": 0.03117
+          "outcome": "used",
+          "needUnitsPerHour": 0.01452
          },
          {
           "accountId": "claude-b1dc4342-user3@example.invalid.json",
           "expiresAt": "2026-10-30T20:41:33.487Z",
           "resetAt": "2026-11-01T02:00:00.816Z",
-          "out": false,
-          "unitsLeft": 0.01,
+          "out": true,
+          "unitsLeft": 0,
           "stale": false,
           "action": "wait",
           "drainBy": "2026-10-30T20:41:33.487Z",
-          "outcome": "used",
-          "needUnitsPerHour": 0.00035
+          "outcome": "lapses",
+          "needUnitsPerHour": 0.00002
          }
         ]
        },
@@ -3132,38 +3118,38 @@
         "demandUnitsPerHour": 0.03006,
         "naturalUnitsPerHour": 0.01786,
         "credits": 6,
-        "maxUnits": 15.88,
+        "maxUnits": 15.54,
         "maxCreditsLapsing": 0,
         "atDemand": {
          "unitsPerHour": 0.03006,
          "usedUnits": 11.817,
-         "lostUnits": 4.063,
+         "lostUnits": 3.723,
          "creditsUsed": 3,
          "creditsLapsing": 3,
          "shortHours": 131,
          "firstShortAt": "2026-11-04T03:41:33.487Z"
         },
         "fullUse": {
-         "unitsPerHour": 0.06553,
-         "usedUnits": 15.864,
-         "lostUnits": 0.016,
+         "unitsPerHour": 0.06156,
+         "usedUnits": 15.387,
+         "lostUnits": 0.153,
          "creditsUsed": 6,
          "creditsLapsing": 0,
-         "shortHours": 264,
-         "firstShortAt": "2026-11-02T08:41:33.487Z"
+         "shortHours": 256,
+         "firstShortAt": "2026-11-02T10:41:33.487Z"
         },
         "noGap": {
          "unitsPerHour": 0.01822,
          "usedUnits": 10.314,
-         "lostUnits": 5.566,
+         "lostUnits": 5.226,
          "creditsUsed": 1,
          "creditsLapsing": 5,
          "shortHours": 0,
          "firstShortAt": null
         },
         "then": {
-         "from": "2026-10-31T11:41:33.487Z",
-         "unitsPerHour": 0.06553
+         "from": "2026-10-31T18:41:33.487Z",
+         "unitsPerHour": 0.06156
         },
         "steps": [
          {
@@ -3187,27 +3173,27 @@
          {
           "credits": 4,
           "reachable": true,
-          "unitsPerHour": 0.03638,
-          "spentBy": "2026-10-31T23:41:33.487Z"
+          "unitsPerHour": 0.0353,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          },
          {
           "credits": 5,
           "reachable": true,
-          "unitsPerHour": 0.04921,
-          "spentBy": "2026-10-31T22:41:33.487Z"
+          "unitsPerHour": 0.04708,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          },
          {
           "credits": 6,
           "reachable": true,
-          "unitsPerHour": 0.06553,
-          "spentBy": "2026-10-31T10:41:33.487Z"
+          "unitsPerHour": 0.05734,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          }
         ],
         "curve": [
          {
           "unitsPerHour": 0.00893,
           "usedUnits": 7.134,
-          "lostUnits": 8.746,
+          "lostUnits": 8.406,
           "creditsUsed": 0,
           "creditsLapsing": 6,
           "shortHours": 0,
@@ -3216,7 +3202,7 @@
          {
           "unitsPerHour": 0.01786,
           "usedUnits": 10.268,
-          "lostUnits": 5.612,
+          "lostUnits": 5.272,
           "creditsUsed": 1,
           "creditsLapsing": 5,
           "shortHours": 0,
@@ -3225,7 +3211,7 @@
          {
           "unitsPerHour": 0.02679,
           "usedUnits": 11.402,
-          "lostUnits": 4.478,
+          "lostUnits": 4.138,
           "creditsUsed": 2,
           "creditsLapsing": 4,
           "shortHours": 107,
@@ -3233,17 +3219,17 @@
          },
          {
           "unitsPerHour": 0.03571,
-          "usedUnits": 12.25,
-          "lostUnits": 3.63,
-          "creditsUsed": 3,
-          "creditsLapsing": 3,
-          "shortHours": 169,
-          "firstShortAt": "2026-11-01T01:41:33.487Z"
+          "usedUnits": 12.286,
+          "lostUnits": 3.254,
+          "creditsUsed": 4,
+          "creditsLapsing": 2,
+          "shortHours": 168,
+          "firstShortAt": "2026-11-03T10:41:33.487Z"
          },
          {
           "unitsPerHour": 0.05357,
           "usedUnits": 14.804,
-          "lostUnits": 1.076,
+          "lostUnits": 0.736,
           "creditsUsed": 5,
           "creditsLapsing": 1,
           "shortHours": 230,
@@ -3260,12 +3246,12 @@
          },
          {
           "unitsPerHour": 0.17857,
-          "usedUnits": 15.88,
-          "lostUnits": 0,
+          "usedUnits": 15.25,
+          "lostUnits": 0.29,
           "creditsUsed": 6,
           "creditsLapsing": 0,
-          "shortHours": 421,
-          "firstShortAt": "2026-10-28T10:41:33.487Z"
+          "shortHours": 424,
+          "firstShortAt": "2026-10-28T18:41:33.487Z"
          }
         ]
        },
@@ -4730,7 +4716,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 6,
@@ -4768,7 +4754,9 @@
         "demandFactor": 1.5,
         "evidence": true,
         "windowDays": 14,
-        "holders": [],
+        "holders": [
+         "claude-b1dc4342-user3@example.invalid.json"
+        ],
         "refill": {
          "unitsPerHour": 0.02181,
          "weights": {
@@ -4779,12 +4767,7 @@
         },
         "method": "counterfactual",
         "planned": true,
-        "drainFirst": [
-         {
-          "accountId": "claude-550c2ce1-user4@example.invalid.json",
-          "until": "2026-10-29T14:41:33.487Z"
-         }
-        ],
+        "drainFirst": [],
         "credits": [
          {
           "accountId": "claude-0e602f2d-user1@example.invalid.json",
@@ -4803,24 +4786,24 @@
           "expiresAt": "2026-10-29T14:41:33.487Z",
           "resetAt": "2026-11-01T09:00:00.738Z",
           "out": false,
-          "unitsLeft": 0.87,
+          "unitsLeft": 0.53,
           "stale": false,
-          "action": "drain-first",
+          "action": "wait",
           "drainBy": "2026-10-29T14:41:33.487Z",
-          "outcome": "used",
+          "outcome": "lapses",
           "needUnitsPerHour": 0.01644
          },
          {
           "accountId": "claude-b1dc4342-user3@example.invalid.json",
           "expiresAt": "2026-10-30T20:41:33.487Z",
           "resetAt": "2026-11-01T02:00:00.816Z",
-          "out": false,
-          "unitsLeft": 0.01,
+          "out": true,
+          "unitsLeft": 0,
           "stale": false,
-          "action": "wait",
+          "action": "redeem-now",
           "drainBy": "2026-10-30T20:41:33.487Z",
           "outcome": "used",
-          "needUnitsPerHour": 0.00035
+          "needUnitsPerHour": null
          }
         ]
        },
@@ -4870,14 +4853,18 @@
          ]
         },
         "weeklyGrant": {
-         "outageHours": 15,
-         "firstOutageAt": "2026-11-07T11:41:33.487Z",
-         "creditsUsed": 1,
+         "outageHours": 0,
+         "firstOutageAt": null,
+         "creditsUsed": 2,
          "creditsLapsing": 5,
          "redemptions": [
           {
            "id": "claude-0e602f2d-user1@example.invalid.json",
            "at": "2026-10-30T22:41:33.487Z"
+          },
+          {
+           "id": "claude-550c2ce1-user4@example.invalid.json",
+           "at": "2026-11-07T11:41:33.487Z"
           }
          ],
          "lapses": [
@@ -4927,13 +4914,13 @@
          "firstShortAt": "2026-11-07T11:41:33.487Z"
         },
         "fullUse": {
-         "unitsPerHour": 0.06989,
-         "usedUnits": 15.88,
-         "lostUnits": 0,
+         "unitsPerHour": 0.06836,
+         "usedUnits": 15.725,
+         "lostUnits": 0.155,
          "creditsUsed": 6,
          "creditsLapsing": 0,
-         "shortHours": 280,
-         "firstShortAt": "2026-11-01T01:41:33.487Z"
+         "shortHours": 276,
+         "firstShortAt": "2026-11-02T07:41:33.487Z"
         },
         "noGap": {
          "unitsPerHour": 0.01822,
@@ -4945,8 +4932,8 @@
          "firstShortAt": null
         },
         "then": {
-         "from": "2026-10-31T12:41:33.487Z",
-         "unitsPerHour": 0.06863
+         "from": "2026-10-31T14:41:33.487Z",
+         "unitsPerHour": 0.06836
         },
         "steps": [
          {
@@ -4976,14 +4963,14 @@
          {
           "credits": 5,
           "reachable": true,
-          "unitsPerHour": 0.04921,
-          "spentBy": "2026-10-31T22:41:33.487Z"
+          "unitsPerHour": 0.04708,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          },
          {
           "credits": 6,
           "reachable": true,
-          "unitsPerHour": 0.06989,
-          "spentBy": "2026-10-31T11:41:33.487Z"
+          "unitsPerHour": 0.05884,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          }
         ],
         "curve": [
@@ -6528,21 +6515,21 @@
        "projection": {
         "horizonHours": 336,
         "creditsModeled": true,
-        "outageHours": 90,
-        "firstOutageAt": "2026-10-31T05:41:33.487Z",
-        "expiringUnits": 0,
-        "creditsUsed": 2,
-        "creditsExpiringUnused": 4,
-        "wastedUnits": 4,
+        "outageHours": 69,
+        "firstOutageAt": "2026-11-03T20:41:33.487Z",
+        "expiringUnits": 0.393,
+        "creditsUsed": 3,
+        "creditsExpiringUnused": 3,
+        "wastedUnits": 3.393,
         "outageHoursAtMargin": 82,
         "wastedUnitsAtMargin": 2.228,
         "demandToNaturalSupply": 1.683
        },
        "creditOutlook": {
         "horizonHours": 336,
-        "creditsUsed": 2,
-        "creditsLapsing": 4,
-        "firstOutageAt": "2026-10-31T05:41:33.487Z"
+        "creditsUsed": 3,
+        "creditsLapsing": 3,
+        "firstOutageAt": "2026-11-03T20:41:33.487Z"
        },
        "creditPlan": {
         "unitsPerHour": 0.04509,
@@ -6615,10 +6602,10 @@
          "lapses": []
         },
         "bankedCredits": {
-         "outageHours": 90,
-         "firstOutageAt": "2026-10-31T05:41:33.487Z",
-         "creditsUsed": 2,
-         "creditsLapsing": 4,
+         "outageHours": 69,
+         "firstOutageAt": "2026-11-03T20:41:33.487Z",
+         "creditsUsed": 3,
+         "creditsLapsing": 3,
          "redemptions": [
           {
            "id": "claude-550c2ce1-user4@example.invalid.json",
@@ -6627,6 +6614,10 @@
           {
            "id": "claude-550c2ce1-user4@example.invalid.json",
            "at": "2026-10-28T11:41:33.487Z"
+          },
+          {
+           "id": "claude-b1dc4342-user3@example.invalid.json",
+           "at": "2026-10-31T05:41:33.487Z"
           }
          ],
          "lapses": [
@@ -6641,18 +6632,14 @@
           {
            "id": "claude-0e602f2d-user1@example.invalid.json",
            "at": "2026-10-31T02:41:33.487Z"
-          },
-          {
-           "id": "claude-b1dc4342-user3@example.invalid.json",
-           "at": "2026-11-02T02:41:33.487Z"
           }
          ]
         },
         "weeklyGrant": {
-         "outageHours": 56,
-         "firstOutageAt": "2026-10-31T05:41:33.487Z",
-         "creditsUsed": 3,
-         "creditsLapsing": 4,
+         "outageHours": 35,
+         "firstOutageAt": "2026-11-06T15:41:33.487Z",
+         "creditsUsed": 4,
+         "creditsLapsing": 3,
          "redemptions": [
           {
            "id": "claude-550c2ce1-user4@example.invalid.json",
@@ -6661,6 +6648,10 @@
           {
            "id": "claude-550c2ce1-user4@example.invalid.json",
            "at": "2026-10-28T11:41:33.487Z"
+          },
+          {
+           "id": "claude-b1dc4342-user3@example.invalid.json",
+           "at": "2026-10-31T05:41:33.487Z"
           },
           {
            "id": "claude-550c2ce1-user4@example.invalid.json",
@@ -6679,10 +6670,6 @@
           {
            "id": "claude-0e602f2d-user1@example.invalid.json",
            "at": "2026-10-31T02:41:33.487Z"
-          },
-          {
-           "id": "claude-b1dc4342-user3@example.invalid.json",
-           "at": "2026-11-02T02:41:33.487Z"
           }
          ],
          "assumption": "one new credit every 7 days, each valid 7 days",
@@ -6702,21 +6689,21 @@
         "maxCreditsLapsing": 0,
         "atDemand": {
          "unitsPerHour": 0.03006,
-         "usedUnits": 11,
-         "lostUnits": 4,
-         "creditsUsed": 2,
-         "creditsLapsing": 4,
-         "shortHours": 159,
-         "firstShortAt": "2026-10-31T05:41:33.487Z"
+         "usedUnits": 11.607,
+         "lostUnits": 3.393,
+         "creditsUsed": 3,
+         "creditsLapsing": 3,
+         "shortHours": 138,
+         "firstShortAt": "2026-11-03T20:41:33.487Z"
         },
         "fullUse": {
-         "unitsPerHour": 0.05828,
-         "usedUnits": 14.994,
-         "lostUnits": 0.006,
+         "unitsPerHour": 0.05709,
+         "usedUnits": 14.851,
+         "lostUnits": 0.149,
          "creditsUsed": 6,
          "creditsLapsing": 0,
-         "shortHours": 248,
-         "firstShortAt": "2026-11-02T12:41:33.487Z"
+         "shortHours": 245,
+         "firstShortAt": "2026-11-02T13:41:33.487Z"
         },
         "noGap": {
          "unitsPerHour": 0.01822,
@@ -6728,8 +6715,8 @@
          "firstShortAt": null
         },
         "then": {
-         "from": "2026-10-31T09:41:33.487Z",
-         "unitsPerHour": 0.05828
+         "from": "2026-10-31T12:41:33.487Z",
+         "unitsPerHour": 0.05709
         },
         "steps": [
          {
@@ -6759,14 +6746,14 @@
          {
           "credits": 5,
           "reachable": true,
-          "unitsPerHour": 0.03638,
-          "spentBy": "2026-10-31T23:41:33.487Z"
+          "unitsPerHour": 0.0353,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          },
          {
           "credits": 6,
           "reachable": true,
-          "unitsPerHour": 0.05828,
-          "spentBy": "2026-10-31T08:41:33.487Z"
+          "unitsPerHour": 0.04708,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          }
         ],
         "curve": [
@@ -6799,21 +6786,21 @@
          },
          {
           "unitsPerHour": 0.03571,
-          "usedUnits": 12.25,
-          "lostUnits": 2.75,
-          "creditsUsed": 4,
-          "creditsLapsing": 2,
-          "shortHours": 169,
-          "firstShortAt": "2026-11-01T01:41:33.487Z"
+          "usedUnits": 12.286,
+          "lostUnits": 2.714,
+          "creditsUsed": 5,
+          "creditsLapsing": 1,
+          "shortHours": 168,
+          "firstShortAt": "2026-11-03T10:41:33.487Z"
          },
          {
           "unitsPerHour": 0.05357,
-          "usedUnits": 13.875,
-          "lostUnits": 1.125,
-          "creditsUsed": 5,
-          "creditsLapsing": 1,
-          "shortHours": 248,
-          "firstShortAt": "2026-10-31T15:41:33.487Z"
+          "usedUnits": 14.429,
+          "lostUnits": 0.571,
+          "creditsUsed": 6,
+          "creditsLapsing": 0,
+          "shortHours": 237,
+          "firstShortAt": "2026-11-02T15:41:33.487Z"
          },
          {
           "unitsPerHour": 0.08929,
@@ -8298,7 +8285,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.65,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-30T02:41:33.487Z",
         "credits": 6,
@@ -8315,21 +8302,21 @@
        "projection": {
         "horizonHours": 336,
         "creditsModeled": true,
-        "outageHours": 53,
-        "firstOutageAt": "2026-11-03T21:41:33.487Z",
+        "outageHours": 70,
+        "firstOutageAt": "2026-11-03T02:41:33.487Z",
         "expiringUnits": 0,
-        "creditsUsed": 2,
-        "creditsExpiringUnused": 4,
-        "wastedUnits": 4,
-        "outageHoursAtMargin": 81,
-        "wastedUnitsAtMargin": 3,
+        "creditsUsed": 3,
+        "creditsExpiringUnused": 3,
+        "wastedUnits": 3,
+        "outageHoursAtMargin": 90,
+        "wastedUnitsAtMargin": 2,
         "demandToNaturalSupply": 1.683
        },
        "creditOutlook": {
         "horizonHours": 336,
-        "creditsUsed": 2,
-        "creditsLapsing": 4,
-        "firstOutageAt": "2026-11-03T21:41:33.487Z"
+        "creditsUsed": 3,
+        "creditsLapsing": 3,
+        "firstOutageAt": "2026-11-03T02:41:33.487Z"
        },
        "creditPlan": {
         "unitsPerHour": 0.04509,
@@ -8368,12 +8355,12 @@
           "expiresAt": "2026-10-29T14:41:33.487Z",
           "resetAt": "2026-10-31T02:41:33.487Z",
           "out": false,
-          "unitsLeft": 0.65,
+          "unitsLeft": 0.53,
           "stale": false,
           "action": "wait",
           "drainBy": "2026-10-29T14:41:33.487Z",
           "outcome": "used",
-          "needUnitsPerHour": 0.01103
+          "needUnitsPerHour": 0.01083
          },
          {
           "accountId": "claude-b1dc4342-user3@example.invalid.json",
@@ -8393,7 +8380,7 @@
         "horizonHours": 336,
         "unitsPerHour": 0.03006,
         "naturalOnly": {
-         "outageHours": 120,
+         "outageHours": 125,
          "firstOutageAt": "2026-10-27T23:41:33.487Z",
          "creditsUsed": 0,
          "creditsLapsing": 0,
@@ -8401,10 +8388,10 @@
          "lapses": []
         },
         "bankedCredits": {
-         "outageHours": 53,
-         "firstOutageAt": "2026-11-03T21:41:33.487Z",
-         "creditsUsed": 2,
-         "creditsLapsing": 4,
+         "outageHours": 70,
+         "firstOutageAt": "2026-11-03T02:41:33.487Z",
+         "creditsUsed": 3,
+         "creditsLapsing": 3,
          "redemptions": [
           {
            "id": "claude-0e602f2d-user1@example.invalid.json",
@@ -8413,6 +8400,10 @@
           {
            "id": "claude-550c2ce1-user4@example.invalid.json",
            "at": "2026-10-29T08:41:33.487Z"
+          },
+          {
+           "id": "claude-550c2ce1-user4@example.invalid.json",
+           "at": "2026-10-31T07:41:33.487Z"
           }
          ],
          "lapses": [
@@ -8423,10 +8414,6 @@
           {
            "id": "claude-0e602f2d-user1@example.invalid.json",
            "at": "2026-10-31T02:41:33.487Z"
-          },
-          {
-           "id": "claude-550c2ce1-user4@example.invalid.json",
-           "at": "2026-11-01T02:41:33.487Z"
           },
           {
            "id": "claude-b1dc4342-user3@example.invalid.json",
@@ -8435,10 +8422,10 @@
          ]
         },
         "weeklyGrant": {
-         "outageHours": 19,
-         "firstOutageAt": "2026-11-05T07:41:33.487Z",
-         "creditsUsed": 3,
-         "creditsLapsing": 4,
+         "outageHours": 37,
+         "firstOutageAt": "2026-11-04T11:41:33.487Z",
+         "creditsUsed": 4,
+         "creditsLapsing": 3,
          "redemptions": [
           {
            "id": "claude-0e602f2d-user1@example.invalid.json",
@@ -8449,8 +8436,12 @@
            "at": "2026-10-29T08:41:33.487Z"
           },
           {
+           "id": "claude-550c2ce1-user4@example.invalid.json",
+           "at": "2026-10-31T07:41:33.487Z"
+          },
+          {
            "id": "claude-b1dc4342-user3@example.invalid.json",
-           "at": "2026-11-03T21:41:33.487Z"
+           "at": "2026-11-03T02:41:33.487Z"
           }
          ],
          "lapses": [
@@ -8461,10 +8452,6 @@
           {
            "id": "claude-0e602f2d-user1@example.invalid.json",
            "at": "2026-10-31T02:41:33.487Z"
-          },
-          {
-           "id": "claude-550c2ce1-user4@example.invalid.json",
-           "at": "2026-11-01T02:41:33.487Z"
           },
           {
            "id": "claude-b1dc4342-user3@example.invalid.json",
@@ -8484,16 +8471,16 @@
         "demandUnitsPerHour": 0.03006,
         "naturalUnitsPerHour": 0.01786,
         "credits": 6,
-        "maxUnits": 15.65,
+        "maxUnits": 15.53,
         "maxCreditsLapsing": 0,
         "atDemand": {
          "unitsPerHour": 0.03006,
-         "usedUnits": 11.65,
-         "lostUnits": 4,
-         "creditsUsed": 2,
-         "creditsLapsing": 4,
-         "shortHours": 122,
-         "firstShortAt": "2026-11-03T21:41:33.487Z"
+         "usedUnits": 11.052,
+         "lostUnits": 4.478,
+         "creditsUsed": 3,
+         "creditsLapsing": 3,
+         "shortHours": 140,
+         "firstShortAt": "2026-11-03T02:41:33.487Z"
         },
         "fullUse": {
          "unitsPerHour": 0.0693,
@@ -8501,13 +8488,13 @@
          "lostUnits": 0,
          "creditsUsed": 6,
          "creditsLapsing": 0,
-         "shortHours": 281,
-         "firstShortAt": "2026-11-01T21:41:33.487Z"
+         "shortHours": 282,
+         "firstShortAt": "2026-10-31T16:41:33.487Z"
         },
         "noGap": {
          "unitsPerHour": 0.01875,
          "usedUnits": 10.65,
-         "lostUnits": 5,
+         "lostUnits": 4.88,
          "creditsUsed": 1,
          "creditsLapsing": 5,
          "shortHours": 0,
@@ -8527,39 +8514,39 @@
          {
           "credits": 2,
           "reachable": true,
-          "unitsPerHour": 0.02295,
-          "spentBy": "2026-10-30T01:41:33.487Z"
+          "unitsPerHour": 0.02169,
+          "spentBy": "2026-10-30T11:41:33.487Z"
          },
          {
           "credits": 3,
           "reachable": true,
-          "unitsPerHour": 0.03683,
-          "spentBy": "2026-10-30T01:41:33.487Z"
+          "unitsPerHour": 0.02752,
+          "spentBy": "2026-10-31T13:41:33.487Z"
          },
          {
           "credits": 4,
           "reachable": true,
-          "unitsPerHour": 0.04621,
-          "spentBy": "2026-11-02T01:41:33.487Z"
+          "unitsPerHour": 0.0353,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          },
          {
           "credits": 5,
           "reachable": true,
-          "unitsPerHour": 0.05542,
-          "spentBy": "2026-11-01T01:41:33.487Z"
+          "unitsPerHour": 0.0459,
+          "spentBy": "2026-11-02T01:41:33.487Z"
          },
          {
           "credits": 6,
           "reachable": true,
-          "unitsPerHour": 0.06376,
-          "spentBy": "2026-11-01T01:41:33.487Z"
+          "unitsPerHour": 0.05887,
+          "spentBy": "2026-10-31T18:41:33.487Z"
          }
         ],
         "curve": [
          {
           "unitsPerHour": 0.00893,
-          "usedUnits": 7.071,
-          "lostUnits": 8.579,
+          "usedUnits": 6.813,
+          "lostUnits": 8.718,
           "creditsUsed": 0,
           "creditsLapsing": 6,
           "shortHours": 0,
@@ -8568,7 +8555,7 @@
          {
           "unitsPerHour": 0.01786,
           "usedUnits": 10.65,
-          "lostUnits": 5,
+          "lostUnits": 4.88,
           "creditsUsed": 1,
           "creditsLapsing": 5,
           "shortHours": 0,
@@ -8576,47 +8563,47 @@
          },
          {
           "unitsPerHour": 0.02679,
-          "usedUnits": 11.65,
-          "lostUnits": 4,
+          "usedUnits": 10.937,
+          "lostUnits": 4.593,
           "creditsUsed": 2,
           "creditsLapsing": 4,
-          "shortHours": 86,
-          "firstShortAt": "2026-11-04T20:41:33.487Z"
+          "shortHours": 113,
+          "firstShortAt": "2026-11-03T18:41:33.487Z"
          },
          {
           "unitsPerHour": 0.03571,
-          "usedUnits": 11.65,
-          "lostUnits": 4,
-          "creditsUsed": 2,
-          "creditsLapsing": 4,
-          "shortHours": 178,
-          "firstShortAt": "2026-11-02T16:41:33.487Z"
+          "usedUnits": 12.25,
+          "lostUnits": 3.28,
+          "creditsUsed": 4,
+          "creditsLapsing": 2,
+          "shortHours": 161,
+          "firstShortAt": "2026-11-03T09:41:33.487Z"
          },
          {
           "unitsPerHour": 0.05357,
           "usedUnits": 13.65,
-          "lostUnits": 2,
-          "creditsUsed": 4,
-          "creditsLapsing": 2,
+          "lostUnits": 1.88,
+          "creditsUsed": 5,
+          "creditsLapsing": 1,
           "shortHours": 254,
           "firstShortAt": "2026-11-02T00:41:33.487Z"
          },
          {
           "unitsPerHour": 0.08929,
-          "usedUnits": 15.65,
-          "lostUnits": 0,
+          "usedUnits": 14.65,
+          "lostUnits": 0.88,
           "creditsUsed": 6,
           "creditsLapsing": 0,
-          "shortHours": 331,
-          "firstShortAt": "2026-10-29T17:41:33.487Z"
+          "shortHours": 344,
+          "firstShortAt": "2026-10-30T04:41:33.487Z"
          },
          {
           "unitsPerHour": 0.17857,
-          "usedUnits": 15.65,
-          "lostUnits": 0,
+          "usedUnits": 15.25,
+          "lostUnits": 0.28,
           "creditsUsed": 6,
           "creditsLapsing": 0,
-          "shortHours": 422,
+          "shortHours": 424,
           "firstShortAt": "2026-10-28T15:41:33.487Z"
          }
         ]
@@ -10071,7 +10058,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 5,
@@ -10084,12 +10071,12 @@
        "projection": {
         "horizonHours": 336,
         "creditsModeled": true,
-        "outageHours": 60,
-        "firstOutageAt": "2026-10-31T01:41:33.487Z",
-        "expiringUnits": 0,
+        "outageHours": 69,
+        "firstOutageAt": "2026-11-03T20:41:33.487Z",
+        "expiringUnits": 0.273,
         "creditsUsed": 2,
         "creditsExpiringUnused": 3,
-        "wastedUnits": 3,
+        "wastedUnits": 3.273,
         "outageHoursAtMargin": 106,
         "wastedUnitsAtMargin": 3,
         "demandToNaturalSupply": 1.683
@@ -10098,7 +10085,7 @@
         "horizonHours": 336,
         "creditsUsed": 2,
         "creditsLapsing": 3,
-        "firstOutageAt": "2026-10-31T01:41:33.487Z"
+        "firstOutageAt": "2026-11-03T20:41:33.487Z"
        },
        "creditPlan": {
         "unitsPerHour": 0.04509,
@@ -10136,13 +10123,13 @@
           "accountId": "claude-b1dc4342-user3@example.invalid.json",
           "expiresAt": "2026-11-05T02:41:33.487Z",
           "resetAt": "2026-11-01T02:00:00.816Z",
-          "out": false,
-          "unitsLeft": 0.01,
+          "out": true,
+          "unitsLeft": 0,
           "stale": false,
           "action": "wait",
           "drainBy": null,
           "outcome": "used",
-          "needUnitsPerHour": 0.01201
+          "needUnitsPerHour": 0.00002
          }
         ]
        },
@@ -10158,8 +10145,8 @@
          "lapses": []
         },
         "bankedCredits": {
-         "outageHours": 60,
-         "firstOutageAt": "2026-10-31T01:41:33.487Z",
+         "outageHours": 69,
+         "firstOutageAt": "2026-11-03T20:41:33.487Z",
          "creditsUsed": 2,
          "creditsLapsing": 3,
          "redemptions": [
@@ -10169,7 +10156,7 @@
           },
           {
            "id": "claude-b1dc4342-user3@example.invalid.json",
-           "at": "2026-11-03T20:41:33.487Z"
+           "at": "2026-10-31T01:41:33.487Z"
           }
          ],
          "lapses": [
@@ -10188,8 +10175,8 @@
          ]
         },
         "weeklyGrant": {
-         "outageHours": 27,
-         "firstOutageAt": "2026-10-31T01:41:33.487Z",
+         "outageHours": 35,
+         "firstOutageAt": "2026-11-06T15:41:33.487Z",
          "creditsUsed": 3,
          "creditsLapsing": 3,
          "redemptions": [
@@ -10198,12 +10185,12 @@
            "at": "2026-10-28T07:41:33.487Z"
           },
           {
-           "id": "claude-550c2ce1-user4@example.invalid.json",
-           "at": "2026-11-03T20:41:33.487Z"
+           "id": "claude-b1dc4342-user3@example.invalid.json",
+           "at": "2026-10-31T01:41:33.487Z"
           },
           {
-           "id": "claude-b1dc4342-user3@example.invalid.json",
-           "at": "2026-11-06T15:41:33.487Z"
+           "id": "claude-550c2ce1-user4@example.invalid.json",
+           "at": "2026-11-03T20:41:33.487Z"
           }
          ],
          "lapses": [
@@ -10237,20 +10224,20 @@
         "maxCreditsLapsing": 0,
         "atDemand": {
          "unitsPerHour": 0.03006,
-         "usedUnits": 11.88,
-         "lostUnits": 3,
+         "usedUnits": 11.607,
+         "lostUnits": 3.273,
          "creditsUsed": 2,
          "creditsLapsing": 3,
-         "shortHours": 129,
-         "firstShortAt": "2026-10-31T01:41:33.487Z"
+         "shortHours": 138,
+         "firstShortAt": "2026-11-03T20:41:33.487Z"
         },
         "fullUse": null,
         "noGap": {
-         "unitsPerHour": 0.01565,
-         "usedUnits": 9.88,
-         "lostUnits": 5,
-         "creditsUsed": 0,
-         "creditsLapsing": 4,
+         "unitsPerHour": 0.01785,
+         "usedUnits": 10.142,
+         "lostUnits": 4.738,
+         "creditsUsed": 1,
+         "creditsLapsing": 3,
          "shortHours": 0,
          "firstShortAt": null
         },
@@ -10259,8 +10246,8 @@
          {
           "credits": 1,
           "reachable": true,
-          "unitsPerHour": 0.0241,
-          "spentBy": "2026-11-11T12:41:33.487Z"
+          "unitsPerHour": 0.01569,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          },
          {
           "credits": 2,
@@ -10293,21 +10280,21 @@
          },
          {
           "unitsPerHour": 0.01786,
-          "usedUnits": 9.88,
-          "lostUnits": 5,
-          "creditsUsed": 0,
-          "creditsLapsing": 4,
-          "shortHours": 15,
-          "firstShortAt": "2026-10-31T11:41:33.487Z"
+          "usedUnits": 10.143,
+          "lostUnits": 4.737,
+          "creditsUsed": 1,
+          "creditsLapsing": 3,
+          "shortHours": 0,
+          "firstShortAt": null
          },
          {
           "unitsPerHour": 0.02679,
-          "usedUnits": 11.88,
-          "lostUnits": 3,
+          "usedUnits": 11.214,
+          "lostUnits": 3.666,
           "creditsUsed": 2,
           "creditsLapsing": 3,
-          "shortHours": 89,
-          "firstShortAt": "2026-10-31T13:41:33.487Z"
+          "shortHours": 114,
+          "firstShortAt": "2026-11-04T04:41:33.487Z"
          },
          {
           "unitsPerHour": 0.03571,
@@ -11815,7 +11802,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 6,
@@ -11853,9 +11840,7 @@
         "demandFactor": 1.5,
         "evidence": true,
         "windowDays": 14,
-        "holders": [
-         "claude-0e602f2d-user1@example.invalid.json"
-        ],
+        "holders": [],
         "refill": {
          "unitsPerHour": 0.02306,
          "weights": {
@@ -11875,34 +11860,34 @@
           "out": true,
           "unitsLeft": 0,
           "stale": false,
-          "action": "redeem-now",
+          "action": "wait",
           "drainBy": "2026-10-28T08:41:33.487Z",
           "outcome": "used",
-          "needUnitsPerHour": null
+          "needUnitsPerHour": 0.00002
          },
          {
           "accountId": "claude-550c2ce1-user4@example.invalid.json",
           "expiresAt": "2026-10-29T14:41:33.487Z",
           "resetAt": "2026-11-01T09:00:00.738Z",
           "out": false,
-          "unitsLeft": 0.87,
+          "unitsLeft": 0.53,
           "stale": false,
           "action": "wait",
           "drainBy": "2026-10-29T14:41:33.487Z",
-          "outcome": "lapses",
-          "needUnitsPerHour": 0.03117
+          "outcome": "used",
+          "needUnitsPerHour": 0.01452
          },
          {
           "accountId": "claude-b1dc4342-user3@example.invalid.json",
           "expiresAt": "2026-10-30T20:41:33.487Z",
           "resetAt": "2026-11-01T02:00:00.816Z",
-          "out": false,
-          "unitsLeft": 0.01,
+          "out": true,
+          "unitsLeft": 0,
           "stale": false,
           "action": "wait",
           "drainBy": "2026-10-30T20:41:33.487Z",
-          "outcome": "used",
-          "needUnitsPerHour": 0.0002
+          "outcome": "lapses",
+          "needUnitsPerHour": 0.00002
          }
         ]
        },
@@ -12001,38 +11986,38 @@
         "demandUnitsPerHour": 0.03006,
         "naturalUnitsPerHour": 0.01786,
         "credits": 6,
-        "maxUnits": 15.88,
+        "maxUnits": 15.54,
         "maxCreditsLapsing": 0,
         "atDemand": {
          "unitsPerHour": 0.03006,
          "usedUnits": 11.817,
-         "lostUnits": 4.063,
+         "lostUnits": 3.723,
          "creditsUsed": 3,
          "creditsLapsing": 3,
          "shortHours": 131,
          "firstShortAt": "2026-11-04T03:41:33.487Z"
         },
         "fullUse": {
-         "unitsPerHour": 0.06553,
-         "usedUnits": 15.864,
-         "lostUnits": 0.016,
+         "unitsPerHour": 0.06156,
+         "usedUnits": 15.387,
+         "lostUnits": 0.153,
          "creditsUsed": 6,
          "creditsLapsing": 0,
-         "shortHours": 264,
-         "firstShortAt": "2026-11-02T08:41:33.487Z"
+         "shortHours": 256,
+         "firstShortAt": "2026-11-02T10:41:33.487Z"
         },
         "noGap": {
          "unitsPerHour": 0.01822,
          "usedUnits": 10.314,
-         "lostUnits": 5.566,
+         "lostUnits": 5.226,
          "creditsUsed": 1,
          "creditsLapsing": 5,
          "shortHours": 0,
          "firstShortAt": null
         },
         "then": {
-         "from": "2026-10-31T11:41:33.487Z",
-         "unitsPerHour": 0.06553
+         "from": "2026-10-31T18:41:33.487Z",
+         "unitsPerHour": 0.06156
         },
         "steps": [
          {
@@ -12056,27 +12041,27 @@
          {
           "credits": 4,
           "reachable": true,
-          "unitsPerHour": 0.03638,
-          "spentBy": "2026-10-31T23:41:33.487Z"
+          "unitsPerHour": 0.0353,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          },
          {
           "credits": 5,
           "reachable": true,
-          "unitsPerHour": 0.04921,
-          "spentBy": "2026-10-31T22:41:33.487Z"
+          "unitsPerHour": 0.04708,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          },
          {
           "credits": 6,
           "reachable": true,
-          "unitsPerHour": 0.06553,
-          "spentBy": "2026-10-31T10:41:33.487Z"
+          "unitsPerHour": 0.05734,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          }
         ],
         "curve": [
          {
           "unitsPerHour": 0.00893,
           "usedUnits": 7.134,
-          "lostUnits": 8.746,
+          "lostUnits": 8.406,
           "creditsUsed": 0,
           "creditsLapsing": 6,
           "shortHours": 0,
@@ -12085,7 +12070,7 @@
          {
           "unitsPerHour": 0.01786,
           "usedUnits": 10.268,
-          "lostUnits": 5.612,
+          "lostUnits": 5.272,
           "creditsUsed": 1,
           "creditsLapsing": 5,
           "shortHours": 0,
@@ -12094,7 +12079,7 @@
          {
           "unitsPerHour": 0.02679,
           "usedUnits": 11.402,
-          "lostUnits": 4.478,
+          "lostUnits": 4.138,
           "creditsUsed": 2,
           "creditsLapsing": 4,
           "shortHours": 107,
@@ -12102,17 +12087,17 @@
          },
          {
           "unitsPerHour": 0.03571,
-          "usedUnits": 12.25,
-          "lostUnits": 3.63,
-          "creditsUsed": 3,
-          "creditsLapsing": 3,
-          "shortHours": 169,
-          "firstShortAt": "2026-11-01T01:41:33.487Z"
+          "usedUnits": 12.286,
+          "lostUnits": 3.254,
+          "creditsUsed": 4,
+          "creditsLapsing": 2,
+          "shortHours": 168,
+          "firstShortAt": "2026-11-03T10:41:33.487Z"
          },
          {
           "unitsPerHour": 0.05357,
           "usedUnits": 14.804,
-          "lostUnits": 1.076,
+          "lostUnits": 0.736,
           "creditsUsed": 5,
           "creditsLapsing": 1,
           "shortHours": 230,
@@ -12129,12 +12114,12 @@
          },
          {
           "unitsPerHour": 0.17857,
-          "usedUnits": 15.88,
-          "lostUnits": 0,
+          "usedUnits": 15.25,
+          "lostUnits": 0.29,
           "creditsUsed": 6,
           "creditsLapsing": 0,
-          "shortHours": 421,
-          "firstShortAt": "2026-10-28T10:41:33.487Z"
+          "shortHours": 424,
+          "firstShortAt": "2026-10-28T18:41:33.487Z"
          }
         ]
        },
@@ -13615,7 +13600,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 6,
@@ -15281,7 +15266,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 6,
@@ -16920,7 +16905,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 2.7,
+        "remainingUnits": 1.43,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T08:41:33.487Z",
         "credits": 0,
@@ -16985,14 +16970,14 @@
          "lapses": []
         },
         "weeklyGrant": {
-         "outageHours": 74,
+         "outageHours": 78,
          "firstOutageAt": "2026-11-01T11:41:33.487Z",
          "creditsUsed": 1,
          "creditsLapsing": 0,
          "redemptions": [
           {
            "id": "claude-0e602f2d-user1@example.invalid.json",
-           "at": "2026-11-08T11:41:33.487Z"
+           "at": "2026-11-03T02:41:33.487Z"
           }
          ],
          "lapses": [],
@@ -17027,7 +17012,7 @@
          "creditsUsed": 0,
          "creditsLapsing": 0,
          "shortHours": 372,
-         "firstShortAt": "2026-10-29T18:41:33.487Z"
+         "firstShortAt": "2026-10-28T11:41:33.487Z"
         },
         "noGap": {
          "unitsPerHour": 0.01785,
@@ -17074,8 +17059,8 @@
           "lostUnits": 1.629,
           "creditsUsed": 0,
           "creditsLapsing": 0,
-          "shortHours": 222,
-          "firstShortAt": "2026-10-31T20:41:33.487Z"
+          "shortHours": 228,
+          "firstShortAt": "2026-10-31T13:41:33.487Z"
          },
          {
           "unitsPerHour": 0.05357,
@@ -17083,8 +17068,8 @@
           "lostUnits": 1.093,
           "creditsUsed": 0,
           "creditsLapsing": 0,
-          "shortHours": 306,
-          "firstShortAt": "2026-10-30T16:41:33.487Z"
+          "shortHours": 312,
+          "firstShortAt": "2026-10-30T01:41:33.487Z"
          },
          {
           "unitsPerHour": 0.08929,
@@ -17092,8 +17077,8 @@
           "lostUnits": 0.021,
           "creditsUsed": 0,
           "creditsLapsing": 0,
-          "shortHours": 375,
-          "firstShortAt": "2026-10-29T17:41:33.487Z"
+          "shortHours": 378,
+          "firstShortAt": "2026-10-28T10:41:33.487Z"
          },
          {
           "unitsPerHour": 0.17857,
@@ -17101,7 +17086,7 @@
           "lostUnits": 0,
           "creditsUsed": 0,
           "creditsLapsing": 0,
-          "shortHours": 441,
+          "shortHours": 444,
           "firstShortAt": "2026-10-27T17:41:33.487Z"
          }
         ]
@@ -18542,7 +18527,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 2.7,
+        "remainingUnits": 1.43,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T08:41:33.487Z",
         "credits": 0,
@@ -18558,7 +18543,7 @@
         "creditsUsed": 0,
         "creditsExpiringUnused": 0,
         "wastedUnits": 1.95,
-        "outageHoursAtMargin": 137,
+        "outageHoursAtMargin": 139,
         "wastedUnitsAtMargin": 1.763,
         "demandToNaturalSupply": 1.555
        },
@@ -18607,14 +18592,14 @@
          "lapses": []
         },
         "weeklyGrant": {
-         "outageHours": 60,
+         "outageHours": 66,
          "firstOutageAt": "2026-11-01T20:41:33.487Z",
          "creditsUsed": 1,
          "creditsLapsing": 0,
          "redemptions": [
           {
            "id": "claude-0e602f2d-user1@example.invalid.json",
-           "at": "2026-11-08T20:41:33.487Z"
+           "at": "2026-11-03T05:41:33.487Z"
           }
          ],
          "lapses": [],
@@ -18648,8 +18633,8 @@
          "lostUnits": 0.117,
          "creditsUsed": 0,
          "creditsLapsing": 0,
-         "shortHours": 384,
-         "firstShortAt": "2026-10-29T15:41:33.487Z"
+         "shortHours": 387,
+         "firstShortAt": "2026-10-28T10:41:33.487Z"
         },
         "noGap": {
          "unitsPerHour": 0.01785,
@@ -18696,8 +18681,8 @@
           "lostUnits": 1.736,
           "creditsUsed": 0,
           "creditsLapsing": 0,
-          "shortHours": 225,
-          "firstShortAt": "2026-10-31T20:41:33.487Z"
+          "shortHours": 231,
+          "firstShortAt": "2026-10-31T16:41:33.487Z"
          },
          {
           "unitsPerHour": 0.05357,
@@ -18705,8 +18690,8 @@
           "lostUnits": 1.254,
           "creditsUsed": 0,
           "creditsLapsing": 0,
-          "shortHours": 309,
-          "firstShortAt": "2026-10-30T16:41:33.487Z"
+          "shortHours": 315,
+          "firstShortAt": "2026-10-30T04:41:33.487Z"
          },
          {
           "unitsPerHour": 0.08929,
@@ -18715,7 +18700,7 @@
           "creditsUsed": 0,
           "creditsLapsing": 0,
           "shortHours": 378,
-          "firstShortAt": "2026-10-29T17:41:33.487Z"
+          "firstShortAt": "2026-10-29T00:41:33.487Z"
          },
          {
           "unitsPerHour": 0.17857,
@@ -18723,7 +18708,7 @@
           "lostUnits": 0,
           "creditsUsed": 0,
           "creditsLapsing": 0,
-          "shortHours": 441,
+          "shortHours": 444,
           "firstShortAt": "2026-10-27T20:41:33.487Z"
          }
         ]
@@ -20161,7 +20146,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 0,
@@ -21776,7 +21761,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 0,
@@ -23394,7 +23379,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 0,
@@ -25006,7 +24991,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 0,
@@ -26649,7 +26634,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 2.5,
-        "remainingUnits": 0.445,
+        "remainingUnits": 0.265,
         "naturalUnitsPerHour": 0.01488,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 6,
@@ -26687,7 +26672,10 @@
         "demandFactor": 1.5,
         "evidence": true,
         "windowDays": 3,
-        "holders": [],
+        "holders": [
+         "claude-0e602f2d-user1@example.invalid.json",
+         "claude-b1dc4342-user3@example.invalid.json"
+        ],
         "refill": {
          "unitsPerHour": 0.02193,
          "weights": {
@@ -26712,34 +26700,34 @@
           "out": true,
           "unitsLeft": 0,
           "stale": false,
-          "action": "wait",
+          "action": "redeem-now",
           "drainBy": "2026-10-28T08:41:33.487Z",
-          "outcome": "lapses",
-          "needUnitsPerHour": 0.00002
+          "outcome": "used",
+          "needUnitsPerHour": null
          },
          {
           "accountId": "claude-550c2ce1-user4@example.invalid.json",
           "expiresAt": "2026-10-29T14:41:33.487Z",
           "resetAt": "2026-11-01T09:00:00.738Z",
           "out": false,
-          "unitsLeft": 0.435,
+          "unitsLeft": 0.265,
           "stale": false,
           "action": "drain-first",
           "drainBy": "2026-10-29T14:41:33.487Z",
           "outcome": "used",
-          "needUnitsPerHour": 0.00727
+          "needUnitsPerHour": 0.0174
          },
          {
           "accountId": "claude-b1dc4342-user3@example.invalid.json",
           "expiresAt": "2026-10-30T20:41:33.487Z",
           "resetAt": "2026-11-01T02:00:00.816Z",
-          "out": false,
-          "unitsLeft": 0.01,
+          "out": true,
+          "unitsLeft": 0,
           "stale": false,
-          "action": "wait",
+          "action": "redeem-now",
           "drainBy": "2026-10-30T20:41:33.487Z",
           "outcome": "used",
-          "needUnitsPerHour": 0.00035
+          "needUnitsPerHour": null
          }
         ]
        },
@@ -26834,38 +26822,38 @@
         "demandUnitsPerHour": 0.02762,
         "naturalUnitsPerHour": 0.01488,
         "credits": 6,
-        "maxUnits": 10.445,
+        "maxUnits": 10.265,
         "maxCreditsLapsing": 0,
         "atDemand": {
          "unitsPerHour": 0.02762,
          "usedUnits": 7.467,
-         "lostUnits": 2.978,
+         "lostUnits": 2.798,
          "creditsUsed": 3,
          "creditsLapsing": 3,
          "shortHours": 73,
          "firstShortAt": "2026-11-03T13:41:33.487Z"
         },
         "fullUse": {
-         "unitsPerHour": 0.05391,
-         "usedUnits": 10.445,
-         "lostUnits": 0,
+         "unitsPerHour": 0.05136,
+         "usedUnits": 10.163,
+         "lostUnits": 0.102,
          "creditsUsed": 6,
          "creditsLapsing": 0,
-         "shortHours": 145,
-         "firstShortAt": "2026-11-01T01:41:33.487Z"
+         "shortHours": 139,
+         "firstShortAt": "2026-11-02T07:41:33.487Z"
         },
         "noGap": {
          "unitsPerHour": 0.01551,
          "usedUnits": 5.97,
-         "lostUnits": 4.475,
+         "lostUnits": 4.295,
          "creditsUsed": 2,
          "creditsLapsing": 4,
          "shortHours": 0,
          "firstShortAt": null
         },
         "then": {
-         "from": "2026-10-31T07:41:33.487Z",
-         "unitsPerHour": 0.05262
+         "from": "2026-10-31T13:41:33.487Z",
+         "unitsPerHour": 0.05136
         },
         "steps": [
          {
@@ -26889,27 +26877,27 @@
          {
           "credits": 4,
           "reachable": true,
-          "unitsPerHour": 0.03639,
-          "spentBy": "2026-10-31T23:41:33.487Z"
+          "unitsPerHour": 0.02941,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          },
          {
           "credits": 5,
           "reachable": true,
-          "unitsPerHour": 0.04118,
-          "spentBy": "2026-11-01T01:41:33.487Z"
+          "unitsPerHour": 0.04002,
+          "spentBy": "2026-10-31T15:41:33.487Z"
          },
          {
           "credits": 6,
           "reachable": true,
-          "unitsPerHour": 0.05391,
-          "spentBy": "2026-10-31T06:41:33.487Z"
+          "unitsPerHour": 0.0454,
+          "spentBy": "2026-11-01T01:41:33.487Z"
          }
         ],
         "curve": [
          {
           "unitsPerHour": 0.00744,
           "usedUnits": 4.695,
-          "lostUnits": 5.75,
+          "lostUnits": 5.57,
           "creditsUsed": 0,
           "creditsLapsing": 6,
           "shortHours": 0,
@@ -26918,7 +26906,7 @@
          {
           "unitsPerHour": 0.01488,
           "usedUnits": 5.89,
-          "lostUnits": 4.555,
+          "lostUnits": 4.375,
           "creditsUsed": 2,
           "creditsLapsing": 4,
           "shortHours": 0,
@@ -26927,7 +26915,7 @@
          {
           "unitsPerHour": 0.02232,
           "usedUnits": 6.679,
-          "lostUnits": 3.766,
+          "lostUnits": 3.586,
           "creditsUsed": 2,
           "creditsLapsing": 4,
           "shortHours": 57,
@@ -26935,17 +26923,17 @@
          },
          {
           "unitsPerHour": 0.02976,
-          "usedUnits": 7.542,
-          "lostUnits": 2.903,
-          "creditsUsed": 3,
-          "creditsLapsing": 3,
-          "shortHours": 86,
-          "firstShortAt": "2026-11-01T01:41:33.487Z"
+          "usedUnits": 7.571,
+          "lostUnits": 2.694,
+          "creditsUsed": 4,
+          "creditsLapsing": 2,
+          "shortHours": 85,
+          "firstShortAt": "2026-11-03T04:41:33.487Z"
          },
          {
           "unitsPerHour": 0.04464,
           "usedUnits": 9.445,
-          "lostUnits": 1,
+          "lostUnits": 0.82,
           "creditsUsed": 5,
           "creditsLapsing": 1,
           "shortHours": 126,
@@ -26962,12 +26950,12 @@
          },
          {
           "unitsPerHour": 0.14881,
-          "usedUnits": 10.445,
-          "lostUnits": 0,
+          "usedUnits": 10.208,
+          "lostUnits": 0.057,
           "creditsUsed": 6,
           "creditsLapsing": 0,
-          "shortHours": 270,
-          "firstShortAt": "2026-10-28T07:41:33.487Z"
+          "shortHours": 271,
+          "firstShortAt": "2026-10-28T19:41:33.487Z"
          }
         ]
        },
@@ -28411,7 +28399,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 0,
@@ -30033,7 +30021,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-10-28T12:59:59.697Z",
         "credits": 0,
@@ -31670,7 +31658,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 2.25,
+        "remainingUnits": 1.45,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-11-02T02:41:33.487Z",
         "credits": 3,
@@ -31723,19 +31711,19 @@
           "expiresAt": "2026-10-27T14:41:33.487Z",
           "resetAt": "2026-11-02T02:41:33.487Z",
           "out": false,
-          "unitsLeft": 0.95,
+          "unitsLeft": 0.92,
           "stale": false,
           "action": "wait",
           "drainBy": "2026-10-27T14:41:33.487Z",
           "outcome": "lapses",
-          "needUnitsPerHour": 0.08636
+          "needUnitsPerHour": 0.08364
          },
          {
           "accountId": "claude-550c2ce1-user4@example.invalid.json",
           "expiresAt": "2026-10-29T14:41:33.487Z",
           "resetAt": "2026-11-02T02:41:33.487Z",
           "out": false,
-          "unitsLeft": 0.8,
+          "unitsLeft": 0.53,
           "stale": false,
           "action": "wait",
           "drainBy": "2026-10-29T14:41:33.487Z",
@@ -31746,13 +31734,13 @@
           "accountId": "claude-b1dc4342-user3@example.invalid.json",
           "expiresAt": "2026-11-01T02:41:33.487Z",
           "resetAt": "2026-11-02T02:41:33.487Z",
-          "out": false,
-          "unitsLeft": 0.5,
+          "out": true,
+          "unitsLeft": 0,
           "stale": false,
           "action": "wait",
           "drainBy": "2026-11-01T02:41:33.487Z",
           "outcome": "used",
-          "needUnitsPerHour": 0.00421
+          "needUnitsPerHour": 0.00002
          }
         ]
        },
@@ -31827,12 +31815,12 @@
         "demandUnitsPerHour": 0.03006,
         "naturalUnitsPerHour": 0.01786,
         "credits": 3,
-        "maxUnits": 14.25,
+        "maxUnits": 13.95,
         "maxCreditsLapsing": 0,
         "atDemand": {
          "unitsPerHour": 0.03006,
-         "usedUnits": 12.25,
-         "lostUnits": 2,
+         "usedUnits": 12.22,
+         "lostUnits": 1.73,
          "creditsUsed": 1,
          "creditsLapsing": 2,
          "shortHours": 174,
@@ -31841,8 +31829,8 @@
         "fullUse": null,
         "noGap": {
          "unitsPerHour": 0.01561,
-         "usedUnits": 10.492,
-         "lostUnits": 3.758,
+         "usedUnits": 9.713,
+         "lostUnits": 4.237,
          "creditsUsed": 0,
          "creditsLapsing": 3,
          "shortHours": 0,
@@ -31872,8 +31860,8 @@
         "curve": [
          {
           "unitsPerHour": 0.00893,
-          "usedUnits": 7.286,
-          "lostUnits": 6.964,
+          "usedUnits": 6.496,
+          "lostUnits": 7.454,
           "creditsUsed": 0,
           "creditsLapsing": 3,
           "shortHours": 0,
@@ -31881,8 +31869,8 @@
          },
          {
           "unitsPerHour": 0.01786,
-          "usedUnits": 11.25,
-          "lostUnits": 3,
+          "usedUnits": 10.496,
+          "lostUnits": 3.454,
           "creditsUsed": 0,
           "creditsLapsing": 3,
           "shortHours": 18,
@@ -31890,17 +31878,17 @@
          },
          {
           "unitsPerHour": 0.02679,
-          "usedUnits": 12.25,
-          "lostUnits": 2,
+          "usedUnits": 12.184,
+          "lostUnits": 1.766,
           "creditsUsed": 1,
           "creditsLapsing": 2,
-          "shortHours": 135,
+          "shortHours": 137,
           "firstShortAt": "2026-11-01T03:41:33.487Z"
          },
          {
           "unitsPerHour": 0.03571,
-          "usedUnits": 12.25,
-          "lostUnits": 2,
+          "usedUnits": 12.22,
+          "lostUnits": 1.73,
           "creditsUsed": 1,
           "creditsLapsing": 2,
           "shortHours": 221,
@@ -31908,17 +31896,17 @@
          },
          {
           "unitsPerHour": 0.05357,
-          "usedUnits": 13.25,
-          "lostUnits": 1,
+          "usedUnits": 13.22,
+          "lostUnits": 0.73,
           "creditsUsed": 2,
           "creditsLapsing": 1,
-          "shortHours": 289,
+          "shortHours": 291,
           "firstShortAt": "2026-10-30T09:41:33.487Z"
          },
          {
           "unitsPerHour": 0.08929,
-          "usedUnits": 13.25,
-          "lostUnits": 1,
+          "usedUnits": 13.22,
+          "lostUnits": 0.73,
           "creditsUsed": 2,
           "creditsLapsing": 1,
           "shortHours": 367,
@@ -31926,8 +31914,8 @@
          },
          {
           "unitsPerHour": 0.17857,
-          "usedUnits": 13.25,
-          "lostUnits": 1,
+          "usedUnits": 13.22,
+          "lostUnits": 0.73,
           "creditsUsed": 2,
           "creditsLapsing": 1,
           "shortHours": 433,
@@ -33391,7 +33379,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 2.25,
+        "remainingUnits": 1.45,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-11-02T02:41:33.487Z",
         "credits": 3,
@@ -33449,19 +33437,19 @@
           "expiresAt": "2026-10-27T14:41:33.487Z",
           "resetAt": "2026-11-02T02:41:33.487Z",
           "out": false,
-          "unitsLeft": 0.95,
+          "unitsLeft": 0.92,
           "stale": false,
           "action": "drain-first",
           "drainBy": "2026-10-27T14:41:33.487Z",
           "outcome": "lapses",
-          "needUnitsPerHour": 0.08636
+          "needUnitsPerHour": 0.08364
          },
          {
           "accountId": "claude-550c2ce1-user4@example.invalid.json",
           "expiresAt": "2026-10-29T14:41:33.487Z",
           "resetAt": "2026-11-02T02:41:33.487Z",
           "out": false,
-          "unitsLeft": 0.8,
+          "unitsLeft": 0.53,
           "stale": false,
           "action": "wait",
           "drainBy": "2026-10-29T14:41:33.487Z",
@@ -33472,13 +33460,13 @@
           "accountId": "claude-b1dc4342-user3@example.invalid.json",
           "expiresAt": "2026-11-01T02:41:33.487Z",
           "resetAt": "2026-11-02T02:41:33.487Z",
-          "out": false,
-          "unitsLeft": 0.5,
+          "out": true,
+          "unitsLeft": 0,
           "stale": false,
           "action": "wait",
           "drainBy": "2026-11-01T02:41:33.487Z",
           "outcome": "used",
-          "needUnitsPerHour": 0.00469
+          "needUnitsPerHour": 0.00002
          }
         ]
        },
@@ -33553,12 +33541,12 @@
         "demandUnitsPerHour": 0.03006,
         "naturalUnitsPerHour": 0.01786,
         "credits": 3,
-        "maxUnits": 14.25,
+        "maxUnits": 13.95,
         "maxCreditsLapsing": 0,
         "atDemand": {
          "unitsPerHour": 0.03006,
-         "usedUnits": 12.25,
-         "lostUnits": 2,
+         "usedUnits": 12.22,
+         "lostUnits": 1.73,
          "creditsUsed": 1,
          "creditsLapsing": 2,
          "shortHours": 174,
@@ -33567,8 +33555,8 @@
         "fullUse": null,
         "noGap": {
          "unitsPerHour": 0.01561,
-         "usedUnits": 10.492,
-         "lostUnits": 3.758,
+         "usedUnits": 9.713,
+         "lostUnits": 4.237,
          "creditsUsed": 0,
          "creditsLapsing": 3,
          "shortHours": 0,
@@ -33598,8 +33586,8 @@
         "curve": [
          {
           "unitsPerHour": 0.00893,
-          "usedUnits": 7.286,
-          "lostUnits": 6.964,
+          "usedUnits": 6.496,
+          "lostUnits": 7.454,
           "creditsUsed": 0,
           "creditsLapsing": 3,
           "shortHours": 0,
@@ -33607,8 +33595,8 @@
          },
          {
           "unitsPerHour": 0.01786,
-          "usedUnits": 11.25,
-          "lostUnits": 3,
+          "usedUnits": 10.496,
+          "lostUnits": 3.454,
           "creditsUsed": 0,
           "creditsLapsing": 3,
           "shortHours": 18,
@@ -33616,17 +33604,17 @@
          },
          {
           "unitsPerHour": 0.02679,
-          "usedUnits": 12.25,
-          "lostUnits": 2,
+          "usedUnits": 12.184,
+          "lostUnits": 1.766,
           "creditsUsed": 1,
           "creditsLapsing": 2,
-          "shortHours": 135,
+          "shortHours": 137,
           "firstShortAt": "2026-11-01T03:41:33.487Z"
          },
          {
           "unitsPerHour": 0.03571,
-          "usedUnits": 12.25,
-          "lostUnits": 2,
+          "usedUnits": 12.22,
+          "lostUnits": 1.73,
           "creditsUsed": 1,
           "creditsLapsing": 2,
           "shortHours": 221,
@@ -33634,17 +33622,17 @@
          },
          {
           "unitsPerHour": 0.05357,
-          "usedUnits": 13.25,
-          "lostUnits": 1,
+          "usedUnits": 13.22,
+          "lostUnits": 0.73,
           "creditsUsed": 2,
           "creditsLapsing": 1,
-          "shortHours": 289,
+          "shortHours": 291,
           "firstShortAt": "2026-10-30T09:41:33.487Z"
          },
          {
           "unitsPerHour": 0.08929,
-          "usedUnits": 13.25,
-          "lostUnits": 1,
+          "usedUnits": 13.22,
+          "lostUnits": 0.73,
           "creditsUsed": 2,
           "creditsLapsing": 1,
           "shortHours": 367,
@@ -33652,8 +33640,8 @@
          },
          {
           "unitsPerHour": 0.17857,
-          "usedUnits": 13.25,
-          "lostUnits": 1,
+          "usedUnits": 13.22,
+          "lostUnits": 0.73,
           "creditsUsed": 2,
           "creditsLapsing": 1,
           "shortHours": 433,
@@ -35112,7 +35100,7 @@
        "supply": {
         "accounts": 3,
         "weightedAccounts": 3,
-        "remainingUnits": 2.25,
+        "remainingUnits": 1.45,
         "naturalUnitsPerHour": 0.01786,
         "nextRefillAt": "2026-11-02T02:41:33.487Z",
         "credits": 3,
@@ -35165,19 +35153,19 @@
           "expiresAt": "2026-10-27T14:41:33.487Z",
           "resetAt": "2026-11-02T02:41:33.487Z",
           "out": false,
-          "unitsLeft": 0.95,
+          "unitsLeft": 0.92,
           "stale": false,
           "action": "wait",
           "drainBy": "2026-10-27T14:41:33.487Z",
           "outcome": "lapses",
-          "needUnitsPerHour": 0.08636
+          "needUnitsPerHour": 0.08364
          },
          {
           "accountId": "claude-550c2ce1-user4@example.invalid.json",
           "expiresAt": "2026-10-29T14:41:33.487Z",
           "resetAt": "2026-11-02T02:41:33.487Z",
           "out": false,
-          "unitsLeft": 0.8,
+          "unitsLeft": 0.53,
           "stale": false,
           "action": "wait",
           "drainBy": "2026-10-29T14:41:33.487Z",
@@ -35188,13 +35176,13 @@
           "accountId": "claude-b1dc4342-user3@example.invalid.json",
           "expiresAt": "2026-11-01T02:41:33.487Z",
           "resetAt": "2026-11-02T02:41:33.487Z",
-          "out": false,
-          "unitsLeft": 0.5,
+          "out": true,
+          "unitsLeft": 0,
           "stale": false,
           "action": "wait",
           "drainBy": "2026-11-01T02:41:33.487Z",
           "outcome": "used",
-          "needUnitsPerHour": 0.00421
+          "needUnitsPerHour": 0.00002
          }
         ]
        },
@@ -35269,12 +35257,12 @@
         "demandUnitsPerHour": 0.03006,
         "naturalUnitsPerHour": 0.01786,
         "credits": 3,
-        "maxUnits": 14.25,
+        "maxUnits": 13.95,
         "maxCreditsLapsing": 0,
         "atDemand": {
          "unitsPerHour": 0.03006,
-         "usedUnits": 12.25,
-         "lostUnits": 2,
+         "usedUnits": 12.22,
+         "lostUnits": 1.73,
          "creditsUsed": 1,
          "creditsLapsing": 2,
          "shortHours": 174,
@@ -35283,8 +35271,8 @@
         "fullUse": null,
         "noGap": {
          "unitsPerHour": 0.01561,
-         "usedUnits": 10.492,
-         "lostUnits": 3.758,
+         "usedUnits": 9.713,
+         "lostUnits": 4.237,
          "creditsUsed": 0,
          "creditsLapsing": 3,
          "shortHours": 0,
@@ -35314,8 +35302,8 @@
         "curve": [
          {
           "unitsPerHour": 0.00893,
-          "usedUnits": 7.286,
-          "lostUnits": 6.964,
+          "usedUnits": 6.496,
+          "lostUnits": 7.454,
           "creditsUsed": 0,
           "creditsLapsing": 3,
           "shortHours": 0,
@@ -35323,8 +35311,8 @@
          },
          {
           "unitsPerHour": 0.01786,
-          "usedUnits": 11.25,
-          "lostUnits": 3,
+          "usedUnits": 10.496,
+          "lostUnits": 3.454,
           "creditsUsed": 0,
           "creditsLapsing": 3,
           "shortHours": 18,
@@ -35332,17 +35320,17 @@
          },
          {
           "unitsPerHour": 0.02679,
-          "usedUnits": 12.25,
-          "lostUnits": 2,
+          "usedUnits": 12.184,
+          "lostUnits": 1.766,
           "creditsUsed": 1,
           "creditsLapsing": 2,
-          "shortHours": 135,
+          "shortHours": 137,
           "firstShortAt": "2026-11-01T03:41:33.487Z"
          },
          {
           "unitsPerHour": 0.03571,
-          "usedUnits": 12.25,
-          "lostUnits": 2,
+          "usedUnits": 12.22,
+          "lostUnits": 1.73,
           "creditsUsed": 1,
           "creditsLapsing": 2,
           "shortHours": 221,
@@ -35350,17 +35338,17 @@
          },
          {
           "unitsPerHour": 0.05357,
-          "usedUnits": 13.25,
-          "lostUnits": 1,
+          "usedUnits": 13.22,
+          "lostUnits": 0.73,
           "creditsUsed": 2,
           "creditsLapsing": 1,
-          "shortHours": 289,
+          "shortHours": 291,
           "firstShortAt": "2026-10-30T09:41:33.487Z"
          },
          {
           "unitsPerHour": 0.08929,
-          "usedUnits": 13.25,
-          "lostUnits": 1,
+          "usedUnits": 13.22,
+          "lostUnits": 0.73,
           "creditsUsed": 2,
           "creditsLapsing": 1,
           "shortHours": 367,
@@ -35368,8 +35356,8 @@
          },
          {
           "unitsPerHour": 0.17857,
-          "usedUnits": 13.25,
-          "lostUnits": 1,
+          "usedUnits": 13.22,
+          "lostUnits": 0.73,
           "creditsUsed": 2,
           "creditsLapsing": 1,
           "shortHours": 433,
@@ -36813,7 +36801,7 @@
        "supply": {
         "accounts": 2,
         "weightedAccounts": 2,
-        "remainingUnits": 0.88,
+        "remainingUnits": 0.53,
         "naturalUnitsPerHour": 0.0119,
         "nextRefillAt": "2026-11-01T02:00:00.816Z",
         "credits": 0,

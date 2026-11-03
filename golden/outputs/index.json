@@ -5,15 +5,15 @@
  "files": {
   "forecast/now.json": {
    "bytes": 13874,
-   "sha256": "b6f220f267aff9f5f024b5f9b2166ac2f393b13b7104e9fc24f79cb7d0c7e66b"
+   "sha256": "562be2c85f63ed6bcdd2a16294904ff1f32a20f2c056c3a74919aa27afc7a026"
   },
   "forecast/replay.json": {
-   "bytes": 1112837,
-   "sha256": "3751689a72624175c55577c5eb4dfbdacc1af7b37e6c05e9455cdf5621b8dfb1"
+   "bytes": 1115554,
+   "sha256": "1335be54308db508797f6d043daddae72cc9b4b8cf5f69796ff634a2f52f45c1"
   },
   "forecast/variants.json": {
-   "bytes": 1079496,
-   "sha256": "790cb1498bbc58195a46b0aba0b343197018dd36881a6cd7d0d5fba077245244"
+   "bytes": 1079262,
+   "sha256": "7023dec38c3e4c1c97bfec2d9759438209618e5836695eed7264d5ae5965f69d"
   },
   "js/semantics.json": {
    "bytes": 533609,
@@ -37,11 +37,11 @@
   },
   "summary/cases.json": {
    "bytes": 90061,
-   "sha256": "5115c10e7a466ea8851ab9d681cbe1a8841737e8cbad1dcb480ad039ce58bded"
+   "sha256": "358266f7a17a0a8ac462a656ecb355be99acd40a1ca7460a79903e1fb0971720"
   },
   "summary/now.json": {
    "bytes": 20072,
-   "sha256": "74ca04327e13a2d916a740df50428641fe3fee2a918b07041e4676202471430a"
+   "sha256": "12972f7a51bd68051d46ad4723db8643bbbd7de181e12de974cfa42eee2315e3"
   },
   "value/config.json": {
    "bytes": 5232,

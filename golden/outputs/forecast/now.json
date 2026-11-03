@@ -78,7 +78,7 @@
    "supply": {
     "accounts": 3,
     "weightedAccounts": 3,
-    "remainingUnits": 0.88,
+    "remainingUnits": 0.53,
     "naturalUnitsPerHour": 0.01786,
     "nextRefillAt": "2026-10-28T12:59:59.697Z",
     "credits": 0,
