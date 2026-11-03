@@ -12,12 +12,14 @@ Starts the port's commands again on pool-rs.json's current version (after Instal
   all        inference, gateway, tunnel, then service.
 
 Only tasks that are enabled are restarted. The live install is refused without -Live.
+-ProxyCutover verifies the proxy selected by install.json instead of requiring the old PID.
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
   [Parameter(Mandatory)][string]$Root,
   [Parameter(Mandatory)][ValidateSet('service', 'inference', 'gateway', 'tunnel', 'all')][string]$Step,
   [string]$TaskPrefix = 'Agent Pools (rs)',
+  [switch]$ProxyCutover,
   [switch]$Live
 )
 $ErrorActionPreference = 'Stop'
@@ -58,8 +60,20 @@ function Restart-One($t) {
     Say "stopped; stop file left: $(Test-Path -LiteralPath $stop)"
     Start-ScheduledTask -TaskName $t.Name
     Wait-Until { try { (Invoke-RestMethod "http://127.0.0.1:$(Port-For 'service')/api/health" -TimeoutSec 3).service -eq 'agent-pools' } catch { $false } } 90 'the service to answer'
-    Wait-Until { try { @((Invoke-RestMethod "http://127.0.0.1:$(Port-For 'service')/api/status" -TimeoutSec 10).processes | Where-Object name -eq 'proxy')[0].pid -eq $proxy } catch { $false } } 90 "the service to adopt proxy $proxy"
-    Say "service answering; proxy $proxy adopted, not restarted"
+    if ($ProxyCutover) {
+      $expectedProxy = [IO.Path]::GetFullPath((Join-Path $Root $install.proxyBinary))
+      Wait-Until {
+        try {
+          $selected = @((Invoke-RestMethod "http://127.0.0.1:$(Port-For 'service')/api/status" -TimeoutSec 10).processes | Where-Object name -eq 'proxy')[0].pid
+          $running = Get-CimInstance Win32_Process -Filter "ProcessId=$selected"
+          $running.ExecutablePath -and ([IO.Path]::GetFullPath($running.ExecutablePath) -ieq $expectedProxy)
+        } catch { $false }
+      } 90 "the service to run selected proxy $($install.proxyBinary)"
+      Say "service answering; selected proxy $($install.proxyBinary) running"
+    } else {
+      Wait-Until { try { @((Invoke-RestMethod "http://127.0.0.1:$(Port-For 'service')/api/status" -TimeoutSec 10).processes | Where-Object name -eq 'proxy')[0].pid -eq $proxy } catch { $false } } 90 "the service to adopt proxy $proxy"
+      Say "service answering; proxy $proxy adopted, not restarted"
+    }
   } else {
     Stop-ScheduledTask -TaskName $t.Name -ErrorAction SilentlyContinue
     foreach ($p in $was) { if (Get-Process -Id $p.ProcessId -ErrorAction SilentlyContinue) { Stop-Process -Id $p.ProcessId -Force } }

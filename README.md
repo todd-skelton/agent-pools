@@ -543,9 +543,10 @@ llvm-mingw (`<install>\build`).
 
 1. `New-Proxy-Source.ps1 -Target <dir>` writes upstream with the patch applied into a new
    directory; `-WritePatch` writes `pool.patch` from `proxy-source`, so the repository keeps what
-   each version was built from. The patch here was written from the source 7.2.158-pool.31 was
-   built from (2026-10-31, no file changed after the build), and applying it to upstream gives that
-   source exactly (the same git tree).
+   each version was built from. The patch includes the 7.2.158-pool.32 Claude Responses message
+   phase fix (2026-11-02): completed answers carry `final_answer`; intermediate, tool-use and
+   truncated messages carry `commentary`, in both streaming and non-streaming output.
+   Regression tests also ensure an earlier text block is not labeled as the final answer.
 2. `Build-Pool-Proxy.ps1 -Version 7.2.158-pool.N` runs the proxy's test gate and builds
    `build\candidate.exe`.
 3. `Deploy-Pool-Proxy.ps1 -Root <install> -Live -Version 7.2.158-pool.N` builds, installs to

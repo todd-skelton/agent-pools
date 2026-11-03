@@ -7949,6 +7949,119 @@ index 0000000000000000000000000000000000000000..965dea3e17cb06d9995ac8bb52303532
 +		t.Fatal("missing checkpoint")
 +	}
 +}
+diff --git a/internal/translator/claude/openai/responses/claude_openai-responses_phase_test.go b/internal/translator/claude/openai/responses/claude_openai-responses_phase_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..6779dfac3814720029472ef6e23705f2a6a03c70
+--- /dev/null
++++ b/internal/translator/claude/openai/responses/claude_openai-responses_phase_test.go
+@@ -0,0 +1,107 @@
++package responses
++
++import (
++	"context"
++	"fmt"
++	"strings"
++	"testing"
++
++	"github.com/tidwall/gjson"
++)
++
++func TestClaudeResponsesAssistantMessagePhase(t *testing.T) {
++	for _, tc := range []struct{ stop, phase string }{
++		{"end_turn", "final_answer"},
++		{"stop_sequence", "final_answer"},
++		{"tool_use", "commentary"},
++		{"max_tokens", "commentary"},
++		{"pause_turn", "commentary"},
++		{"", "commentary"},
++	} {
++		t.Run(tc.stop, func(t *testing.T) {
++			chunks := []string{
++				`data: {"type":"message_start","message":{"id":"msg_phase_test","usage":{"input_tokens":1,"output_tokens":0}}}`,
++				`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
++				`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"PHASE_OK"}}`,
++				`data: {"type":"content_block_stop","index":0}`,
++				fmt.Sprintf(`data: {"type":"message_delta","delta":{"stop_reason":%q},"usage":{"output_tokens":1}}`, tc.stop),
++				`data: {"type":"message_stop"}`,
++			}
++			var state any
++			seenAdded, seenDone, seenTerminal := false, false, false
++			for _, chunk := range chunks {
++				for _, output := range ConvertClaudeResponseToOpenAIResponses(context.Background(), "claude-test", nil, nil, []byte(chunk), &state) {
++					event, data := parseClaudeResponsesSSEEvent(t, output)
++					if event == "response.output_item.added" && data.Get("item.type").String() == "message" {
++						seenAdded = true
++						if got := data.Get("item.phase").String(); got != "commentary" {
++							t.Errorf("in-progress phase=%q, want commentary", got)
++						}
++					}
++					if event == "response.output_item.done" && data.Get("item.type").String() == "message" {
++						seenDone = true
++						if got := data.Get("item.phase").String(); got != tc.phase {
++							t.Errorf("output_item.done phase=%q, want %q", got, tc.phase)
++						}
++					}
++					if event == "response.completed" || event == "response.incomplete" {
++						seenTerminal = true
++						if got := data.Get("response.output.0.phase").String(); got != tc.phase {
++							t.Errorf("terminal response phase=%q, want %q", got, tc.phase)
++						}
++					}
++				}
++			}
++			if !seenAdded || !seenDone || !seenTerminal {
++				t.Fatalf("missing events: added=%v done=%v terminal=%v", seenAdded, seenDone, seenTerminal)
++			}
++			nonStream := ConvertClaudeResponseToOpenAIResponsesNonStream(context.Background(), "claude-test", nil, nil, []byte(strings.Join(chunks, "\n")), nil)
++			if got := gjson.GetBytes(nonStream, "output.0.phase").String(); got != tc.phase {
++				t.Errorf("non-stream phase=%q, want %q", got, tc.phase)
++			}
++		})
++	}
++}
++
++func TestClaudeResponsesOnlyTrailingAnswerIsFinal(t *testing.T) {
++	chunks := []string{
++		`data: {"type":"message_start","message":{"id":"msg_multi_phase","usage":{"input_tokens":1}}}`,
++		`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
++		`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Checking."}}`,
++		`data: {"type":"content_block_stop","index":0}`,
++		`data: {"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}}`,
++		`data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"Done."}}`,
++		`data: {"type":"content_block_stop","index":1}`,
++		`data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}`,
++		`data: {"type":"message_stop"}`,
++	}
++	var state any
++	var phases []string
++	var terminal gjson.Result
++	for _, chunk := range chunks {
++		for _, output := range ConvertClaudeResponseToOpenAIResponses(context.Background(), "claude-test", nil, nil, []byte(chunk), &state) {
++			event, data := parseClaudeResponsesSSEEvent(t, output)
++			if event == "response.output_item.done" && data.Get("item.type").String() == "message" {
++				phases = append(phases, data.Get("item.phase").String())
++			}
++			if event == "response.completed" {
++				terminal = data.Get("response")
++			}
++		}
++	}
++	if got := strings.Join(phases, ","); got != "commentary,final_answer" {
++		t.Fatalf("stream message phases=%q, want commentary,final_answer", got)
++	}
++	nonStream := ConvertClaudeResponseToOpenAIResponsesNonStream(context.Background(), "claude-test", nil, nil, []byte(strings.Join(chunks, "\n")), nil)
++	for _, response := range []gjson.Result{terminal, gjson.ParseBytes(nonStream)} {
++		if got := response.Get("output.#").Int(); got != 2 {
++			t.Errorf("message count=%d, want 2", got)
++		}
++		if got := response.Get("output.0.phase").String(); got != "commentary" {
++			t.Errorf("intermediate message phase=%q, want commentary", got)
++		}
++		if got := response.Get("output.1.phase").String(); got != "final_answer" {
++			t.Errorf("last message phase=%q, want final_answer", got)
++		}
++	}
++}
 diff --git a/internal/translator/claude/openai/responses/claude_openai-responses_request.go b/internal/translator/claude/openai/responses/claude_openai-responses_request.go
 index 83cb854478556bf8f75d4dc0dd81dca489817de9..5d1310ebcc40faa2f132e1e6048670bec84fd7ce 100644
 --- a/internal/translator/claude/openai/responses/claude_openai-responses_request.go
@@ -8604,10 +8717,25 @@ index 24b77674d329db57fc26b6100a2c9b94ae7acf04..48a7f756f8ee481945f2dee88b0b5f8d
  }
  
 diff --git a/internal/translator/claude/openai/responses/claude_openai-responses_response.go b/internal/translator/claude/openai/responses/claude_openai-responses_response.go
-index faf6658f0e6857defc9fcca533bcb4b30c2a17e9..bc3df019c5d1de704ea49e1e74efeba1bd4f6554 100644
+index faf6658f0e6857defc9fcca533bcb4b30c2a17e9..eb502508733cb55733e17eaa2eb7f8c247f61bee 100644
 --- a/internal/translator/claude/openai/responses/claude_openai-responses_response.go
 +++ b/internal/translator/claude/openai/responses/claude_openai-responses_response.go
-@@ -92,7 +92,11 @@ type claudeResponsesUsageTokens struct {
+@@ -77,6 +77,14 @@ type claudeResponsesMessageItem struct {
+ 	Text        string
+ 	Annotations []any
+ 	Status      string
++	Phase       string
++}
++
++func claudeResponsesMessagePhase(stopReason string) string {
++	if stopReason == "end_turn" || stopReason == "stop_sequence" {
++		return "final_answer"
++	}
++	return "commentary"
+ }
+ 
+ type claudeResponsesReasoningItem struct {
+@@ -92,7 +100,11 @@ type claudeResponsesUsageTokens struct {
  	OutputTokens             int64
  	CacheCreationInputTokens int64
  	CacheReadInputTokens     int64
@@ -8620,7 +8748,7 @@ index faf6658f0e6857defc9fcca533bcb4b30c2a17e9..bc3df019c5d1de704ea49e1e74efeba1
  }
  
  var dataTag = []byte("data:")
-@@ -141,6 +145,20 @@ func (u *claudeResponsesUsageTokens) Merge(usage gjson.Result) {
+@@ -141,6 +153,20 @@ func (u *claudeResponsesUsageTokens) Merge(usage gjson.Result) {
  	if cacheReadInputTokens := usage.Get("cache_read_input_tokens"); cacheReadInputTokens.Exists() {
  		u.CacheReadInputTokens = cacheReadInputTokens.Int()
  	}
@@ -8641,7 +8769,39 @@ index faf6658f0e6857defc9fcca533bcb4b30c2a17e9..bc3df019c5d1de704ea49e1e74efeba1
  }
  
  func (u claudeResponsesUsageTokens) OpenAIResponsesUsage() (inputTokens, outputTokens, totalTokens, cachedTokens int64) {
-@@ -934,7 +952,7 @@ func ConvertClaudeResponseToOpenAIResponses(ctx context.Context, modelName strin
+@@ -422,6 +448,7 @@ func (st *claudeToResponsesState) finalizeAssistantMessage(nextSeq func() int) [
+ 	final, _ = sjson.SetBytes(final, "output_index", outputIndex)
+ 	final, _ = sjson.SetBytes(final, "item.id", st.CurrentMsgID)
+ 	final, _ = sjson.SetBytes(final, "item.status", status)
++	final, _ = sjson.SetBytes(final, "item.phase", claudeResponsesMessagePhase(st.StopReason))
+ 	final, _ = sjson.SetBytes(final, "item.content.0.text", fullText)
+ 	if len(st.MessageAnnotations) > 0 {
+ 		final, _ = sjson.SetBytes(final, "item.content.0.annotations", st.MessageAnnotations)
+@@ -434,6 +461,7 @@ func (st *claudeToResponsesState) finalizeAssistantMessage(nextSeq func() int) [
+ 		Text:        fullText,
+ 		Annotations: append([]any(nil), st.MessageAnnotations...),
+ 		Status:      status,
++		Phase:       claudeResponsesMessagePhase(st.StopReason),
+ 	})
+ 	st.InTextBlock = false
+ 	st.MessageOpen = false
+@@ -570,6 +598,7 @@ func ConvertClaudeResponseToOpenAIResponses(ctx context.Context, modelName strin
+ 			}
+ 			if !st.MessageOpen {
+ 				item := []byte(`{"type":"response.output_item.added","sequence_number":0,"output_index":0,"item":{"id":"","type":"message","status":"in_progress","content":[],"role":"assistant"}}`)
++				item, _ = sjson.SetBytes(item, "item.phase", "commentary")
+ 				item, _ = sjson.SetBytes(item, "sequence_number", nextSeq())
+ 				item, _ = sjson.SetBytes(item, "output_index", outputIndex)
+ 				item, _ = sjson.SetBytes(item, "item.id", st.CurrentMsgID)
+@@ -859,6 +888,7 @@ func ConvertClaudeResponseToOpenAIResponses(ctx context.Context, modelName strin
+ 			item := []byte(`{"id":"","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":""}],"role":"assistant"}`)
+ 			item, _ = sjson.SetBytes(item, "id", message.ID)
+ 			item, _ = sjson.SetBytes(item, "status", message.Status)
++			item, _ = sjson.SetBytes(item, "phase", message.Phase)
+ 			item, _ = sjson.SetBytes(item, "content.0.text", message.Text)
+ 			if len(message.Annotations) > 0 {
+ 				item, _ = sjson.SetBytes(item, "content.0.annotations", message.Annotations)
+@@ -934,7 +964,7 @@ func ConvertClaudeResponseToOpenAIResponses(ctx context.Context, modelName strin
  		for _, reasoning := range st.ReasoningItems {
  			reasoningLength += len(reasoning.Text)
  		}
@@ -8650,7 +8810,19 @@ index faf6658f0e6857defc9fcca533bcb4b30c2a17e9..bc3df019c5d1de704ea49e1e74efeba1
  		usagePresent := st.Usage.HasUsage || reasoningTokens > 0
  		if usagePresent {
  			inputTokens, outputTokens, totalTokens, cachedTokens := st.Usage.OpenAIResponsesUsage()
-@@ -1309,12 +1327,10 @@ func ConvertClaudeResponseToOpenAIResponsesNonStream(_ context.Context, _ string
+@@ -1254,6 +1284,11 @@ func ConvertClaudeResponseToOpenAIResponsesNonStream(_ context.Context, _ string
+ 			item, _ = sjson.SetBytes(item, "status", itemStatus)
+ 		case "message":
+ 			item = []byte(`{"id":"","type":"message","status":"completed","content":[{"type":"output_text","annotations":[],"logprobs":[],"text":""}],"role":"assistant"}`)
++			phase := "commentary"
++			if i == len(outputItems)-1 {
++				phase = claudeResponsesMessagePhase(stopReason)
++			}
++			item, _ = sjson.SetBytes(item, "phase", phase)
+ 			item, _ = sjson.SetBytes(item, "id", outputItem.id)
+ 			item, _ = sjson.SetBytes(item, "status", itemStatus)
+ 			item, _ = sjson.SetBytes(item, "content.0.text", outputItem.text.String())
+@@ -1309,12 +1344,10 @@ func ConvertClaudeResponseToOpenAIResponsesNonStream(_ context.Context, _ string
  			reasoningLength += outputItem.text.Len()
  		}
  	}

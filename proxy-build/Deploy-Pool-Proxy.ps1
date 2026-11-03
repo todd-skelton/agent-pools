@@ -97,7 +97,7 @@ if ($Rollback) {
   Write-Output "install.json now selects $proxyBinary"
 }
 
-$restart = @{ Root = $poolRoot; Step = 'service' }
+$restart = @{ Root = $poolRoot; Step = 'service'; ProxyCutover = $true }
 if ($target.Live) { $restart.Live = $true }
 & (Join-Path $PSScriptRoot '..\deploy\Restart-Pool-Rs.ps1') @restart
 $proc = Wait-ProxyRunning $proxyBinary
