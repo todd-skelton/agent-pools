@@ -1077,10 +1077,10 @@ index 06f68ab716e67cb02af958323f9126d56fbf508c..a86d95f5b8de3644caf7489c3efc87d3
  		if encrypted := gjson.GetBytes(got, path+".parameters.properties.message.encrypted"); encrypted.Exists() {
 diff --git a/internal/clientversion/clientversion.go b/internal/clientversion/clientversion.go
 new file mode 100644
-index 0000000000000000000000000000000000000000..d1e8b57c27d38cbf4cda038787cd34524860a7e8
+index 0000000000000000000000000000000000000000..bd67cdfb30bdfcc6e162397b2ff2996dce025497
 --- /dev/null
 +++ b/internal/clientversion/clientversion.go
-@@ -0,0 +1,218 @@
+@@ -0,0 +1,226 @@
 +// Package clientversion reports the versions of the locally installed client
 +// applications the proxy identifies as (Claude Code, Codex). Each configured
 +// binary is run with --version in the background; callers read the cached
@@ -1115,6 +1115,10 @@ index 0000000000000000000000000000000000000000..d1e8b57c27d38cbf4cda038787cd3452
 +const (
 +	// refreshInterval re-reads each binary so auto-updates are followed.
 +	refreshInterval = 6 * time.Hour
++	// retryInterval re-reads a binary whose last read failed, so one failed
++	// --version (a client mid-update, a busy machine) does not pin the compiled
++	// default for a whole refreshInterval.
++	retryInterval = time.Minute
 +	// runTimeout bounds one --version run.
 +	runTimeout = 15 * time.Second
 +)
@@ -1192,7 +1196,11 @@ index 0000000000000000000000000000000000000000..d1e8b57c27d38cbf4cda038787cd3452
 +	if e == nil {
 +		return ""
 +	}
-+	if !e.running && now().Sub(e.checkedAt) >= refreshInterval {
++	due := refreshInterval
++	if e.err != "" {
++		due = retryInterval
++	}
++	if !e.running && now().Sub(e.checkedAt) >= due {
 +		startLocked(client, e)
 +	}
 +	return e.version
@@ -1301,10 +1309,10 @@ index 0000000000000000000000000000000000000000..d1e8b57c27d38cbf4cda038787cd3452
 +}
 diff --git a/internal/clientversion/clientversion_test.go b/internal/clientversion/clientversion_test.go
 new file mode 100644
-index 0000000000000000000000000000000000000000..a73ce196d221913c9c28c912866a02d20149a0d7
+index 0000000000000000000000000000000000000000..27942d06790e9b4a14d921ad242cc7c5d37e14d8
 --- /dev/null
 +++ b/internal/clientversion/clientversion_test.go
-@@ -0,0 +1,150 @@
+@@ -0,0 +1,187 @@
 +package clientversion
 +
 +import (
@@ -1436,6 +1444,43 @@ index 0000000000000000000000000000000000000000..a73ce196d221913c9c28c912866a02d2
 +	}
 +	if calls.Load() != 2 {
 +		t.Fatalf("calls = %d, want 2", calls.Load())
++	}
++}
++
++// A failed first read (2026-11-03: codex.exe --version exited 1 once at proxy
++// start) is retried after retryInterval, not refreshInterval, so the installed
++// version replaces the compiled default within minutes.
++func TestFailedFirstReadIsRetriedSoon(t *testing.T) {
++	var calls atomic.Int32
++	resetForTest(t, func(context.Context, string) (string, error) {
++		if calls.Add(1) == 1 {
++			return "", errors.New("exit status 1")
++		}
++		return "codex-cli 0.166.0", nil
++	})
++	var clock atomic.Int64
++	clock.Store(time.Date(2026, 11, 3, 20, 23, 0, 0, time.UTC).UnixNano())
++	mu.Lock()
++	now = func() time.Time { return time.Unix(0, clock.Load()) }
++	mu.Unlock()
++	Configure(map[Client]string{Codex: "codex.exe"})
++	if got := Await(context.Background(), Codex); got != "" {
++		t.Fatalf("failed read = %q, want none", got)
++	}
++	clock.Add(int64(retryInterval - time.Second))
++	if got := Version(Codex); got != "" || calls.Load() != 1 {
++		t.Fatalf("retried early: version %q after %d calls", got, calls.Load())
++	}
++	clock.Add(int64(2 * time.Second))
++	deadline := time.Now().Add(5 * time.Second)
++	for Version(Codex) != "0.166.0" {
++		if time.Now().After(deadline) {
++			t.Fatalf("not re-read after retryInterval: %+v (calls %d)", Snapshot()["codex"], calls.Load())
++		}
++		time.Sleep(10 * time.Millisecond)
++	}
++	if status := Snapshot()["codex"]; status.Error != "" {
++		t.Fatalf("error kept after a good read: %+v", status)
 +	}
 +}
 +

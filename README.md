@@ -547,6 +547,9 @@ llvm-mingw (`<install>\build`).
    phase fix (2026-11-02): completed answers carry `final_answer`; intermediate, tool-use and
    truncated messages carry `commentary`, in both streaming and non-streaming output.
    Regression tests also ensure an earlier text block is not labeled as the final answer.
+   7.2.158-pool.33 (2026-11-03) re-reads an installed client's version a minute after a failed
+   `--version`, not six hours later: one failed read at start had kept Codex at the compiled
+   0.154.0, whose model list hides gpt-6.1-sol, gpt-6-sol and gpt-6-luna.
 2. `Build-Pool-Proxy.ps1 -Version 7.2.158-pool.N` runs the proxy's test gate and builds
    `build\candidate.exe`.
 3. `Deploy-Pool-Proxy.ps1 -Root <install> -Live -Version 7.2.158-pool.N` builds, installs to

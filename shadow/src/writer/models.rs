@@ -115,6 +115,42 @@ fn reclaim_if_stale(lock: &Path, stale_ms: f64) -> std::io::Result<()> {
     Ok(())
 }
 
+/// The pid in a lock's `{pid, token, at}`, when it is readable and names another process.
+fn holder_pid(lock: &Path) -> Option<u32> {
+    let held: Value = serde_json::from_str(&std::fs::read_to_string(lock).ok()?).ok()?;
+    let pid = u32::try_from(held.get("pid")?.as_u64()?).ok()?;
+    (pid != std::process::id()).then_some(pid)
+}
+
+/// The lock's holder has exited (2026-11-03: a service ended mid-refresh left its lock, and every
+/// recheck skipped as "refresh already running" until the lock went stale 30 minutes later). Only
+/// Windows can tell; elsewhere the age rule alone decides. A reused pid reads as alive, which
+/// falls back to that rule.
+fn holder_exited(lock: &Path) -> bool {
+    cfg!(windows) && holder_pid(lock).is_some_and(|pid| !crate::live::machine::alive(pid))
+}
+
+/// [`reclaim_if_stale`] for a lock whose holder has exited: under the same guard, removed only if
+/// it still names that exited holder, so a successor's lock is never removed.
+fn reclaim_if_exited(lock: &Path) -> std::io::Result<()> {
+    let guard = suffixed(lock, ".reclaim");
+    match std::fs::OpenOptions::new().write(true).create_new(true).open(&guard) {
+        Ok(g) => drop(g),
+        Err(e) if taken(&e) => {
+            if age_ms(&guard).unwrap_or(0.0) > RECLAIM_GUARD_STALE_MS {
+                let _ = std::fs::remove_file(&guard);
+            }
+            return Ok(());
+        }
+        Err(e) => return Err(e),
+    }
+    if holder_exited(lock) {
+        let _ = std::fs::remove_file(lock);
+    }
+    let _ = std::fs::remove_file(&guard);
+    Ok(())
+}
+
 /// Stops renewing the lock when the holder is done (or panics).
 struct Renewing(tokio::task::JoinHandle<()>);
 
@@ -126,8 +162,8 @@ impl Drop for Renewing {
 
 /// `withLock(file, fn)`: runs `f` holding `<file>.lock`. The holder renews the lock's time every
 /// `renew_ms`, so only a lock whose holder stopped renewing ages past `stale_ms` and is taken
-/// over. Release removes the lock only if it still carries this holder's token. Waiting past
-/// `wait_ms` is `lock busy: <lock>`.
+/// over; a lock whose holder process has exited is taken over at once. Release removes the lock
+/// only if it still carries this holder's token. Waiting past `wait_ms` is `lock busy: <lock>`.
 pub async fn with_lock<T, Fut: Future<Output = T>>(file: &Path, o: Lock, f: impl FnOnce() -> Fut) -> Result<T, String> {
     let lock = suffixed(file, ".lock");
     let token = format!("{}-{}", std::process::id(), hex(6));
@@ -146,6 +182,11 @@ pub async fn with_lock<T, Fut: Future<Output = T>>(file: &Path, o: Lock, f: impl
                     // (up to a minute when it died) never blocks the runtime's thread.
                     tokio::task::yield_now().await;
                     continue;
+                }
+                // Not `continue`: a removal that fails (a reader holding it open) still ends at
+                // `wait_ms` instead of spinning.
+                if holder_exited(&lock) {
+                    reclaim_if_exited(&lock).map_err(|e| e.to_string())?;
                 }
                 if now_ms() - start > o.wait_ms {
                     return Err(format!("lock busy: {}", lock.display()));
@@ -390,12 +431,32 @@ impl Prober for StandIn {
 
 // ---------------------------------------------------------------- model-refresh.mjs
 
+/// Why the pool's status (as `/api/status` answers) says nothing about its accounts, if it does
+/// not: none was read, the last refresh cycle failed (which marks every account unknown), or no
+/// enabled account has a known status. A registry built from it would report every account
+/// unusable and every current model unavailable (2026-11-03, while the proxy restarted).
+pub fn status_unknown(status: &Value) -> Option<String> {
+    if !status.is_object() {
+        return Some("no status".into());
+    }
+    if let Some(e) = status.get("error").filter(|e| js::truthy(Some(*e))) {
+        return Some(format!("last refresh failed: {}", js::to_string(Some(e))));
+    }
+    let enabled: Vec<&Value> = js::values(status.get("accounts")).into_iter().filter(|a| a.get("disabled") != Some(&Value::Bool(true))).collect();
+    if enabled.is_empty() {
+        return Some("no enabled accounts".into());
+    }
+    enabled.iter().all(|a| a.get("status").and_then(Value::as_str) == Some("unknown")).then(|| "every account unknown".into())
+}
+
 /// `refresh(root, { probe, benchmarks })`: under the registry's lock, builds the registry from the
 /// live model lists, the pool's status (`status`, as `/api/status` answers; `None` when it does
 /// not), the families, the evidence and the lineage; probes the efforts the plan lacks (16 at
 /// most, least recently tried first, within the probe budget) and builds again; takes each
 /// benchmark snapshot that is 20 hours old with `bench` (none: `benchmarks: false`); then writes
 /// the lineage and the registry (with the benchmark snapshot on disk). Answers the registry.
+/// While the pool's status is unknown ([`status_unknown`]) nothing is built or written: the
+/// registry on disk is kept and the run fails, so the recheck tries again.
 pub async fn refresh<P: Prober>(
     root: &Path,
     prober: &P,
@@ -412,6 +473,9 @@ pub async fn refresh<P: Prober>(
         let families = read_json(&root.join("model-families.json"), None)?;
         let live_models = read_json(&root.join("state/live-models.json"), None)?;
         let status = status().unwrap_or(Value::Null);
+        if let Some(why) = status_unknown(&status) {
+            return Err(format!("pool status unknown ({why}); registry kept"));
+        }
         let lineage_path = root.join("state/model-lineage.json");
         let lineage = read_json(&lineage_path, Some(registry::empty_lineage()))?;
         let harness = prober.harness_versions().await?;
@@ -719,6 +783,78 @@ mod tests {
     }
 
     struct Never;
+
+    /// A process that has already exited: its pid names no running process.
+    #[cfg(windows)]
+    fn exited_pid() -> u32 {
+        let mut child = std::process::Command::new("cmd").args(["/c", "exit 0"]).spawn().unwrap();
+        let pid = child.id();
+        child.wait().unwrap();
+        assert!(!crate::live::machine::alive(pid));
+        pid
+    }
+
+    /// 2026-11-03: a service ended mid-refresh left a fresh lock naming its pid, and every recheck
+    /// skipped for 30 minutes. A lock whose holder has exited is taken over at once; one whose
+    /// holder still runs is waited for.
+    #[cfg(windows)]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_lock_whose_holder_exited_is_taken_over_at_once_and_a_running_holder_is_waited_for() {
+        let dir = scratch("exited");
+        let file = dir.join("x.json");
+        let lock = suffixed(&file, ".lock");
+        std::fs::write(&lock, json!({ "pid": exited_pid(), "token": "dead", "at": js::iso(now_ms()) }).to_string()).unwrap();
+        let started = std::time::Instant::now();
+        let token = with_lock(&file, Lock { wait_ms: 10_000.0, ..Lock::default() }, || async { std::fs::read_to_string(&lock).unwrap() }).await.unwrap();
+        assert!(started.elapsed() < Duration::from_secs(2), "taken over after {:?}", started.elapsed());
+        assert!(!token.contains("dead"), "{token}");
+        assert!(!lock.exists() && !suffixed(&lock, ".reclaim").exists(), "released, no guard left");
+
+        let mut running = std::process::Command::new("ping").args(["-n", "30", "127.0.0.1"]).stdout(std::process::Stdio::null()).spawn().unwrap();
+        std::fs::write(&lock, json!({ "pid": running.id(), "token": "alive", "at": js::iso(now_ms()) }).to_string()).unwrap();
+        let busy = with_lock(&file, Lock { wait_ms: 600.0, ..Lock::default() }, || async {}).await;
+        let _ = running.kill();
+        let _ = running.wait();
+        assert!(busy.as_ref().is_err_and(|e| e.starts_with("lock busy")), "{busy:?}");
+        assert!(std::fs::read_to_string(&lock).unwrap().contains("alive"), "a running holder's lock is kept");
+        std::fs::remove_file(&lock).unwrap();
+        clean(&dir);
+    }
+
+    /// 2026-11-03: a refresh while the proxy restarted read every account as unknown and published
+    /// every current model unavailable. Without a known status the registry on disk is kept.
+    #[tokio::test]
+    async fn a_refresh_keeps_the_registry_while_the_pool_status_is_unknown() {
+        let known = json!({ "error": null, "accounts": [{ "id": "a", "status": "unknown" }, { "id": "b", "status": "available" }] });
+        assert_eq!(status_unknown(&known), None);
+        assert_eq!(status_unknown(&json!({ "accounts": [{ "id": "a", "routingModels": {} }] })), None, "a status without account states is not unknown");
+        assert_eq!(status_unknown(&Value::Null).as_deref(), Some("no status"));
+        assert_eq!(status_unknown(&json!({ "error": "fetch failed", "accounts": [{ "id": "a", "status": "available" }] })).as_deref(), Some("last refresh failed: fetch failed"));
+        assert_eq!(status_unknown(&json!({ "accounts": [{ "id": "a", "status": "unknown" }, { "id": "b", "status": "available", "disabled": true }] })).as_deref(), Some("every account unknown"));
+        assert_eq!(status_unknown(&json!({ "accounts": [] })).as_deref(), Some("no enabled accounts"));
+
+        let root = scratch("unknown-status");
+        std::fs::create_dir_all(root.join("state")).unwrap();
+        std::fs::write(root.join("model-families.json"), "{}").unwrap();
+        std::fs::write(root.join("state/live-models.json"), r#"{"format":1,"lists":{}}"#).unwrap();
+        let file = root.join("state/model-registry.json");
+        let kept = r#"{"families":{"sol":{"unavailableEfforts":[]}}}"#;
+        std::fs::write(&file, kept).unwrap();
+        let lines = Mutex::new(Vec::<String>::new());
+        let log = |l: &str| lines.lock().unwrap().push(l.to_string());
+        let unknown = json!({ "error": "The operation was aborted due to timeout", "accounts": [{ "id": "a", "status": "unknown" }] });
+        for status in [None, Some(unknown)] {
+            let out = refresh(&root, &Never, || status, true, None, &log).await;
+            assert!(out.as_ref().is_err_and(|e| e.starts_with("pool status unknown")), "{out:?}");
+            assert_eq!(std::fs::read_to_string(&file).unwrap(), kept, "the registry is kept");
+            assert!(!suffixed(&file, ".lock").exists(), "the lock is released");
+        }
+        for f in ["model-families.json", "state/live-models.json", "state/model-registry.json"] {
+            std::fs::remove_file(root.join(f)).unwrap();
+        }
+        std::fs::remove_dir(root.join("state")).unwrap();
+        clean(&root);
+    }
 
     impl Prober for Never {
         #[allow(clippy::manual_async_fn)]
