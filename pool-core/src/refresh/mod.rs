@@ -597,6 +597,7 @@ impl Refresh {
             put(&mut a, "creditsKnown", json!(bank.known));
             put(&mut a, "credits", bank.credits);
             put(&mut a, "creditCount", bank.count);
+            adapters::put_model_bank(&mut a, bank.model_credits, bank.model_count);
             if let Some(note) = bank.note.filter(|n| !n.is_empty()) {
                 put(&mut a, "creditNote", json!(note));
             }

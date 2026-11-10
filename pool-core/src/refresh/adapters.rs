@@ -88,12 +88,18 @@ pub struct Bank {
     pub credits: Value,
     pub count: Value,
     pub note: Option<String>,
+    /// Claude grants that reset only a model's cap (`ClaudeBank::model_credits`), kept out of
+    /// `credits` and `count` so nothing spends or forecasts them as full refills.
+    pub model_credits: Value,
+    pub model_count: Value,
 }
 
 /// `adapter.readBank(io, file, usage, now)`. Never fails: an unreadable bank is unknown.
 pub async fn read_bank<I: Io>(cycle: &Cycle<'_, I>, file: &Value, usage: &Value, now: f64) -> Bank {
+    let none = || (json!([]), json!(0));
     if str_at(file, "provider") == Some("codex") {
-        let unknown = Bank { known: false, credits: json!([]), count: json!(0), note: None };
+        let (model_credits, model_count) = none();
+        let unknown = Bank { known: false, credits: json!([]), count: json!(0), note: None, model_credits: model_credits.clone(), model_count: model_count.clone() };
         let Ok(data) = cycle.read(file, CODEX_CREDITS_URL, None, Map::new()).await else {
             return unknown;
         };
@@ -112,21 +118,42 @@ pub async fn read_bank<I: Io>(cycle: &Cycle<'_, I>, file: &Value, usage: &Value,
             credits: Value::Array(credits),
             count: num(count),
             note: None,
+            model_credits,
+            model_count,
         };
     }
     let Some(bank) = claude_bank(at(usage, "cedar_ember"), now) else {
-        return Bank { known: false, credits: json!([]), count: json!(0), note: Some("Reset bank not reported".into()) };
+        let (model_credits, model_count) = none();
+        return Bank { known: false, credits: json!([]), count: json!(0), note: Some("Reset bank not reported".into()), model_credits, model_count };
     };
     let count = num(bank.count);
-    if !bank.credits.is_empty() && claude_organization(cycle.io.auth_file(file).await.as_ref()).is_none() {
+    let model_count = num(bank.model_count);
+    let offered = !bank.credits.is_empty() || !bank.model_credits.is_empty();
+    if offered && claude_organization(cycle.io.auth_file(file).await.as_ref()).is_none() {
         return Bank {
             known: true,
             credits: json!([]),
             count,
             note: Some("Organization unknown; resets cannot be claimed automatically".into()),
+            model_credits: json!([]),
+            model_count,
         };
     }
-    Bank { known: true, credits: jsify(serde_json::to_value(&bank.credits).unwrap_or(json!([]))), count, note: bank.note }
+    let list = |c: &[crate::banks::ClaudeCredit]| jsify(serde_json::to_value(c).unwrap_or(json!([])));
+    Bank { known: true, credits: list(&bank.credits), count, note: bank.note, model_credits: list(&bank.model_credits), model_count }
+}
+
+/// The model-scoped bank on an account: set while it holds any, removed otherwise, so an
+/// account that never had one keeps the shape it always had.
+pub fn put_model_bank(a: &mut Value, credits: Value, count: Value) {
+    let held = js::number(Some(&count)).is_some_and(|n| n > 0.0) || credits.as_array().is_some_and(|c| !c.is_empty());
+    if held {
+        put(a, "modelCredits", credits);
+        put(a, "modelCreditCount", count);
+    } else {
+        super::obj::del(a, "modelCredits");
+        super::obj::del(a, "modelCreditCount");
+    }
 }
 
 /// `claudeOrganization(authFile)`: the organization UUID a claim needs, when readable.

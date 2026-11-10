@@ -33,6 +33,10 @@ pub struct Account {
     pub rank_remaining: Option<Value>,
     pub windows: Vec<Window>,
     pub credits: Vec<Value>,
+    /// Model caps (`quotaWindows` rows that are not `common`, a day or longer).
+    pub model_windows: Vec<Window>,
+    /// `modelCredits`: grants that reset a model's cap but not the all-model quota.
+    pub model_credits: Vec<Value>,
 }
 
 #[derive(Clone, Debug)]
@@ -40,6 +44,20 @@ pub struct Window {
     pub common: bool,
     pub duration_seconds: Option<f64>,
     pub used: Option<f64>,
+}
+
+fn rows(ws: Option<&Value>) -> Vec<Window> {
+    match ws {
+        Some(Value::Array(ws)) => ws
+            .iter()
+            .map(|w| Window {
+                common: js::truthy(js::get(Some(w), "common")),
+                duration_seconds: js::number(js::get(Some(w), "durationSeconds")),
+                used: js::number(js::get(Some(w), "used")),
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
 }
 
 impl Account {
@@ -56,18 +74,16 @@ impl Account {
             remaining: js::number(js::get(a, "remaining")),
             rank_reset: js::finite(js::get(a, "rankReset")),
             rank_remaining: js::get(a, "rankRemaining").cloned(),
-            windows: match js::get(a, "windows") {
-                Some(Value::Array(ws)) => ws
-                    .iter()
-                    .map(|w| Window {
-                        common: js::truthy(js::get(Some(w), "common")),
-                        duration_seconds: js::number(js::get(Some(w), "durationSeconds")),
-                        used: js::number(js::get(Some(w), "used")),
-                    })
-                    .collect(),
+            windows: rows(js::get(a, "windows")),
+            credits: match js::get(a, "credits") {
+                Some(Value::Array(cs)) => cs.clone(),
                 _ => Vec::new(),
             },
-            credits: match js::get(a, "credits") {
+            model_windows: rows(js::get(a, "quotaWindows"))
+                .into_iter()
+                .filter(|w| !w.common && w.duration_seconds.is_some_and(|d| d >= 86_400.0))
+                .collect(),
+            model_credits: match js::get(a, "modelCredits") {
                 Some(Value::Array(cs)) => cs.clone(),
                 _ => Vec::new(),
             },
@@ -88,6 +104,54 @@ impl Account {
             .iter()
             .filter(|w| w.common && w.duration_seconds == Some(WEEK_SECONDS))
     }
+
+    /// The most used common weekly window, when every one reads.
+    fn all_model_used(&self) -> Option<f64> {
+        let weekly: Vec<f64> = self.weekly().map(|w| w.used.filter(|u| u.is_finite())).collect::<Option<_>>()?;
+        weekly.into_iter().reduce(f64::max)
+    }
+
+    /// Out of some model's cap (and so unable to serve that model) though perhaps not out of
+    /// all-model quota.
+    fn model_out(&self, headroom_percent: f64) -> bool {
+        self.model_windows
+            .iter()
+            .any(|w| w.used.is_some_and(|u| u.is_finite() && u >= 100.0 - headroom_percent))
+    }
+}
+
+/// The session window's key in a grant's `clears`; any other key besides the all-model weekly
+/// is a model's cap.
+const CLAUDE_SESSION: &str = "five_hour";
+
+/// What claiming model-scoped credit `c` on account `a` would add, in percent of `a`'s weekly:
+/// the all-model quota left that the cleared model cap is keeping it from using. `None` when the
+/// claim would add nothing worth spending it on: the account is out of all-model quota (the
+/// claim cannot lift that), or not yet out of the cap the credit clears. Within a day of the
+/// credit's expiry any real gain counts, as the credit is lost otherwise.
+fn model_credit_gain(a: &Account, c: &Value, headroom_percent: f64, now: f64) -> Option<f64> {
+    if !a.status_is(&["available", "exhausted"]) {
+        return None;
+    }
+    let all_used = a.all_model_used()?;
+    let headroom = 100.0 - all_used;
+    if headroom <= headroom_percent.max(0.0) {
+        return None;
+    }
+    let clears = js::values(js::get(Some(c), "clears"));
+    let percent = js::get(Some(c), "percent_used");
+    let cap_used = clears
+        .iter()
+        .filter_map(|k| k.as_str())
+        .filter(|k| *k != CLAUDE_SESSION && *k != crate::banks::CLAUDE_ALL_MODEL_WEEKLY)
+        .map(|k| js::finite(js::get(percent, k)).unwrap_or(0.0))
+        .reduce(f64::max)?;
+    let urgent = credit_expiry(c) <= now + DAY_MS;
+    if urgent {
+        let gain = cap_used.min(headroom);
+        return (gain > 0.0).then_some(gain);
+    }
+    (cap_used >= 100.0 - headroom_percent).then_some(headroom)
 }
 
 /// A refill provider's demand for `refillNeedMs`: weighted account-units per hour.
@@ -309,7 +373,8 @@ pub fn credit_key(account_id: &str, credit_id: Option<&Value>) -> String {
 /// `chooseReset(accounts, policy, now, skip, beforeLapse)`: the banked credit to spend now,
 /// if any. A reset fires once every enrolled account of the provider is out and every bank is
 /// known; `before_lapse` lets a listed account that is itself out spend its own next credit
-/// early. `skip` holds `credit_key`s recently refused.
+/// early. `skip` holds `credit_key`s recently refused. When no full credit is chosen, a
+/// model-scoped one may be ([`choose_model_reset`]).
 pub fn choose_reset(
     accounts: &[Account],
     policy: &Policy,
@@ -325,6 +390,58 @@ pub fn choose_reset(
     if (pool.len() as f64) < policy.expected_count || pool.iter().any(|a| !a.credits_known) {
         return None;
     }
+    choose_full_reset(&pool, policy, now, skip, before_lapse)
+        .or_else(|| choose_model_reset(&pool, policy, now, skip))
+}
+
+/// A model-scoped credit (Claude's launch grants that reset only the Fable weekly cap) is spent
+/// once no enrolled account can serve that model, each being out of all-model quota or of a
+/// model cap, on the account where it adds the most: one out of the cap it clears with the most
+/// all-model quota left, which the cap is holding back. Never on an account out of all-model
+/// quota, where it would restore nothing. A credit within a day of expiry is spent wherever it
+/// adds anything. The refill runway rule applies as for a full refill.
+fn choose_model_reset(pool: &[Account], policy: &Policy, now: f64, skip: &HashSet<String>) -> Option<ResetChoice> {
+    let natural_reset = |a: &Account| a.rank_reset.unwrap_or(f64::NEG_INFINITY);
+    let blocked = pool.iter().all(|a| {
+        account_out(a, "weekly", policy.headroom_percent) || a.model_out(policy.headroom_percent)
+    });
+    let mut offered: Vec<(&Account, &Value, f64, bool)> = pool
+        .iter()
+        .flat_map(|a| a.model_credits.iter().map(move |c| (a, c)))
+        .filter(|(a, c)| js::truthy(Some(c)) && !skip.contains(&credit_key(&a.id, js::get(Some(c), "id"))))
+        .filter_map(|(a, c)| {
+            let gain = model_credit_gain(a, c, policy.headroom_percent, now)?;
+            let urgent = credit_expiry(c) <= now + DAY_MS;
+            ((urgent || blocked) && refill_runway_ok(a, Some(c), policy, now, pool)).then_some((a, c, gain, urgent))
+        })
+        .collect();
+    js::sort_by(&mut offered, |(a, ac, ag, au), (b, bc, bg, bu)| {
+        if au != bu {
+            return if *au { -1.0 } else { 1.0 };
+        }
+        js::or_else(if *au { credit_expiry(ac) - credit_expiry(bc) } else { 0.0 }, || {
+            js::or_else(bg - ag, || {
+                js::or_else(natural_reset(b) - natural_reset(a), || {
+                    js::or_else(credit_expiry(ac) - credit_expiry(bc), || js::locale_compare(&a.id, &b.id) as i8 as f64)
+                })
+            })
+        })
+    });
+    offered.first().map(|(a, c, _, _)| ResetChoice {
+        account_id: a.id.clone(),
+        credit_id: js::get(Some(c), "id").cloned().unwrap_or(Value::Null),
+        trigger: Some("model-cap"),
+    })
+}
+
+/// The full-refill choice (`chooseReset` as it was before model-scoped credits).
+fn choose_full_reset(
+    pool: &[Account],
+    policy: &Policy,
+    now: f64,
+    skip: &HashSet<String>,
+    before_lapse: Option<&HashSet<String>>,
+) -> Option<ResetChoice> {
     let natural_reset = |a: &Account| a.rank_reset.unwrap_or(f64::NEG_INFINITY);
     if pool
         .iter()
@@ -419,4 +536,105 @@ pub fn choose_reset(
         credit_id: js::get(Some(c), "id").cloned().unwrap_or(Value::Null),
         trigger: None,
     })
+}
+
+#[cfg(test)]
+mod model_credit_tests {
+    use super::*;
+    use serde_json::json;
+
+    const NOW: f64 = 1_794_000_000_000.0;
+    const FAR: &str = "2027-03-09T07:59:00+00:00";
+
+    /// A Claude account with an all-model weekly at `all`% and a Fable cap at `fable`%, holding
+    /// the Fable launch grant when `grant` is set.
+    fn account(id: &str, all: f64, fable: f64, grant: Option<&str>) -> Account {
+        let weekly = json!({ "common": true, "durationSeconds": 604800, "used": all });
+        let mut a = json!({
+            "id": id, "provider": "claude", "disabled": false,
+            "status": if all >= 100.0 { "exhausted" } else { "available" },
+            "creditsKnown": true, "creditCount": 0, "credits": [],
+            "rankReset": NOW + 5.0 * DAY_MS,
+            "windows": [weekly],
+            "quotaWindows": [weekly, { "common": false, "durationSeconds": 604800, "used": fable }],
+        });
+        if let Some(expires) = grant {
+            a["modelCredits"] = json!([{
+                "id": "launch-2610-fable", "expires_at": expires, "label": "Fable reset",
+                "clears": ["seven_day_overage_included"],
+                "percent_used": { "seven_day_overage_included": fable, "seven_day": all },
+            }]);
+            a["modelCreditCount"] = json!(1);
+        }
+        Account::from_value(&a)
+    }
+
+    fn policy(expected: usize) -> Policy {
+        Policy::from_value(&json!({
+            "provider": "claude", "redemption": "refill", "trigger": "weekly",
+            "headroomPercent": 0, "maxRunwayPercent": 50, "expectedCount": expected,
+        }))
+    }
+
+    fn choose(accounts: &[Account]) -> Option<ResetChoice> {
+        choose_reset(accounts, &policy(accounts.len()), NOW, &HashSet::new(), None)
+    }
+
+    #[test]
+    fn never_on_an_account_out_of_all_model_quota() {
+        // The live case: all-model weekly spent, Fable barely used. Even with every account
+        // blocked, clearing Fable there restores nothing.
+        let pool = [account("a", 100.0, 13.0, Some(FAR)), account("b", 100.0, 2.0, Some(FAR)), account("c", 100.0, 0.0, None)];
+        assert_eq!(choose(&pool), None);
+    }
+
+    #[test]
+    fn waits_while_another_account_can_still_serve_the_model() {
+        let pool = [account("a", 12.0, 100.0, Some(FAR)), account("b", 0.0, 0.0, None), account("c", 100.0, 13.0, Some(FAR))];
+        assert_eq!(choose(&pool), None);
+    }
+
+    #[test]
+    fn spent_where_the_cap_holds_back_the_most_all_model_quota() {
+        let pool = [
+            account("a", 40.0, 100.0, Some(FAR)),
+            account("b", 12.0, 100.0, Some(FAR)),
+            account("c", 100.0, 13.0, Some(FAR)),
+            account("d", 100.0, 0.0, None),
+        ];
+        let chosen = choose(&pool).unwrap();
+        assert_eq!((chosen.account_id.as_str(), chosen.trigger), ("b", Some("model-cap")));
+        assert_eq!(chosen.credit_id, json!("launch-2610-fable"));
+    }
+
+    #[test]
+    fn not_before_the_cap_it_clears_is_reached() {
+        let pool = [account("a", 12.0, 99.0, Some(FAR)), account("b", 100.0, 0.0, None)];
+        assert_eq!(choose(&pool), None);
+    }
+
+    #[test]
+    fn within_a_day_of_expiry_any_real_gain_counts() {
+        let soon = js::iso(NOW + 6.0 * HOUR_MS);
+        let pool = [account("a", 100.0, 13.0, Some(&soon)), account("b", 30.0, 16.0, Some(&soon)), account("c", 0.0, 0.0, None)];
+        assert_eq!(choose(&pool).map(|c| c.account_id), Some("b".into()));
+        let spent = [account("a", 100.0, 13.0, Some(&soon)), account("c", 0.0, 0.0, None)];
+        assert_eq!(choose(&spent), None, "nothing to gain on an account out of all-model quota");
+    }
+
+    #[test]
+    fn a_full_refill_is_not_spent_by_the_model_rule_and_still_fires_as_before() {
+        let mut out = [account("a", 100.0, 13.0, Some(FAR)), account("b", 100.0, 100.0, None)];
+        out[1].credits = vec![json!({ "id": "opus-launch", "expires_at": FAR })];
+        out[1].credit_count = 1.0;
+        let chosen = choose(&out).unwrap();
+        assert_eq!((chosen.account_id.as_str(), chosen.trigger), ("b", None));
+    }
+
+    #[test]
+    fn a_refused_model_credit_is_passed_over() {
+        let pool = [account("a", 12.0, 100.0, Some(FAR)), account("b", 100.0, 0.0, None)];
+        let skip: HashSet<String> = [credit_key("a", Some(&json!("launch-2610-fable")))].into();
+        assert_eq!(choose_reset(&pool, &policy(2), NOW, &skip, None), None);
+    }
 }

@@ -237,14 +237,26 @@ pub fn summary_account(a: &Value, value_row: Option<&Value>) -> Value {
         m.insert("priceSource".into(), s);
     }
     m.insert("windows".into(), Value::Array(windows));
-    m.insert(
-        "credits".into(),
-        json!({
-            "known": g("creditsKnown") == Some(&Value::Bool(true)),
-            "count": credit_count,
-            "expiries": expiries,
-        }),
-    );
+    let mut credits = json!({
+        "known": g("creditsKnown") == Some(&Value::Bool(true)),
+        "count": credit_count,
+        "expiries": expiries,
+    });
+    // Grants that reset only a model's cap (not counted above): listed only where held.
+    let model_listed = js::values(g("modelCredits"));
+    let model_count = js::finite(g("modelCreditCount")).filter(|n| n.fract() == 0.0);
+    if model_count.is_some_and(|n| n > 0.0) || !model_listed.is_empty() {
+        let mut model_expiries: Vec<String> = model_listed
+            .iter()
+            .filter_map(|c| js::get(Some(c), "expires_at").and_then(Value::as_str).map(str::to_string))
+            .collect();
+        model_expiries.sort();
+        let clears: Vec<Value> = model_listed.iter().flat_map(|c| js::values(js::get(Some(c), "clears"))).cloned().collect();
+        credits["modelCount"] = model_count.map_or(json!(model_listed.len()), js::number_value);
+        credits["modelExpiries"] = json!(model_expiries);
+        credits["modelClears"] = Value::Array(clears);
+    }
+    m.insert("credits".into(), credits);
     m.insert(
         "value".into(),
         if value_row.is_some() {
@@ -581,6 +593,12 @@ pub fn build_summary(
             "nextCreditExpiry".into(),
             all_expiries.first().map_or(Value::Null, |e| json!(e)),
         );
+        let model_banked = mine.iter().fold(0.0, |s, a| {
+            s + js::finite(js::get(js::get(Some(a), "credits"), "modelCount")).unwrap_or(0.0)
+        });
+        if model_banked > 0.0 {
+            pm.insert("modelCreditsBanked".into(), js::number_value(model_banked));
+        }
         pm.insert("forecast".into(), forecast_block);
         pm.insert("value".into(), value_block);
         out.insert((*id).into(), Value::Object(pm));

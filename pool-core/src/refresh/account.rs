@@ -121,6 +121,7 @@ pub async fn refresh_usage<I: Io>(cycle: &Cycle<'_, I>, a: &mut Value, previous:
             put(a, "creditsKnown", json!(false));
             put(a, "creditCount", json!(0));
             put(a, "credits", json!([]));
+            super::adapters::put_model_bank(a, json!([]), json!(0));
             None
         }
     }

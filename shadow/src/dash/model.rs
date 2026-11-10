@@ -72,6 +72,17 @@ fn cat(v: Option<&Value>) -> String {
     }
 }
 
+/// Banked resets that clear only a model's cap (`modelCreditCount`, `modelCredits`): how many,
+/// and the grant's label (or what such a reset is), when the account holds any.
+fn model_only(a: &Value) -> Option<(Value, String)> {
+    let count = js::finite(a.get("modelCreditCount")).filter(|c| *c > 0.0)?;
+    let label = arr(a.get("modelCredits"))
+        .iter()
+        .find_map(|c| c.get("label").and_then(Value::as_str).filter(|l| !l.is_empty()).map(str::to_string))
+        .unwrap_or_else(|| "resets only a model's cap, not all-model quota".into());
+    Some((js::number_value(count), label))
+}
+
 /// What every view reads: the status, the value report, the time and the zone times are shown in.
 pub struct Ctx<'a> {
     pub s: &'a Value,
@@ -1487,13 +1498,22 @@ impl<'a> Ctx<'a> {
             return Cell::Text { text: "unknown".into(), title: Some(text(a.get("creditNote"))), sub: None, tone: None, dim: true, mono: false };
         }
         let count = n(a.get("creditCount"));
+        let model = model_only(a);
         if count == 0.0 || count.is_nan() {
-            return Cell::dim("none");
+            return match model {
+                Some((m, label)) => Cell::Text { text: format!("{} model-only", cat(Some(&m))), title: Some(label), sub: None, tone: None, dim: false, mono: false },
+                None => Cell::dim("none"),
+            };
         }
         let t = self.term(&text(a.get("provider")));
         let days = if truthy(a.get("nextCreditExpiry")) { (ts(a.get("nextCreditExpiry")) - self.now) / D } else { f64::INFINITY };
         let all: Vec<String> = arr(a.get("creditExpiries")).iter().map(|e| self.dt(Some(e))).collect();
-        let title = format!("{}{}", plural(count, &format!("banked {t}")), if all.is_empty() { String::new() } else { format!(": expires {}", all.join(", ")) });
+        let title = format!(
+            "{}{}{}",
+            plural(count, &format!("banked {t}")),
+            if all.is_empty() { String::new() } else { format!(": expires {}", all.join(", ")) },
+            model.map_or(String::new(), |(m, _)| format!("; plus {} model-only", cat(Some(&m))))
+        );
         let next = truthy(a.get("nextCreditExpiry")).then(|| {
             (format!("next expires in {}", self.in_t(a.get("nextCreditExpiry"))), self.dt(a.get("nextCreditExpiry")), days < 8.0)
         });
@@ -1622,6 +1642,9 @@ impl<'a> Ctx<'a> {
             rows.push(kv(if s_eq(get(plan, "status"), "ends") { "Ends" } else { "Renews" }, self.dt(get(plan, "renewsAt"))));
         }
         rows.push(kv(&format!("Banked {t}s"), if truthy(a.get("creditsKnown")) { cat(a.get("creditCount")) } else { "unknown".into() }));
+        if let Some((m, label)) = model_only(a).filter(|_| truthy(a.get("creditsKnown"))) {
+            rows.push(KV { key: "Model-only resets".into(), value: cat(Some(&m)), note: Some(format!("({label})")) });
+        }
         let expiries = arr(a.get("creditExpiries"));
         rows.push(kv(
             "Expiries",
@@ -1688,7 +1711,7 @@ impl<'a> Ctx<'a> {
     pub fn accounts_view(&self, filter: Filter, open: Option<&str>) -> AccountsView {
         let keep = |a: &Value| match filter {
             Filter::All => true,
-            Filter::Credits => n(a.get("creditCount")) > 0.0,
+            Filter::Credits => n(a.get("creditCount")) > 0.0 || model_only(a).is_some(),
             Filter::Attention => self.needs_attention(a),
         };
         let shown = self.all_accounts().iter().filter(|a| keep(a)).count();
