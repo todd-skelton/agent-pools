@@ -15,6 +15,7 @@
 //! | `PORT`, `HOST` | 8320, loopback | Corten's own |
 
 mod app;
+pub mod claude_client;
 mod dash;
 mod design;
 mod live;
@@ -54,6 +55,19 @@ fn secs(key: &str, default: u64) -> Duration {
 /// `pools-rs.exe` (the same with no console, for the scheduled tasks) both call this.
 pub fn run() -> std::io::Result<()> {
     match std::env::args().nth(1).as_deref() {
+        Some("claude-models") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            return tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(claude_client::models::command(&args));
+        }
+        Some("claude-projects") => return claude_client::projects::command(&std::env::args().skip(2).collect::<Vec<_>>()),
+        Some("claude-rc-worker") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            return tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(claude_client::projects::worker(&args));
+        }
+        Some(command @ ("init-claude-split" | "serve-claude-split" | "check-claude-split")) => {
+            let profile = std::env::args_os().nth(2).map(PathBuf::from).ok_or_else(|| std::io::Error::other("Claude client directory required"))?;
+            return tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(claude_client::run(command, &profile));
+        }
         Some("process-info") => return process_info_once(),
         Some("backup") => return live::ops::backup(&std::env::args().skip(2).collect::<Vec<_>>()),
         Some("restore") => return live::ops::restore(&std::env::args().skip(2).collect::<Vec<_>>()),

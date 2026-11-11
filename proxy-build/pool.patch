@@ -2175,7 +2175,7 @@ index b58fb7827810dbd1699e1f2b687db415043860bd..dd57aa0171cc0f8dc1f7d76b8c58ad63
  	}
  	if strings.Contains(h1, "cc_prev_req=") {
 diff --git a/internal/runtime/executor/claude_executor_execute.go b/internal/runtime/executor/claude_executor_execute.go
-index 0d50d99134274b1c66bc5c8d3d8934cbed20ca9e..9f70a0c6c8672b44c60aee15a7de0b2c1f2dabd7 100644
+index 0d50d99134274b1c66bc5c8d3d8934cbed20ca9e..90f805fc4a954305fba2316a40f1770b7dcc4dcc 100644
 --- a/internal/runtime/executor/claude_executor_execute.go
 +++ b/internal/runtime/executor/claude_executor_execute.go
 @@ -18,6 +18,20 @@ import (
@@ -2199,7 +2199,7 @@ index 0d50d99134274b1c66bc5c8d3d8934cbed20ca9e..9f70a0c6c8672b44c60aee15a7de0b2c
  	ctx = helps.EnsureSessionContext(ctx, opts, req.Payload)
  	if opts.Alt == "responses/compact" {
  		return resp, statusErr{code: http.StatusNotImplemented, msg: "/responses/compact not supported"}
-@@ -252,6 +266,7 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
+@@ -252,16 +266,17 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
  	}
  
  	// Extract betas from body and convert to header
@@ -2207,15 +2207,21 @@ index 0d50d99134274b1c66bc5c8d3d8934cbed20ca9e..9f70a0c6c8672b44c60aee15a7de0b2c
  	var extraBetas []string
  	extraBetas, body = extractAndRemoveBetas(body)
  	bodyForTranslation := body
-@@ -262,6 +277,7 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
- 		bodyForUpstream, oauthToolNamesReverseMap = prepareClaudeOAuthToolNamesForUpstream(bodyForUpstream, mcpAliases)
+ 	bodyForUpstream := body
+-	var oauthToolNamesReverseMap map[string]string
+-	if fp.MCPAlias && cloaked {
+-		mcpAliases := resolveClaudeMCPAliasOptions(ctx)
+-		bodyForUpstream, oauthToolNamesReverseMap = prepareClaudeOAuthToolNamesForUpstream(bodyForUpstream, mcpAliases)
++	bodyForUpstream, oauthToolNamesReverseMap, toolThread, err := prepareClaudeThreadToolNames(ctx, auth, baseURL, upstreamModel, bodyForUpstream, fp.MCPAlias && cloaked)
++	if err != nil {
++		return resp, err
  	}
  	bodyForUpstream = sanitizeClaudeMessagesForClaudeUpstreamWithDebug(ctx, bodyForUpstream, baseModel, helps.APIKeyModelIsCompat(req))
 +	bodyForUpstream = stripKnownRejectedClaudeSearchProvenance(ctx, auth, bodyForUpstream)
  	if fp.ApplyCLIIdentity {
  		bodyForUpstream, err = applyClaudeCLIIdentity(bodyForUpstream, auth, apiKey, url, claudeSessionID, fp.SynthesizeIdentity)
  		if err != nil {
-@@ -311,7 +327,7 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
+@@ -311,7 +326,7 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
  	}
  	fastRequest := isAnthropicUpstreamBase(baseURL) && claudeRequestIsFast(httpReq, bodyForUpstream)
  	authID, authLabel, authType, authValue := claudeAuthLogIdentity(auth)
@@ -2224,7 +2230,7 @@ index 0d50d99134274b1c66bc5c8d3d8934cbed20ca9e..9f70a0c6c8672b44c60aee15a7de0b2c
  		URL:       url,
  		Method:    http.MethodPost,
  		Headers:   httpReq.Header.Clone(),
-@@ -321,11 +337,12 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
+@@ -321,11 +336,12 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
  		AuthLabel: authLabel,
  		AuthType:  authType,
  		AuthValue: authValue,
@@ -2239,6 +2245,32 @@ index 0d50d99134274b1c66bc5c8d3d8934cbed20ca9e..9f70a0c6c8672b44c60aee15a7de0b2c
  	if err != nil {
  		helps.RecordAPIResponseError(ctx, e.cfg, err)
  		return resp, wrapClaudeFastRequestError(fastRequest, 0, err)
+@@ -358,6 +374,9 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
+ 		if errClose := errBody.Close(); errClose != nil {
+ 			log.Errorf("response body close error: %v", errClose)
+ 		}
++		if threadErr := helps.ClaudeThreadReplayErrorResponse(httpResp.StatusCode, httpResp.Header, b); threadErr != nil {
++			return resp, threadErr
++		}
+ 		if fastRequest {
+ 			return resp, newClaudeFastDirectResponseError(httpResp, b)
+ 		}
+@@ -388,6 +407,7 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
+ 			return resp, wrapClaudeFastRequestError(fastRequest, httpResp.StatusCode, errValidate)
+ 		}
+ 		if msgID := claudeMessageIDFromSSE(data); msgID != "" {
++			toolThread.Commit(msgID, oauthToolNamesReverseMap)
+ 			commitClaudeContinuity(diagnosticsState, msgID, helps.HeaderValueCaseInsensitive(httpResp.Header, "request-id"))
+ 		}
+ 		lines := bytes.Split(data, []byte("\n"))
+@@ -406,6 +426,7 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
+ 		streamUsage.Publish(ctx, reporter)
+ 		data = bytes.Join(lines, []byte("\n"))
+ 	} else {
++		toolThread.Commit(claudeMessageIDFromResponse(data), oauthToolNamesReverseMap)
+ 		commitClaudeContinuity(diagnosticsState, claudeMessageIDFromResponse(data), helps.HeaderValueCaseInsensitive(httpResp.Header, "request-id"))
+ 		reporter.Publish(ctx, helps.ParseClaudeUsage(data))
+ 		var errRestore error
 diff --git a/internal/runtime/executor/claude_executor_native_helper_test.go b/internal/runtime/executor/claude_executor_native_helper_test.go
 index 69d846d3ea20662b449a31a6acc4a704021c1f21..4c13680d5c2852b8890906d483c5915c6dcd76c8 100644
 --- a/internal/runtime/executor/claude_executor_native_helper_test.go
@@ -2252,6 +2284,64 @@ index 69d846d3ea20662b449a31a6acc4a704021c1f21..4c13680d5c2852b8890906d483c5915c
  		"X-App":             {"cli"},
  		"Anthropic-Beta":    {betas},
  		"Anthropic-Version": {"2023-06-01"},
+diff --git a/internal/runtime/executor/claude_executor_request.go b/internal/runtime/executor/claude_executor_request.go
+index 88554b334f9e50ef4c61203922c8cf4eddfc1d7c..b7d0186abfa973f78af0ba599b46fbc0e94599f0 100644
+--- a/internal/runtime/executor/claude_executor_request.go
++++ b/internal/runtime/executor/claude_executor_request.go
+@@ -1431,6 +1431,30 @@ func prepareClaudeOAuthToolNamesForUpstream(body []byte, mcpAliases claudeMCPAli
+ 	return remapOAuthToolNamesWithOptions(body, mcpAliases)
+ }
+ 
++func prepareClaudeThreadToolNames(ctx context.Context, auth *cliproxyauth.Auth, upstream, model string, body []byte, aliases bool) ([]byte, map[string]string, *helps.ClaudeToolThread, error) {
++	account := ""
++	if auth != nil {
++		account = auth.ID
++	}
++	state, err := helps.BeginClaudeToolThread(helps.APIKeyFromContext(ctx), account, upstream, model, body, aliases)
++	if err != nil {
++		return nil, nil, nil, err
++	}
++	if !aliases {
++		return body, nil, state, nil
++	}
++	options := resolveClaudeMCPAliasOptions(ctx)
++	if state != nil && gjson.GetBytes(body, "thread.type").String() == "continue" {
++		remapped, reverse, ok := remapOAuthToolNamesWithBatchedEdits(body, options, state.Reverse)
++		if !ok {
++			return nil, nil, nil, fmt.Errorf("invalid Claude thread continuation JSON")
++		}
++		return remapped, reverse, state, nil
++	}
++	remapped, reverse := prepareClaudeOAuthToolNamesForUpstream(body, options)
++	return remapped, reverse, state, nil
++}
++
+ func restoreClaudeOAuthToolNamesFromResponse(body []byte, reverseMap map[string]string) ([]byte, error) {
+ 	return reverseRemapOAuthToolNames(body, reverseMap)
+ }
+@@ -1472,7 +1496,7 @@ func remapOAuthToolNamesWithOptions(body []byte, mcpAliases claudeMCPAliasOption
+ // and applies every rename in one copy. Repeated sjson.SetBytes calls copy most
+ // of the request for every historical tool reference, turning this path into
+ // O(body size * reference count) allocation growth.
+-func remapOAuthToolNamesWithBatchedEdits(body []byte, mcpAliases claudeMCPAliasOptions) ([]byte, map[string]string, bool) {
++func remapOAuthToolNamesWithBatchedEdits(body []byte, mcpAliases claudeMCPAliasOptions, inherited ...map[string]string) ([]byte, map[string]string, bool) {
+ 	if !gjson.ValidBytes(body) {
+ 		return nil, nil, false
+ 	}
+@@ -1493,6 +1517,13 @@ func remapOAuthToolNamesWithBatchedEdits(body []byte, mcpAliases claudeMCPAliasO
+ 	forwardMap := make(map[string]string)
+ 	protectedNames := make(map[string]bool)
+ 	reservedNames := helps.AugmentClaudeBuiltinToolRegistry(body, nil)
++	if len(inherited) > 0 {
++		for alias, original := range inherited[0] {
++			reverseMap[alias] = original
++			reservedNames[alias] = true
++			forwardMap[original] = alias
++		}
++	}
+ 	if tools.Exists() && tools.IsArray() {
+ 		tools.ForEach(func(_, tool gjson.Result) bool {
+ 			name := tool.Get("name").String()
 diff --git a/internal/runtime/executor/claude_executor_search_provenance.go b/internal/runtime/executor/claude_executor_search_provenance.go
 new file mode 100644
 index 0000000000000000000000000000000000000000..f840bab8110b8f2c4b128ad75524fbd6e25fab5b
@@ -3102,7 +3192,7 @@ index 0000000000000000000000000000000000000000..2b411f58d314c63dd4c9a54dbee438b3
 +	}
 +}
 diff --git a/internal/runtime/executor/claude_executor_stream.go b/internal/runtime/executor/claude_executor_stream.go
-index d9f2a4abcc7d65073e70f6541f774fc6cc0d68a2..1324e367a9024885d67704dc9066ffa8069329a8 100644
+index d9f2a4abcc7d65073e70f6541f774fc6cc0d68a2..7bab57dddeaca4befcbfaed908757427e4a507f7 100644
 --- a/internal/runtime/executor/claude_executor_stream.go
 +++ b/internal/runtime/executor/claude_executor_stream.go
 @@ -20,6 +20,20 @@ import (
@@ -3126,15 +3216,24 @@ index d9f2a4abcc7d65073e70f6541f774fc6cc0d68a2..1324e367a9024885d67704dc9066ffa8
  	ctx = helps.EnsureSessionContext(ctx, opts, req.Payload)
  	if opts.Alt == "responses/compact" {
  		return nil, statusErr{code: http.StatusNotImplemented, msg: "/responses/compact not supported"}
-@@ -254,6 +268,7 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
- 		bodyForUpstream, oauthToolNamesReverseMap = prepareClaudeOAuthToolNamesForUpstream(bodyForUpstream, mcpAliases)
+@@ -248,12 +262,12 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
+ 	extraBetas, body = extractAndRemoveBetas(body)
+ 	bodyForTranslation := body
+ 	bodyForUpstream := body
+-	var oauthToolNamesReverseMap map[string]string
+-	if fp.MCPAlias && cloaked {
+-		mcpAliases := resolveClaudeMCPAliasOptions(ctx)
+-		bodyForUpstream, oauthToolNamesReverseMap = prepareClaudeOAuthToolNamesForUpstream(bodyForUpstream, mcpAliases)
++	bodyForUpstream, oauthToolNamesReverseMap, toolThread, err := prepareClaudeThreadToolNames(ctx, auth, baseURL, upstreamModel, bodyForUpstream, fp.MCPAlias && cloaked)
++	if err != nil {
++		return nil, err
  	}
  	bodyForUpstream = sanitizeClaudeMessagesForClaudeUpstreamWithDebug(ctx, bodyForUpstream, baseModel, helps.APIKeyModelIsCompat(req))
 +	bodyForUpstream = stripKnownRejectedClaudeSearchProvenance(ctx, auth, bodyForUpstream)
  	if fp.ApplyCLIIdentity {
  		bodyForUpstream, err = applyClaudeCLIIdentity(bodyForUpstream, auth, apiKey, url, claudeSessionID, fp.SynthesizeIdentity)
  		if err != nil {
-@@ -303,7 +318,7 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
+@@ -303,7 +317,7 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
  	}
  	fastRequest := isAnthropicUpstreamBase(baseURL) && claudeRequestIsFast(httpReq, bodyForUpstream)
  	authID, authLabel, authType, authValue := claudeAuthLogIdentity(auth)
@@ -3143,7 +3242,7 @@ index d9f2a4abcc7d65073e70f6541f774fc6cc0d68a2..1324e367a9024885d67704dc9066ffa8
  		URL:       url,
  		Method:    http.MethodPost,
  		Headers:   httpReq.Header.Clone(),
-@@ -313,11 +328,12 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
+@@ -313,11 +327,12 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
  		AuthLabel: authLabel,
  		AuthType:  authType,
  		AuthValue: authValue,
@@ -3158,7 +3257,17 @@ index d9f2a4abcc7d65073e70f6541f774fc6cc0d68a2..1324e367a9024885d67704dc9066ffa8
  	if err != nil {
  		helps.RecordAPIResponseError(ctx, e.cfg, err)
  		return nil, wrapClaudeFastRequestError(fastRequest, 0, err)
-@@ -396,6 +412,43 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
+@@ -350,6 +365,9 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
+ 		if errClose := errBody.Close(); errClose != nil {
+ 			log.Errorf("response body close error: %v", errClose)
+ 		}
++		if threadErr := helps.ClaudeThreadReplayErrorResponse(httpResp.StatusCode, httpResp.Header, b); threadErr != nil {
++			return nil, threadErr
++		}
+ 		if fastRequest {
+ 			return nil, newClaudeFastDirectResponseError(httpResp, b)
+ 		}
+@@ -396,6 +414,43 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
  			}
  		}
  
@@ -3202,7 +3311,7 @@ index d9f2a4abcc7d65073e70f6541f774fc6cc0d68a2..1324e367a9024885d67704dc9066ffa8
  		// If the response target is Claude, directly forward complete SSE events without translation.
  		if responseFormat == to {
  			scanner := bufio.NewScanner(decodedBody)
-@@ -409,12 +462,16 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
+@@ -409,16 +464,23 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
  				}
  				cloned := bytes.Clone(event.Bytes())
  				event.Reset()
@@ -3223,7 +3332,14 @@ index d9f2a4abcc7d65073e70f6541f774fc6cc0d68a2..1324e367a9024885d67704dc9066ffa8
  			}
  			for scanner.Scan() {
  				line := scanner.Bytes()
-@@ -438,6 +495,10 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
+ 				observeClaudeStreamLine(line, &upstreamMessageID, &upstreamCompleted)
++				if upstreamCompleted {
++					toolThread.Commit(upstreamMessageID, oauthToolNamesReverseMap)
++				}
+ 				helps.AppendAPIResponseChunk(ctx, e.cfg, line)
+ 				streamUsage.ObserveClaudeStream(line)
+ 				restoredLine, errRestore := restoreClaudeOAuthToolNamesFromStreamLine(line, oauthToolNamesReverseMap)
+@@ -438,6 +500,10 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
  				emitCancellation(ctx.Err())
  				return
  			}
@@ -3234,7 +3350,17 @@ index d9f2a4abcc7d65073e70f6541f774fc6cc0d68a2..1324e367a9024885d67704dc9066ffa8
  			if emitCancellation(scanner.Err()) {
  				return
  			}
-@@ -474,6 +535,11 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
+@@ -466,6 +532,9 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
+ 		for scanner.Scan() {
+ 			line := scanner.Bytes()
+ 			observeClaudeStreamLine(line, &upstreamMessageID, &upstreamCompleted)
++			if upstreamCompleted {
++				toolThread.Commit(upstreamMessageID, oauthToolNamesReverseMap)
++			}
+ 			helps.AppendAPIResponseChunk(ctx, e.cfg, line)
+ 			streamUsage.ObserveClaudeStream(line)
+ 			restoredLine, errRestore := restoreClaudeOAuthToolNamesFromStreamLine(line, oauthToolNamesReverseMap)
+@@ -474,6 +543,11 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
  				return
  			}
  			line = e.restoreResponseModel(restoredLine, req.Model)
@@ -3246,7 +3372,7 @@ index d9f2a4abcc7d65073e70f6541f774fc6cc0d68a2..1324e367a9024885d67704dc9066ffa8
  			chunks := sdktranslator.TranslateStream(
  				ctx,
  				to,
-@@ -489,14 +555,18 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
+@@ -489,15 +563,19 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
  					chunks[i] = helps.EnsureResponsesUsageDetails(chunk)
  				}
  			}
@@ -3260,18 +3386,19 @@ index d9f2a4abcc7d65073e70f6541f774fc6cc0d68a2..1324e367a9024885d67704dc9066ffa8
 +			release, held := handshake.observeChunks(eventType, chunks)
 +			if held {
 +				continue
- 			}
++			}
 +			if !sendChunks(release) || !sendChunks(chunks) {
 +				emitCancellation(ctx.Err())
 +				return
-+			}
-+		}
+ 			}
+ 		}
 +		if !sendChunks(handshake.drain()) {
 +			emitCancellation(ctx.Err())
 +			return
- 		}
++		}
  		if emitCancellation(scanner.Err()) {
  			return
+ 		}
 diff --git a/internal/runtime/executor/claude_executor_stream_error.go b/internal/runtime/executor/claude_executor_stream_error.go
 new file mode 100644
 index 0000000000000000000000000000000000000000..ac6e74d0a75be0d5b0efb20a6b6d5c60fd2f0d80
@@ -3765,6 +3892,159 @@ index 58b0e4f7a1c7026637229f7bd99c1d1696f944f3..9aaf1b82d921b67e9e04e6726918620a
  	apiKey, baseURL := claudeCreds(auth)
  	if baseURL == "" {
  		baseURL = "https://api.anthropic.com"
+diff --git a/internal/runtime/executor/claude_executor_tool_threads_test.go b/internal/runtime/executor/claude_executor_tool_threads_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..d90856fe837409d4c56893cf01df263e9ec3acaf
+--- /dev/null
++++ b/internal/runtime/executor/claude_executor_tool_threads_test.go
+@@ -0,0 +1,147 @@
++package executor
++
++import (
++	"bytes"
++	"context"
++	"errors"
++	"fmt"
++	"io"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/gin-gonic/gin"
++	"github.com/router-for-me/CLIProxyAPI/v7/internal/config"
++	"github.com/router-for-me/CLIProxyAPI/v7/internal/runtime/executor/helps"
++	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/auth"
++	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/executor"
++	sdktranslator "github.com/router-for-me/CLIProxyAPI/v7/sdk/translator"
++	"github.com/tidwall/gjson"
++)
++
++func TestClaudeExecutorToolThreadsContinuationAndRotation(t *testing.T) {
++	for _, stream := range []bool{false, true} {
++		t.Run(fmt.Sprintf("stream=%v", stream), func(t *testing.T) {
++			ginCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
++			ginCtx.Request = httptest.NewRequest("POST", "/v1/messages", nil)
++			ginCtx.Set("userApiKey", t.Name())
++			ctx := context.WithValue(t.Context(), "gin", ginCtx)
++			calls := 0
++			alias := ""
++			transport := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
++				calls++
++				body, _ := io.ReadAll(req.Body)
++				if gjson.GetBytes(body, "thread.type").String() == "create" {
++					alias = gjson.GetBytes(body, "tools.0.name").String()
++					if alias == "Read" || !helps.IsClaudeMCPToolName(alias) {
++						t.Errorf("tool was not aliased: %s", body)
++					}
++				} else {
++					if gjson.GetBytes(body, "tools").Exists() {
++						t.Error("continuation must not inject tools")
++					}
++					if got := gjson.GetBytes(body, "tool_choice.name").String(); got != alias {
++						t.Errorf("tool choice=%s want=%s", got, alias)
++					}
++					if got := gjson.GetBytes(body, "messages.0.content.1.content.0.tool_name").String(); got != alias {
++						t.Errorf("nested reference=%s want=%s", got, alias)
++					}
++				}
++				id := fmt.Sprintf("msg_%s_%d", strings.ReplaceAll(t.Name(), "/", "_"), calls)
++				response := fmt.Sprintf(`{"id":%q,"type":"message","role":"assistant","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"toolu_1","name":%q,"input":{}}],"stop_reason":"tool_use","usage":{"input_tokens":10,"output_tokens":5}}`, id, alias)
++				contentType := "application/json"
++				if stream {
++					contentType = "text/event-stream"
++					response = fmt.Sprintf("event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":%q,\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"usage\":{\"input_tokens\":10,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_1\",\"name\":%q,\"input\":{}}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"},\"usage\":{\"output_tokens\":5}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n", id, alias)
++				}
++				return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {contentType}}, Body: io.NopCloser(strings.NewReader(response)), Request: req}, nil
++			})
++			ctx = context.WithValue(ctx, "cliproxy.roundtripper", http.RoundTripper(transport))
++			auth := &cliproxyauth.Auth{ID: t.Name() + "-a", Metadata: claudeOAuthTestMetadata(), Attributes: map[string]string{"api_key": "sk-ant-oat-tool-threads"}}
++			e := NewClaudeExecutor(&config.Config{})
++			create := []byte(`{"model":"claude-opus-5-5","max_tokens":64,"thread":{"type":"create"},"tools":[{"name":"Read","input_schema":{"type":"object"}}],"messages":[{"role":"user","content":"read"}]}`)
++			run := func(body []byte) ([]byte, error) {
++				opts := cliproxyexecutor.Options{Stream: stream, SourceFormat: sdktranslator.FormatClaude, ResponseFormat: sdktranslator.FormatClaude, Headers: http.Header{"Anthropic-Beta": {"message-threads-2026-08-12"}}}
++				req := cliproxyexecutor.Request{Model: "claude-opus-5-5", Payload: body}
++				if !stream {
++					r, err := e.Execute(ctx, auth, req, opts)
++					return r.Payload, err
++				}
++				r, err := e.ExecuteStream(ctx, auth, req, opts)
++				if err != nil {
++					return nil, err
++				}
++				var out bytes.Buffer
++				for chunk := range r.Chunks {
++					if chunk.Err != nil {
++						return nil, chunk.Err
++					}
++					out.Write(chunk.Payload)
++				}
++				return out.Bytes(), nil
++			}
++			responseID := func(body []byte) string {
++				if stream {
++					return claudeMessageIDFromSSE(body)
++				}
++				return claudeMessageIDFromResponse(body)
++			}
++			assertRead := func(body []byte, err error) {
++				t.Helper()
++				if err != nil || !bytes.Contains(body, []byte(`"name":"Read"`)) || bytes.Contains(body, []byte(alias)) {
++					t.Fatalf("tool name not restored: %s %v", body, err)
++				}
++			}
++			continued := func(id string) []byte {
++				return []byte(fmt.Sprintf(`{"model":"claude-opus-5-5","max_tokens":64,"thread":{"type":"continue","previous_message_id":%q},"tool_choice":{"type":"tool","name":"Read"},"messages":[{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"ok"},{"type":"tool_result","tool_use_id":"toolu_2","content":[{"type":"tool_reference","tool_name":"Read"}]}]}]}`, id))
++			}
++			first, err := run(create)
++			assertRead(first, err)
++			second, err := run(continued(responseID(first)))
++			assertRead(second, err)
++			third, err := run(continued(responseID(second)))
++			assertRead(third, err)
++			// Switching accounts must trigger SDK replay before any upstream send.
++			auth.ID = t.Name() + "-b"
++			before := calls
++			_, err = run(continued(responseID(third)))
++			var direct *cliproxyexecutor.RequestTerminatedError
++			if !errors.As(err, &direct) || direct.HTTPStatus != 404 || gjson.GetBytes(direct.Body, "error.details.error_code").String() != "thread_not_found" || calls != before {
++				t.Fatalf("rotation did not request local replay: %v calls=%d", err, calls)
++			}
++			if scoped, ok := err.(cliproxyexecutor.RequestScopedError); !ok || !scoped.IsRequestScoped() {
++				t.Fatal("rotation replay not request scoped")
++			}
++			replayed, err := run(create)
++			assertRead(replayed, err)
++			resumed, err := run(continued(responseID(replayed)))
++			assertRead(resumed, err)
++		})
++	}
++}
++
++func TestClaudeToolThreadsInheritedAliasCollisionAndMCPName(t *testing.T) {
++	options := claudeMCPAliasOptions{secret: "thread-collision"}
++	legitimate := helps.ClaudeMCPToolAlias(options.secret, "Read", 0)
++	create := []byte(fmt.Sprintf(`{"tools":[{"name":%q},{"name":"Read"}]}`, legitimate))
++	_, reverse := prepareClaudeOAuthToolNamesForUpstream(create, options)
++	allocated := ""
++	for alias, original := range reverse {
++		if original == "Read" {
++			allocated = alias
++		}
++	}
++	if allocated == "" || allocated == legitimate {
++		t.Fatal("expected collision avoidance")
++	}
++	continued := []byte(fmt.Sprintf(`{"messages":[{"role":"assistant","content":[{"type":"tool_use","name":"Read"},{"type":"tool_use","name":%q}]}]}`, legitimate))
++	wire, inherited, ok := remapOAuthToolNamesWithBatchedEdits(continued, options, reverse)
++	if !ok || gjson.GetBytes(wire, "messages.0.content.0.name").String() != allocated || gjson.GetBytes(wire, "messages.0.content.1.name").String() != legitimate {
++		t.Fatalf("inherited names changed: %s", wire)
++	}
++	restored, err := restoreClaudeOAuthToolNamesFromResponse([]byte(fmt.Sprintf(`{"content":[{"type":"tool_use","name":%q},{"type":"tool_use","name":%q}]}`, allocated, legitimate)), inherited)
++	if err != nil || gjson.GetBytes(restored, "content.0.name").String() != "Read" || gjson.GetBytes(restored, "content.1.name").String() != legitimate {
++		t.Fatalf("MCP name confused with generated alias: %s %v", restored, err)
++	}
++}
 diff --git a/internal/runtime/executor/claude_executor_wire_casing_test.go b/internal/runtime/executor/claude_executor_wire_casing_test.go
 index 3416ed4c5eb7c88e7d09f6e04ceaa272bd4d01e0..797972b387bf251a4c37a61789359afeadb1ce03 100644
 --- a/internal/runtime/executor/claude_executor_wire_casing_test.go
@@ -4949,6 +5229,362 @@ index 0000000000000000000000000000000000000000..333d1100ce819210c1de52c82d4a9047
 +	if got := DefaultClaudeVersion(cfg); got != "2.1.290" {
 +		t.Fatalf("configured override = %q", got)
 +	}
++}
+diff --git a/internal/runtime/executor/helps/claude_tool_threads.go b/internal/runtime/executor/helps/claude_tool_threads.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..e72ae05e5945507efe21a344c6cabd1376d201dc
+--- /dev/null
++++ b/internal/runtime/executor/helps/claude_tool_threads.go
+@@ -0,0 +1,191 @@
++package helps
++
++import (
++	"bytes"
++	"container/list"
++	"crypto/sha256"
++	"encoding/json"
++	"maps"
++	"net/http"
++	"sync"
++	"time"
++
++	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/executor"
++	"github.com/tidwall/gjson"
++)
++
++// Only tool symbols are retained, never prompts, tool arguments or credentials.
++// Missing state uses the Messages API replay contract, including after rotation.
++var claudeToolThreads = newClaudeToolThreadCache(1024, 8<<20, 5*time.Minute, time.Now)
++
++type claudeToolThreadEntry struct {
++	key       [32]byte
++	reverse   map[string]string
++	aliases   bool
++	expiresAt time.Time
++	bytes     int
++}
++
++type claudeToolThreadCache struct {
++	mu                   sync.Mutex
++	entries              map[[32]byte]*list.Element
++	order                *list.List
++	maxEntries, maxBytes int
++	bytes                int
++	ttl                  time.Duration
++	now                  func() time.Time
++}
++
++func newClaudeToolThreadCache(maxEntries, maxBytes int, ttl time.Duration, now func() time.Time) *claudeToolThreadCache {
++	return &claudeToolThreadCache{entries: make(map[[32]byte]*list.Element), order: list.New(), maxEntries: maxEntries, maxBytes: maxBytes, ttl: ttl, now: now}
++}
++
++type ClaudeToolThread struct {
++	cache   *claudeToolThreadCache
++	scope   [32]byte
++	aliases bool
++	Reverse map[string]string
++}
++
++type claudeToolThreadReplayError struct {
++	*cliproxyexecutor.RequestTerminatedError
++}
++
++func (*claudeToolThreadReplayError) IsRequestScoped() bool { return true }
++
++func (e *claudeToolThreadReplayError) Unwrap() error { return e.RequestTerminatedError }
++
++func claudeToolThreadReplay() error {
++	return &claudeToolThreadReplayError{&cliproxyexecutor.RequestTerminatedError{
++		HTTPStatus: http.StatusNotFound,
++		Body:       []byte(`{"type":"error","error":{"type":"not_found_error","message":"Thread tool state is unavailable; replay the full conversation in a new create request.","details":{"error_code":"thread_not_found"}}}`),
++	}}
++}
++
++// Preserve the API's replay signal; rebuilding a generic error drops details.
++func ClaudeThreadReplayErrorResponse(status int, headers http.Header, body []byte) error {
++	code := gjson.GetBytes(body, "error.details.error_code").String()
++	if !(status == http.StatusNotFound && code == "thread_not_found") &&
++		!(status == http.StatusBadRequest && (code == "thread_already_continued" || code == "thread_continue_in_flight")) {
++		return nil
++	}
++	header := headers.Clone()
++	header.Del("Content-Encoding")
++	header.Del("Content-Length")
++	return &claudeToolThreadReplayError{&cliproxyexecutor.RequestTerminatedError{HTTPStatus: status, Header: header, Body: bytes.Clone(body)}}
++}
++
++func BeginClaudeToolThread(caller, account, upstream, model string, body []byte, aliases bool) (*ClaudeToolThread, error) {
++	return claudeToolThreads.begin(caller, account, upstream, model, body, aliases)
++}
++
++func (c *claudeToolThreadCache) begin(caller, account, upstream, model string, body []byte, aliases bool) (*ClaudeToolThread, error) {
++	kind := gjson.GetBytes(body, "thread.type").String()
++	if kind != "create" && kind != "continue" {
++		return nil, nil
++	}
++	if caller == "" || account == "" {
++		if kind == "continue" {
++			return nil, claudeToolThreadReplay()
++		}
++		return nil, nil
++	}
++	scope, _ := json.Marshal([]string{caller, account, upstream, model})
++	state := &ClaudeToolThread{cache: c, scope: sha256.Sum256(scope), aliases: aliases}
++	if kind == "create" {
++		return state, nil
++	}
++	// A tool-set update requires rebuilding declarations. Let the client replay
++	// its authoritative full history instead of guessing a new symbol table.
++	if claudeThreadHasToolChanges(gjson.ParseBytes(body)) {
++		return nil, claudeToolThreadReplay()
++	}
++	key := state.key(gjson.GetBytes(body, "thread.previous_message_id").String())
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	el := c.entries[key]
++	if el == nil {
++		return nil, claudeToolThreadReplay()
++	}
++	entry := el.Value.(*claudeToolThreadEntry)
++	if !c.now().Before(entry.expiresAt) {
++		c.remove(el)
++		return nil, claudeToolThreadReplay()
++	}
++	if entry.aliases != aliases {
++		return nil, claudeToolThreadReplay()
++	}
++	c.order.MoveToBack(el)
++	state.Reverse = maps.Clone(entry.reverse)
++	return state, nil
++}
++
++func claudeThreadHasToolChanges(value gjson.Result) bool {
++	if value.IsObject() {
++		if changes := value.Get("tool_changes"); changes.Exists() && changes.Raw != "[]" && changes.Raw != "null" {
++			return true
++		}
++	}
++	found := false
++	if value.IsArray() || value.IsObject() {
++		value.ForEach(func(key, child gjson.Result) bool {
++			// Do not interpret arbitrary user tool arguments as protocol fields.
++			if key.String() == "input" || key.String() == "input_schema" {
++				return true
++			}
++			found = claudeThreadHasToolChanges(child)
++			return !found
++		})
++	}
++	return found
++}
++
++func (s *ClaudeToolThread) key(messageID string) [32]byte {
++	return sha256.Sum256(append(append([]byte(nil), s.scope[:]...), []byte(messageID)...))
++}
++
++// Commit must run before publishing message_stop to avoid a next-turn race.
++// Callers must never commit an incomplete or failed upstream response.
++func (s *ClaudeToolThread) Commit(messageID string, reverse map[string]string) {
++	if s == nil || messageID == "" {
++		return
++	}
++	size := 128
++	for alias, original := range reverse {
++		size += len(alias) + len(original) + 64
++	}
++	if size > 128<<10 {
++		return
++	}
++	c := s.cache
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	now := c.now()
++	for el := c.order.Front(); el != nil; {
++		next := el.Next()
++		if !now.Before(el.Value.(*claudeToolThreadEntry).expiresAt) {
++			c.remove(el)
++		}
++		el = next
++	}
++	key := s.key(messageID)
++	if old := c.entries[key]; old != nil {
++		c.remove(old)
++	}
++	for c.order.Len() > 0 && (c.order.Len() >= c.maxEntries || c.bytes+size > c.maxBytes) {
++		c.remove(c.order.Front())
++	}
++	if c.maxEntries < 1 || size > c.maxBytes {
++		return
++	}
++	entry := &claudeToolThreadEntry{key: key, reverse: maps.Clone(reverse), aliases: s.aliases, expiresAt: now.Add(c.ttl), bytes: size}
++	c.entries[key] = c.order.PushBack(entry)
++	c.bytes += size
++}
++
++func (c *claudeToolThreadCache) remove(el *list.Element) {
++	entry := el.Value.(*claudeToolThreadEntry)
++	delete(c.entries, entry.key)
++	c.bytes -= entry.bytes
++	c.order.Remove(el)
++}
+diff --git a/internal/runtime/executor/helps/claude_tool_threads_test.go b/internal/runtime/executor/helps/claude_tool_threads_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..c84d337010b89ff305e80edac54b763aede6c684
+--- /dev/null
++++ b/internal/runtime/executor/helps/claude_tool_threads_test.go
+@@ -0,0 +1,153 @@
++package helps
++
++import (
++	"errors"
++	"fmt"
++	"net/http"
++	"strings"
++	"sync"
++	"testing"
++	"time"
++
++	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/executor"
++	"github.com/tidwall/gjson"
++)
++
++func TestClaudeToolThreadsUpstreamReplayError(t *testing.T) {
++	for _, tc := range []struct {
++		status int
++		code   string
++		replay bool
++	}{
++		{404, "thread_not_found", true}, {400, "thread_already_continued", true},
++		{400, "thread_continue_in_flight", true}, {400, "thread_fingerprint_mismatch", false},
++		{429, "thread_not_found", false}, {404, "not_a_thread_error", false},
++	} {
++		body := []byte(fmt.Sprintf(`{"type":"error","error":{"details":{"error_code":%q}}}`, tc.code))
++		err := ClaudeThreadReplayErrorResponse(tc.status, http.Header{"Content-Encoding": {"gzip"}, "Content-Length": {"123"}}, body)
++		if (err != nil) != tc.replay {
++			t.Fatalf("%+v: %v", tc, err)
++		}
++		if err != nil {
++			var direct *cliproxyexecutor.RequestTerminatedError
++			if !errors.As(err, &direct) || string(direct.Body) != string(body) || direct.Header.Get("Content-Encoding") != "" || direct.Header.Get("Content-Length") != "" {
++				t.Fatal("lost upstream replay signal")
++			}
++		}
++	}
++}
++
++func assertClaudeThreadReplay(t *testing.T, err error) {
++	t.Helper()
++	var direct *cliproxyexecutor.RequestTerminatedError
++	if !errors.As(err, &direct) || direct.HTTPStatus != 404 || gjson.GetBytes(direct.Body, "error.details.error_code").String() != "thread_not_found" {
++		t.Fatalf("expected replayable 404, got %T %v", err, err)
++	}
++	if scoped, ok := err.(cliproxyexecutor.RequestScopedError); !ok || !scoped.IsRequestScoped() {
++		t.Fatal("replay must not cool or retry another account")
++	}
++}
++
++func TestClaudeToolThreadsContinuationAndAccountRotation(t *testing.T) {
++	c := newClaudeToolThreadCache(10, 1<<20, time.Minute, time.Now)
++	create := []byte(`{"thread":{"type":"create"}}`)
++	continued := []byte(`{"thread":{"type":"continue","previous_message_id":"msg_a"},"messages":[]}`)
++	s, err := c.begin("caller-a", "account-a", "origin", "model", create, true)
++	if err != nil {
++		t.Fatal(err)
++	}
++	original := map[string]string{"mcp__server__read": "Read"}
++	s.Commit("msg_a", original)
++	original["mcp__server__read"] = "mutated"
++	loaded, err := c.begin("caller-a", "account-a", "origin", "model", continued, true)
++	if err != nil || loaded.Reverse["mcp__server__read"] != "Read" {
++		t.Fatalf("continuation: %+v %v", loaded, err)
++	}
++	loaded.Reverse["mcp__server__read"] = "local-change"
++	for _, test := range []struct {
++		caller, account, origin, model string
++		aliases                        bool
++	}{
++		{"caller-b", "account-a", "origin", "model", true},
++		{"caller-a", "account-b", "origin", "model", true},
++		{"caller-a", "account-a", "other-origin", "model", true},
++		{"caller-a", "account-a", "origin", "other-model", true},
++		{"caller-a", "account-a", "origin", "model", false},
++		{"", "account-a", "origin", "model", true},
++	} {
++		_, err = c.begin(test.caller, test.account, test.origin, test.model, continued, test.aliases)
++		assertClaudeThreadReplay(t, err)
++	}
++	// Rotation replays full declarations on B; it cannot steal or mutate A's state.
++	b, err := c.begin("caller-a", "account-b", "origin", "model", create, true)
++	if err != nil {
++		t.Fatal(err)
++	}
++	b.Commit("msg_b", map[string]string{"mcp__server__grep": "Grep"})
++	b, err = c.begin("caller-a", "account-b", "origin", "model", []byte(`{"thread":{"type":"continue","previous_message_id":"msg_b"}}`), true)
++	if err != nil || b.Reverse["mcp__server__grep"] != "Grep" {
++		t.Fatalf("rotated continuation: %+v %v", b, err)
++	}
++	a, err := c.begin("caller-a", "account-a", "origin", "model", continued, true)
++	if err != nil || a.Reverse["mcp__server__read"] != "Read" {
++		t.Fatalf("original state changed: %+v %v", a, err)
++	}
++	_, err = c.begin("caller-a", "account-b", "origin", "model", continued, true)
++	assertClaudeThreadReplay(t, err)
++}
++
++func TestClaudeToolThreadsExpiryEvictionAndToolChanges(t *testing.T) {
++	now := time.Unix(1000, 0)
++	c := newClaudeToolThreadCache(2, 1<<20, time.Minute, func() time.Time { return now })
++	s, _ := c.begin("caller", "account", "origin", "model", []byte(`{"thread":{"type":"create"}}`), true)
++	load := func(id string, extra string) error {
++		_, err := c.begin("caller", "account", "origin", "model", []byte(fmt.Sprintf(`{"thread":{"type":"continue","previous_message_id":%q},"messages":%s}`, id, extra)), true)
++		return err
++	}
++	s.Commit("one", map[string]string{"alias": "Read"})
++	assertClaudeThreadReplay(t, load("unknown", `[]`))
++	assertClaudeThreadReplay(t, load("one", `[{"role":"system","tool_changes":[{"type":"add"}]}]`))
++	if err := load("one", `[{"role":"assistant","content":[{"type":"tool_use","input":{"tool_changes":["data"]}}]}]`); err != nil {
++		t.Fatal(err)
++	}
++	s.Commit("two", nil)
++	if err := load("one", `[]`); err != nil {
++		t.Fatal(err)
++	}
++	s.Commit("three", nil)
++	assertClaudeThreadReplay(t, load("two", `[]`))
++	now = now.Add(time.Minute)
++	assertClaudeThreadReplay(t, load("one", `[]`))
++	s.Commit("four", nil)
++	if len(c.entries) != 1 {
++		t.Fatalf("expired entries retained: %d", len(c.entries))
++	}
++	s.Commit("oversized", map[string]string{"alias": strings.Repeat("x", 128<<10)})
++	assertClaudeThreadReplay(t, load("oversized", `[]`))
++	c.maxBytes = 128
++	s.Commit("five", nil)
++	if c.bytes > c.maxBytes || len(c.entries) != 1 {
++		t.Fatal("byte bound exceeded")
++	}
++}
++
++func TestClaudeToolThreadsConcurrentIsolation(t *testing.T) {
++	c := newClaudeToolThreadCache(128, 1<<20, time.Minute, time.Now)
++	var wg sync.WaitGroup
++	for i := range 40 {
++		wg.Go(func() {
++			caller := fmt.Sprint(i)
++			s, err := c.begin(caller, "account", "origin", "model", []byte(`{"thread":{"type":"create"}}`), true)
++			if err != nil {
++				t.Error(err)
++				return
++			}
++			s.Commit("same-message", map[string]string{"alias": caller})
++			s, err = c.begin(caller, "account", "origin", "model", []byte(`{"thread":{"type":"continue","previous_message_id":"same-message"}}`), true)
++			if err != nil || s.Reverse["alias"] != caller {
++				t.Errorf("caller isolation failed for %s", caller)
++			}
++		})
++	}
++	wg.Wait()
 +}
 diff --git a/internal/runtime/executor/helps/native_handoff_store.go b/internal/runtime/executor/helps/native_handoff_store.go
 new file mode 100644

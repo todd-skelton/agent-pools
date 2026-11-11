@@ -67,6 +67,10 @@ pub async fn serve_service(install: Install) -> std::io::Result<()> {
     tokio::spawn(supervisor.start());
     let options = pool_core::refresh::Options { read_plans: true, ..Default::default() };
     let models = install.models() && !install.rehearsal;
+    // Optional host-side Claude routing lives in the service, not a Node/helper process.
+    // Remote workstations use the same binary's standalone client command instead.
+    let claude_profile = claude_profile(&install.root, &install.settings());
+    let claude_log = install.clone();
     let s = shadow.clone();
     let app = crate::app::app_copy(shadow, copy, writer::Delays::default(), options);
     let app = if models {
@@ -89,7 +93,27 @@ pub async fn serve_service(install: Install) -> std::io::Result<()> {
     } else {
         app
     };
+    let app = if let Some(profile) = claude_profile {
+        app.task("claude-code", move |signal| async move {
+            loop {
+                tokio::select! {
+                    _ = crate::claude_client::run("serve-claude-split", &profile) => {
+                        claude_log.event("claude-split-events.jsonl", "claude-split-stopped", json!({"retrySeconds":15}));
+                    },
+                    _ = signal.aborted() => return,
+                }
+                tokio::select! { _ = tokio::time::sleep(std::time::Duration::from_secs(15)) => {}, _ = signal.aborted() => return }
+            }
+        })
+    } else { app };
     corten::serve_on(listeners, app).await
+}
+
+pub(crate) fn claude_profile(root: &std::path::Path, settings: &Value) -> Option<PathBuf> {
+    let config = settings.get("claudeCode")?;
+    if config.get("enabled") != Some(&Value::Bool(true)) { return None; }
+    let path = PathBuf::from(config.get("clientRoot").and_then(Value::as_str).unwrap_or("state/claude-split"));
+    Some(if path.is_absolute() { path } else { root.join(path) })
 }
 
 /// `pools-shadow serve-inference <root> [--live]`: inference-service.mjs. The relay over TLS on
@@ -186,6 +210,11 @@ pub async fn serve_gateway(install: Install) -> std::io::Result<()> {
     config.clients = Arc::new(move || machines.get());
     let s = secrets.clone();
     config.pool_key = Arc::new(move || s.get().get("remoteDesktopKey").and_then(Value::as_str).map(str::to_string));
+    let catalog_root = install.root.clone();
+    config.model_catalog = Arc::new(move || {
+        let registry = super::read_json(&catalog_root.join("state/model-registry.json")).unwrap_or(Value::Null);
+        pools_gateway::model_catalog::Catalog::from_registry(&registry)
+    });
     config.session_secret = Arc::new(move || match secrets.get().get("publicGatewaySessionSecret").and_then(Value::as_str) {
         Some(s) if s.chars().count() >= 32 => Ok(s.to_string()),
         _ => Err("publicGatewaySessionSecret missing".into()),
@@ -196,4 +225,17 @@ pub async fn serve_gateway(install: Install) -> std::io::Result<()> {
     install.event("public-gateway-events.jsonl", "public-gateway-listening", json!({ "pid": std::process::id(), "port": port, "hostname": hostname }));
     println!("Public gateway for https://{hostname} on 127.0.0.1:{port}");
     corten::serve_on(vec![tcp], app).await
+}
+
+#[cfg(test)]
+mod claude_tests {
+    use super::*;
+    #[test]
+    fn host_routing_is_opt_in_and_resolves_its_own_client_directory() {
+        let root = std::path::Path::new("fixture-pool");
+        assert_eq!(claude_profile(root, &json!({})), None);
+        assert_eq!(claude_profile(root, &json!({"claudeCode":{"enabled":false}})), None);
+        assert_eq!(claude_profile(root, &json!({"claudeCode":{"enabled":true}})), Some(root.join("state/claude-split")));
+        assert_eq!(claude_profile(root, &json!({"claudeCode":{"enabled":true,"clientRoot":"custom"}})), Some(root.join("custom")));
+    }
 }

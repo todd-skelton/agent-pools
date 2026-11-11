@@ -187,6 +187,9 @@ pub mod url {
     #[route("/api/status", get = status_json)]
     pub struct Status;
 
+    #[route("/api/claude/projects", get = claude_projects_json)]
+    pub struct ClaudeProjects;
+
     #[route("/api/ladders", get = ladders_json)]
     pub struct Ladders;
 
@@ -512,6 +515,15 @@ async fn summary_json(State(shadow): State<Shared>) -> corten::Result<RawJson> {
 async fn status_json(State(shadow): State<Shared>) -> corten::Result<RawJson> {
     let now = now_ms();
     Ok(RawJson(StatusCode::OK, built(&shadow, now).await?.status_bytes(now)))
+}
+
+async fn claude_projects_json(State(shadow): State<Shared>) -> JsonResult<Value> {
+    let settings = shadow.install.json("state/install.json").unwrap_or(Value::Null);
+    let data = match crate::live::services::claude_profile(shadow.install.root(), &settings) {
+        Some(profile) => crate::claude_client::projects::status(&profile),
+        None => json!({"schema":"agent-pools-claude-projects/v1","state":"disabled","projects":[]}),
+    };
+    Ok(Json(data))
 }
 
 async fn parity_json(State(shadow): State<Shared>) -> JsonResult<Value> {

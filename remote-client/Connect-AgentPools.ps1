@@ -27,10 +27,22 @@ param(
   # The pool's public URL (install.json publicGateway.hostname on the pool host); not needed with -Uninstall.
   [string]$Url,
   [string[]]$Models = @('claude-sonnet-5-5', 'claude-opus-5-5', 'claude-fable-5-1'),
+  # Keep first-party/mobile identity for local Code instead of Desktop's gateway mode.
+  [switch]$SignedInCode,
+  [string]$Exe,
+  [string]$ClientRoot = (Join-Path $HOME '.agent-pools\claude-split'),
+  [switch]$MigrateNode,
   [switch]$Force,
   [switch]$Uninstall
 )
 $ErrorActionPreference = 'Stop'
+if ($SignedInCode) {
+  $argsForCode = @{ ClientRoot = $ClientRoot; MigrateNode = $MigrateNode; Disable = $Uninstall }
+  if ($Exe) { $argsForCode.Exe = $Exe }
+  if ($Url) { $argsForCode.Url = $Url }
+  & (Join-Path $PSScriptRoot 'Connect-ClaudeCode.ps1') @argsForCode
+  return
+}
 if (-not $Uninstall -and -not $Url) { throw 'Pass -Url https://<the pool''s public hostname>.' }
 # Windows PowerShell 5.1 may still offer TLS 1.0 first; Cloudflare needs 1.2+.
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12

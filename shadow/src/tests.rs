@@ -110,6 +110,29 @@ async fn get(app: corten::axum::Router, path: &str) -> (StatusCode, String) {
     (status, String::from_utf8(bytes.to_vec()).unwrap())
 }
 
+#[tokio::test]
+async fn claude_project_status_is_opt_in_metadata_with_staleness() {
+    let t = snapshot("claude-project-status", false);
+    let (code, body) = get(router(&t), "/api/claude/projects").await;
+    assert_eq!(code, StatusCode::OK);
+    assert_eq!(serde_json::from_str::<Value>(&body).unwrap()["state"], "disabled");
+    let profile = t.install().root().join("state/claude-split");
+    std::fs::create_dir_all(&profile).unwrap();
+    let install_path = t.install().root().join("state/install.json");
+    let mut settings: Value = serde_json::from_slice(&std::fs::read(&install_path).unwrap()).unwrap();
+    settings["claudeCode"] = serde_json::json!({"enabled":true});
+    std::fs::write(install_path,settings.to_string()).unwrap();
+    std::fs::write(profile.join("claude-project-status.json"),serde_json::json!({"schema":"agent-pools-claude-projects/v1","updatedAtMs":1,"state":"running","projects":[]}).to_string()).unwrap();
+    let (code,body) = get(router(&t),"/api/claude/projects").await;
+    assert_eq!(code,StatusCode::OK);
+    let doc: Value=serde_json::from_str(&body).unwrap();
+    assert_eq!(doc["state"],"running");
+    assert_eq!(doc["stale"],true);
+    assert!(!body.contains("proxyKey"));
+    std::fs::remove_file(profile.join("claude-project-status.json")).unwrap();
+    std::fs::remove_dir(profile).unwrap();
+}
+
 fn router(t: &crate::testing::TempInstall) -> corten::axum::Router {
     let shadow = Shadow::new(
         t.install(),
@@ -697,7 +720,12 @@ async fn an_exhausted_pool_claims_a_reset_on_the_copy_and_the_refusal_backs_that
     let t = snapshot("copy-claims", false);
     let file = t.dir.join("state/pool-state.json");
     let mut saved: Value = serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    let credit_expiry = js::iso(crate::writer::io::now_ms() + 7.0 * 86_400_000.0);
     for a in saved["accounts"].as_array_mut().unwrap().iter_mut().filter(|a| a["provider"] == "codex") {
+        // This exercises a refused claim, not expiration of the recorded October bank.
+        for credit in a["credits"].as_array_mut().unwrap() {
+            credit["expires_at"] = Value::from(credit_expiry.clone());
+        }
         for key in ["windows", "quotaWindows"] {
             for w in a[key].as_array_mut().unwrap() {
                 w["used"] = Value::from(100);

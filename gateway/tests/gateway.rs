@@ -106,6 +106,26 @@ async fn fixture() -> Fixture {
     fixture_with(sse_pool(), json_service(), |_| {}).await
 }
 
+#[tokio::test]
+async fn model_catalog_requires_machine_auth_and_never_relays_private_registry_data() {
+    let f = fixture_with(sse_pool(), json_service(), |c| {
+        c.model_catalog = Arc::new(|| pools_gateway::model_catalog::Catalog::from_registry(&json!({"models":{
+            "gpt-fixture":{"provider":"codex","efforts":["low"],"admittedEfforts":["low"],"accounts":["private-account"]}
+        }})));
+    }).await;
+    assert_eq!(f.call("GET", "/v1/agent-pools/models", &[], None).await.status, 401);
+    let cookie = f.login().await;
+    assert_eq!(f.call("GET", "/v1/agent-pools/models", &[("cookie", &cookie)], None).await.status, 401);
+    let r = f.call("GET", "/v1/agent-pools/models", &[("x-api-key", MACHINE_KEY)], None).await;
+    assert_eq!(r.status, 200);
+    assert_eq!(r.headers["cache-control"], "no-store");
+    assert!(!r.body.contains("private-account"));
+    let catalog: pools_gateway::model_catalog::Catalog = serde_json::from_str(&r.body).unwrap();
+    catalog.validate().unwrap();
+    assert_eq!(catalog.models[0].provider, "openai");
+    assert!(f.pool_seen().is_empty() && f.service_seen().is_empty());
+}
+
 struct Answer {
     status: u16,
     headers: reqwest::header::HeaderMap,

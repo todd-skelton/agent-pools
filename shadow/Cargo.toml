@@ -28,12 +28,14 @@ pools-gateway = { path = "../gateway" }
 corten = { git = "https://github.com/todd-skelton/corten", rev = "3b19711", features = ["json", "compress"] }
 # The dashboard's live stream (corten::live takes a Stream).
 futures-util = { version = "0.3", default-features = false }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "net", "process", "signal"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "net", "process", "signal", "io-std"] }
 # Live mode (src/live): the desktop and inference relays over TLS from state/certs, as Agent Pools
 # serves them (rustls with ring, already in the tree through reqwest).
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
 # make-rehearsal's self-signed pair for the relays (no certificate store touched).
-rcgen = { version = "0.13", default-features = false, features = ["ring", "pem", "crypto"] }
+rcgen = { version = "0.13", default-features = false, features = ["ring", "pem", "crypto", "x509-parser"] }
+x509-parser = "0.16"
+time = "0.3"
 # A Claude claim's request id on the copy's write side.
 uuid = { version = "1", features = ["v4"] }
 serde = { version = "1", features = ["derive"] }
@@ -44,6 +46,8 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 # The Arena snapshot reads the dataset's Parquet files (rows, no Arrow; Snappy is what it uses).
 parquet = { version = "60", default-features = false, features = ["snap"] }
 bytes = "1"
+base64 = "0.22"
+sha2 = "0.10"
 # The benchmark name matching (already in the tree through pool-core).
 regex = "1"
 # The stand-in's WebSocket for /v1/responses (all three already in Corten's and the gateway's tree).
@@ -55,7 +59,7 @@ flate2 = "1"
 # Live mode's process checks (alive, kill, priority), as Node's process.kill and os.setPriority do
 # them; already in the tree through tokio.
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_Time", "Wdk_System_Threading", "Win32_System_Diagnostics_ToolHelp", "Win32_Security_Cryptography", "Win32_NetworkManagement_IpHelper", "Win32_Networking_WinSock"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_Time", "Win32_System_JobObjects", "Wdk_System_Threading", "Win32_System_Diagnostics_ToolHelp", "Win32_Security_Cryptography", "Win32_Security_Authorization", "Win32_NetworkManagement_IpHelper", "Win32_Networking_WinSock"] }
 # Toasts (live::notify) through WinRT, as Agent Pools showed them through Windows PowerShell.
 windows = { version = "0.62", features = ["UI_Notifications", "Data_Xml_Dom", "Win32_System_WinRT"] }
 

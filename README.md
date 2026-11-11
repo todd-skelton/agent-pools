@@ -550,6 +550,12 @@ llvm-mingw (`<install>\build`).
    7.2.158-pool.33 (2026-11-03) re-reads an installed client's version a minute after a failed
    `--version`, not six hours later: one failed read at start had kept Codex at the compiled
    0.154.0, whose model list hides gpt-6.1-sol, gpt-6-sol and gpt-6-luna.
+   7.2.158-pool.34 (2026-11-10) retains exact tool-name mappings across Claude Message
+   Thread continuations in a bounded caller/account/upstream/model-scoped memory cache.
+   Missing state, account rotation and continuation tool-set changes request the API's
+   full-history replay instead of leaking internal MCP aliases. Upstream thread replay
+   error codes are preserved. Regression tests cover streamed and non-streamed tool calls,
+   repeated continuations, rotation/replay, caller isolation, expiry and cache limits.
 2. `Build-Pool-Proxy.ps1 -Version 7.2.158-pool.N` runs the proxy's test gate and builds
    `build\candidate.exe`.
 3. `Deploy-Pool-Proxy.ps1 -Root <install> -Live -Version 7.2.158-pool.N` builds, installs to
@@ -652,6 +658,225 @@ Where it differs, by design or because of Corten:
    service's own dashboard through it (GETs only): the page's 102,700 bytes and its own policy
    arrive unchanged, and `/api/status` lists 7 accounts (measured 2026-10-27). Not loaded in a
    browser: the gateway answers only its public hostname.
+
+### Signed-in Claude Code
+
+`gateway/src/claude_split/` and `shadow/src/claude_client/` provide native Claude Code
+inference/control splitting. This is an Agent Pools feature in `pools-rs.exe`, not a Node
+service or a custom Claude build. Local Code keeps its normal first-party login for sessions,
+policy and Remote Control; only Messages, token counting and model discovery use the pool.
+The pool still owns account selection, session affinity and quota failover. The splitter never
+replays a turn or falls back to inference on the control account.
+
+The authenticated proxy binds IPv4 loopback (default 8326). Corten serves the CONNECT surface
+and the decrypted HTTP API, with hyper/rustls handing the upgraded connection between them.
+Only `api.anthropic.com` is TLS-intercepted. Documented Claude/Anthropic domains tunnel on port
+443 without interception; additional exact DNS names require `-AllowHost`. A private profile CA
+is trusted through Claude's settings only, never the OS certificate store. The native runtime
+renews the 30-day leaf hourly when fewer than seven days remain, retaining the CA and key.
+An expiring five-year CA requires explicit replacement and client restart, not silent rotation.
+
+On a Windows **client** (the pool host or a remote workstation), build the normal binaries and
+install the signed-in Code connection instead of Desktop gateway mode:
+
+```powershell
+cargo build --release -p pools-shadow --bins
+.\remote-client\Connect-AgentPools.ps1 -SignedInCode `
+  -Exe .\target\release\pools-rs.exe -Url 'https://pool.example.com'
+claude auth login --claudeai  # only when the default CLI profile needs a first-party login
+claude
+```
+
+Provisioning uses PowerShell 7.2+, Windows DPAPI and Task Scheduler. After provisioning, the
+task starts the native executable directly, without Node or a PowerShell watchdog. Each client
+gets its own registered pool machine key, protected client directory, local proxy credential
+and CA. Keys are prompted securely, DPAPI-encrypted for that user/machine, and never put in task
+arguments or passed to Claude. The existing first-party Claude login is not copied or replaced.
+Do not transfer a configured directory between machines. The default client directory is
+`$HOME/.agent-pools/claude-split`; `-ClientRoot` selects another. Claude uses its existing
+`CLAUDE_CONFIG_DIR`, or `$HOME/.claude`; preferences, permission rules and histories are retained.
+Project/environment/CLI overrides keep their normal precedence. This configures local **Code**,
+not Desktop Chat/Cowork or cloud Code environments. The phone needs the same first-party
+control login, not a proxy or pool key.
+
+If Desktop already has an applied gateway entry from the older installer, switch Desktop to
+`Sign in with Claude.ai` and select local Code after quitting/reopening it. Gateway-library
+entries are not silently removed, and the installer does not bypass first-party sign-in or
+Remote Control consent. Enable Remote Control in Claude when desired (and its startup option
+for subsequent plain `claude` launches). A working CLI proxy check alone is not proof that a
+Desktop window has left gateway mode.
+
+The same feature can run **inside the pool service**, with no separate task/process. First
+stage its private client files with `Connect-ClaudeCode.ps1 -StageOnly -ClientRoot <pool>/state/claude-split`
+(also pass `-Exe` and `-Url`; a host may use its loopback pool origin). Then explicitly enable
+`"claudeCode": { "enabled": true, "clientRoot": "state/claude-split" }` in `state/install.json`.
+The existing `serve-service` supervises it as a Corten task, retrying failures after 15 seconds.
+The feature is disabled unless explicitly enabled. Its client directory still needs its own
+`splitter.json`, `pool-key.dpapi`, local key and certificates; it never reuses control-account
+credentials or silently reads shared pool secrets. Restart/configuration and Claude settings
+cutover are operator actions. Do not run embedded and standalone listeners on the same port.
+
+To migrate the earlier Node prototype, use `Connect-ClaudeCode.ps1 -Exe <pools-rs.exe>
+-ClientRoot <existing-profile> -MigrateNode`. Its encrypted `pool-key.clixml` is imported locally
+into native DPAPI storage, and its existing RSA CA, local proxy key and port are reused. This
+explicit switch stops only the prototype's matching watchdog/authenticated instance, validates
+the native listener and pool model discovery, then applies Claude settings. Backups and task
+definitions are kept under the protected client directory; failed cutover restores backed-up
+settings/tasks. No unrelated process or port owner is killed. Live migration, reboot and
+Desktop/mobile acceptance must be checked separately from offline tests.
+
+`Connect-AgentPools.ps1 -SignedInCode -Uninstall` (with the same `-ClientRoot`, when custom)
+restores settings managed by the installer, refusing to overwrite a later edit to those keys.
+Its startup task is disabled, but the listener remains available for existing sessions. A
+migrated prototype's archived task remains disabled until an operator explicitly restores it.
+For diagnostics, `pools-shadow.exe check-claude-split <client-dir>` checks native identity,
+authenticated CONNECT, verified TLS and pool Models, without inference. The other commands are
+`init-claude-split` (private directory/certificate initialization) and `serve-claude-split`.
+
+Unknown API routes, Files API handles, server containers/thread IDs and hosted code-execution
+tools fail closed. Local tool schemas/arguments and inline image/PDF content are supported.
+Compaction in Messages, signed context, beta headers and tool IDs pass unchanged. WebSocket
+control traffic is bidirectional; cancellation closes the pool stream. SSE errors/truncation
+are recorded as incomplete, not successful responses. Logs contain metadata, never prompts,
+credentials, session URLs or query strings. Image-generation endpoints and other unclassified APIs are
+not automatically enabled by adding a tunnel hostname.
+
+### Mixed-provider Claude sessions
+
+The existing pool translates Claude Messages to the selected provider. OpenAI inference still
+runs inside Claude Code's tool/permission runtime; selecting OpenAI does not launch Codex.
+The same signed-in Claude control identity owns the remote session regardless of the inference
+account chosen by the pool. This feature does not change provider account rotation or quotas.
+
+An opt-in native command installs provider/model/effort picker entries and named subagents:
+
+```powershell
+pools-shadow claude-models preview <client-dir> <Claude-config-dir>
+pools-shadow claude-models configure <client-dir> <Claude-config-dir>
+pools-shadow claude-models disable <client-dir> <Claude-config-dir>
+```
+
+Alternatively use `remote-client/Register-ClaudeModels.ps1 -Exe <pools-rs.exe>` with optional
+`-ClientRoot`, `-ClaudeProfile`, and `-Action preview|disable`. No PowerShell runs afterward.
+The pool gateway must expose authenticated `GET /v1/agent-pools/models`; old gateways return
+an error before settings are changed. An optional final native argument, or helper `-Catalog`,
+accepts a local sanitized catalog or model registry for offline provisioning. Never transfer
+the private registry, account files, configured client directory or DPAPI key between machines.
+
+The catalog projects only IDs, providers and supported/admitted effort levels. Only admitted
+Claude-compatible model/effort pairs become choices. A picker entry such as
+`OpenAI / gpt-example / high` selects both model and effort. Its local
+`pool--gpt-example--high` ID is resolved by the splitter before any upstream call, overriding
+the host's effort default for that explicit choice. Unverified or unknown pooled selections
+fail closed. No `behavesAs` capability impersonation is used. Raw provider model IDs also work,
+with the effort requested by Claude. The native client must be restarted after configuration;
+new sessions then load the picker and user agents. Existing sessions may cache their picker.
+Re-run configure to refresh newly admitted models. The cached catalog is not a live admission
+or capacity guarantee; provider errors never trigger fallback to the control account.
+
+Generated agents are named `pool-<actual-model-id>-<effort>` and pin real model IDs and effort
+in frontmatter. Ask the parent to use those named agents without model/effort overrides to
+mix providers within one session. They inherit normal tool permissions. Each pooled request
+gets current provider/model/requested-effort identity in an appended system block; conversation
+messages, signed thinking and tool IDs are preserved. A provider default is reported as such,
+not guessed. Logging records that requested identity, never account selection or prompt text.
+
+Provisioning preserves login, workspace trust, permissions, default model/effort and unrelated
+settings/agents. It keeps a protected backup and ownership manifest, refuses edited/colliding
+managed files, and rolls back on write failure. Disable restores the previous picker and
+removes only unchanged generated files. It does not stop the native listener automatically.
+
+Remote Control model controls use the same running Claude runtime, but mobile UI availability
+of custom picker entries is a separate acceptance check. On a phone, create a session on a
+registered local project, select an explicit pooled choice, ask its identity, switch providers,
+and ask for a previously supplied marker. Then request two differently named provider agents.
+Cloud-created Code environments do not use this machine's splitter. Native CLI/SDK success
+alone does not establish first-party mobile picker support.
+
+Offline checks: `cargo test --workspace`, `ops/tests/ClaudeSplitConfig.Tests.ps1`, and
+`remote-client/Test-ClaudeCode.ps1 -Exe <built-pools-rs.exe>`. The Windows lifecycle test uses
+only a fake loopback pool, temporary profiles and a uniquely named fixture task. It verifies
+legacy RSA trust retention, DPAPI migration, native TLS/model checks, duplicate-instance
+refusal, authenticated shutdown, stable restart, task installation/upgrade/disable and rollback
+of Claude-only settings. It does not alter the installed pool or real Claude configuration.
+`remote-client/Test-ClaudeModels.ps1 -Exe <built-pools-rs.exe>` also verifies authenticated
+catalog fetch/redirect refusal, preview, idempotent model provisioning and ownership-aware
+disable against temporary profiles and a fake loopback catalog, with no real pool credential.
+
+### Managed Claude projects
+
+On Windows, the native Claude client can also own persistent Remote Control servers.
+This is opt-in: without `claude-projects.json` in the protected client directory, none
+start. The pool service supervises them when its embedded Claude client is enabled;
+remote workstations use their existing native Claude client task. No Node or PowerShell
+process is involved at runtime.
+
+```powershell
+pools-shadow claude-projects <client-dir> init <absolute-claude.exe> <absolute-Claude-config-dir>
+pools-shadow claude-projects <client-dir> discover-root <absolute-repository-parent>
+pools-shadow claude-projects <client-dir> add <absolute-repository> [display-name]
+pools-shadow claude-projects <client-dir> add-dir <absolute-directory> [display-name]
+pools-shadow claude-projects <client-dir> list
+pools-shadow claude-projects <client-dir> status
+pools-shadow claude-projects <client-dir> disable <project-id>
+pools-shadow claude-projects <client-dir> remove <project-id>
+```
+
+The provisioning helper `remote-client/Register-ClaudeProjects.ps1 -Exe <pools-shadow.exe>
+-ProjectRoot <absolute-repository-parent>` initializes this registry for an installed remote
+client. Its default client directory and Claude profile match `Connect-ClaudeCode.ps1`;
+pass `-ClientRoot` or `-ClaudeProfile` when using custom locations.
+
+Discovery considers only main Git roots already trusted in that Claude profile and inside
+explicit discovery roots. It does not scan arbitrary directories, discover linked worktrees,
+copy trust from another profile or answer consent prompts. Removal keeps a disabled entry
+so discovery cannot silently re-enable it. Registry changes apply within three seconds.
+The registry supports at most 16 projects, each defaulting to four concurrent sessions and
+`worktree` isolation for new sessions. Explicit entries can select `same-dir` and capacity
+1-16. Project directories must be absolute local paths. `add-dir` explicitly registers a
+shared-folder server, including non-Git orchestration containers; it does not create a Git
+repository or grant workspace trust. Its sessions share the original working directory.
+Automatic discovery remains limited to trusted main Git roots.
+
+Sign in to Claude normally and accept its one-time Remote Control confirmation. A newly
+registered, untrusted repository needs its normal interactive workspace-trust setup once.
+Status reports `needs-consent`, `needs-trust`, `needs-login`, `needs-git` or `needs-configuration` rather
+than bypassing setup. Conflicting auth/proxy settings are refused without rewriting them.
+Tool permission mode remains `default`; browser integration is off. The computer must stay
+awake and online. In the phone's Code tab, select this computer/project and start a local
+session, not a cloud session. The phone uses the signed-in Claude account for session
+visibility; inference goes through the native splitter and the pool's existing rotation.
+
+Local RC bridge registration, deregistration, offline/reconnect signals, work polling and
+acknowledgment/stop/heartbeat requests have method- and path-scoped first-party routes.
+Other environment APIs and managed-agent session inference are not implicitly allowed.
+The CLI's notice configuration and metrics export, read-only session history, and legacy
+session archival also have explicit method-scoped control routes; session creation/events
+on the managed-agent API remain denied.
+The frame-contract lookup, plugin directory and MCP server catalog are read-only control routes. The exact
+session MCP endpoint permits its HTTP discovery/tool calls, event stream and teardown with
+the original first-party identity, not the pool key; neighboring session/agent-proxy paths
+are not admitted by this rule.
+Splitter events identify these routes with static templates, never environment/work IDs
+or query strings. Rejected routes use a bounded static vocabulary with unknown components
+redacted. An unclassified API still fails closed with 501, without control-account inference
+fallback.
+Rejected path components also carry bounded, domain-separated HMAC tags keyed by the private
+local proxy credential, allowing local code-vocabulary comparison without logging raw handles.
+
+Each server and its spawned sessions belong to a kill-on-close Windows Job Object. A
+launch handshake prevents child creation before ownership is established. Removing a
+project, stopping the manager or a manager crash kills its owned descendants, not other
+Claude processes. Sessions are persisted by Claude normally, but running work is interrupted
+by a service restart. Crashed workers restart with bounded backoff; setup failures retry
+once per minute. Status is metadata only, with a stale indicator after 20 seconds, available
+through the local CLI or the pool service's `GET /api/claude/projects`. No session URLs,
+prompts or CLI output are persisted by the supervisor.
+
+`cargo test -p pools-shadow --lib claude_client::projects` covers registry validation,
+trust-scoped discovery, disabled overrides, routing conflicts, streamed consent detection,
+normal permissions, backoff, crash recovery, project removal and owned descendant cleanup.
+Phone login and creating a real mobile session remain interactive acceptance checks.
 
 ### The inference relay
 

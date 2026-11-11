@@ -51,6 +51,8 @@ use sha2::{Digest, Sha256};
 
 pub mod backend;
 pub mod inference;
+pub mod claude_split;
+pub mod model_catalog;
 
 // The sign-in page's stylesheet, compiled into the program.
 corten::assets::embed!(pub struct Static = "static");
@@ -77,6 +79,8 @@ pub struct Config {
     pub clients: Hook<Vec<Client>>,
     /// The pool's own key, sent in place of a machine's.
     pub pool_key: Hook<Option<String>>,
+    /// Sanitized capabilities, never the registry's account/probe records.
+    pub model_catalog: Hook<model_catalog::Catalog>,
     /// The session cookie's signing secret.
     pub session_secret: Hook<Result<String, String>>,
     /// An event (`public-request`, `public-login`, `public-auth-rejected`, `public-gateway-problem`).
@@ -97,6 +101,7 @@ impl Config {
             service: service.into(),
             clients: Arc::new(Vec::new),
             pool_key: Arc::new(|| None),
+            model_catalog: Arc::new(model_catalog::Catalog::empty),
             session_secret: Arc::new(|| Err("no session secret".into())),
             observe: Arc::new(|_, _| {}),
             session_days: 30.0,
@@ -352,10 +357,20 @@ pub mod v1 {
     #[route("/v1/models", get = inference)]
     pub struct Models;
 
+    #[route("/v1/agent-pools/models", get = catalog)]
+    pub struct PoolModels;
+
     #[route("/v1/models/{id}", get = inference_model)]
     pub struct Model<'a> {
         pub id: &'a str,
     }
+}
+
+async fn catalog(State(gw): State<Gw>, _: corten::Caller<Machine>) -> Out {
+    let catalog = (gw.0.config.model_catalog)();
+    if catalog.validate().is_err() { return error(StatusCode::SERVICE_UNAVAILABLE, "Model capabilities unavailable", "api_error"); }
+    Out::Own(Response::builder().header(header::CONTENT_TYPE, "application/json").header(header::CACHE_CONTROL, "no-store")
+        .body(Body::from(serde_json::to_vec(&catalog).unwrap_or_default())).unwrap())
 }
 
 /// What a gateway handler answers: a relayed upstream answer, a page, or an answer of its own
