@@ -30,7 +30,7 @@ $taskName = 'Agent Pools test Claude ' + [Guid]::NewGuid().ToString('N')
 try {
   for ($i=0; $i -lt 60; $i++) { if (@(Receive-Job $job -Keep) -contains 'READY') { break }; Start-Sleep -Milliseconds 100 }
   if (@(Receive-Job $job -Keep) -notcontains 'READY') { throw 'Fixture pool did not start.' }
-  @{ schema='claude-splitter/v1'; poolOrigin="http://127.0.0.1:$poolPort"; port=$port; additionalTunnelHosts=@() } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $client 'splitter.json')
+  @{ schema='claude-splitter/v1'; poolOrigin="http://127.0.0.1:$poolPort"; port=$port } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $client 'splitter.json')
   [Management.Automation.PSCredential]::new('agent-pools', (ConvertTo-SecureString 'fixture-pool-key' -AsPlainText -Force)) | Export-Clixml -LiteralPath (Join-Path $client 'pool-key.clixml')
   # A legacy RSA CA, as the prototype wrote it. Native init must sign a new leaf under it.
   $certDir = Join-Path $client 'probe-certs'; [IO.Directory]::CreateDirectory($certDir) | Out-Null

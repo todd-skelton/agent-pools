@@ -39,15 +39,6 @@ const CONTROL_EXACT: &[&str] = &[
     "/api/claude_code_penguin_mode",
     "/v1/mcp_servers",
 ];
-pub const TUNNEL_DOMAINS: &[&str] = &[
-    "anthropic.com",
-    "claude.ai",
-    "claude.com",
-    "claude.app",
-    "claudeusercontent.com",
-    "claudemcpcontent.com",
-];
-
 fn under(path: &str, base: &str) -> bool {
     path == base || path.strip_prefix(base).is_some_and(|p| p.starts_with('/'))
 }
@@ -182,12 +173,10 @@ pub fn dns_name(host: &str) -> bool {
         })
 }
 
-pub fn tunnel_host(host: &str, extra: &[String]) -> bool {
-    dns_name(host)
-        && (TUNNEL_DOMAINS
-            .iter()
-            .any(|d| host == *d || host.strip_suffix(d).is_some_and(|p| p.ends_with('.')))
-            || extra.iter().any(|h| h == host))
+/// A CONNECT destination: a well-formed (lowercased) DNS name or an IP address. Any destination
+/// is tunneled, since the session's own tools share this proxy; only the shape is checked.
+pub fn tunnel_host(host: &str) -> bool {
+    dns_name(host) || host.parse::<std::net::IpAddr>().is_ok()
 }
 
 pub fn resource_reference(v: &Value) -> bool {
@@ -358,11 +347,12 @@ mod tests {
             assert!(!canonical_path(p));
         }
         assert!(canonical_path("/v1/messages"));
-        assert!(tunnel_host("api.anthropic.com", &[]));
-        for h in ["anthropic.com.evil.test", "evil-anthropic.com", "127.0.0.1", "api..anthropic.com"] {
-            assert!(!tunnel_host(h, &[]));
+        for h in ["api.anthropic.com", "api.github.com", "api.digitalocean.com", "127.0.0.1", "::1"] {
+            assert!(tunnel_host(h), "{h}");
         }
-        assert!(tunnel_host("github.com", &["github.com".into()]));
+        for h in ["", "api..anthropic.com", "-bad.example", "a b.example", "host/path", "Upper.Example"] {
+            assert!(!tunnel_host(h), "{h}");
+        }
     }
     #[test]
     fn schemas_are_data_but_api_handles_are_not() {

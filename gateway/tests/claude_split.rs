@@ -801,13 +801,15 @@ async fn an_unavailable_pool_recovers_on_the_next_request_without_control_fallba
 }
 
 #[tokio::test]
-async fn connect_requires_auth_and_exact_allowed_host_port_and_certificate_health() {
+async fn connect_requires_auth_and_host_port_and_certificate_health() {
     let f = fixture(|_| {}).await;
     let auth = base64::engine::general_purpose::STANDARD.encode(format!("probe:{LOCAL_KEY}"));
     for (authority, credentials, expected) in [
         ("api.anthropic.com:443", "", "407"),
-        ("api.anthropic.com:444", auth.as_str(), "403"),
-        ("api.anthropic.com.evil.test:443", auth.as_str(), "421"),
+        ("api.digitalocean.com:443", "", "407"),
+        ("api.anthropic.com", auth.as_str(), "400"),
+        ("api.anthropic.com:0", auth.as_str(), "400"),
+        ("bad_host.invalid:443", auth.as_str(), "400"),
     ] {
         let mut tcp = TcpStream::connect(("127.0.0.1", f.port)).await.unwrap();
         tcp.write_all(format!("CONNECT {authority} HTTP/1.1\r\nHost: {authority}\r\nProxy-Authorization: Basic {credentials}\r\n\r\n").as_bytes())
@@ -830,6 +832,34 @@ async fn connect_requires_auth_and_exact_allowed_host_port_and_certificate_healt
     let (tls, _) = pair();
     f.handle.replace_tls(tls, 0);
     assert!(f.client.get("https://api.anthropic.com/v1/models").send().await.is_err());
+}
+
+/// The session's own tools (git, gh, doctl, MCP servers) share the proxy: any other host and
+/// port is a blind tunnel, never intercepted, and still requires the local credential.
+#[tokio::test]
+async fn connect_tunnels_any_other_destination_blind() {
+    let f = fixture(|_| {}).await;
+    let auth = base64::engine::general_purpose::STANDARD.encode(format!("probe:{LOCAL_KEY}"));
+    let echo = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let echo_port = echo.local_addr().unwrap().port();
+    let server = tokio::spawn(async move {
+        let (mut socket, _) = echo.accept().await.unwrap();
+        let mut buf = [0u8; 5];
+        socket.read_exact(&mut buf).await.unwrap();
+        socket.write_all(&buf).await.unwrap();
+    });
+    let mut tcp = TcpStream::connect(("127.0.0.1", f.port)).await.unwrap();
+    let authority = format!("127.0.0.1:{echo_port}");
+    tcp.write_all(format!("CONNECT {authority} HTTP/1.1\r\nHost: {authority}\r\nProxy-Authorization: Basic {auth}\r\n\r\n").as_bytes())
+        .await
+        .unwrap();
+    assert!(head(&mut tcp).await.contains("200"));
+    tcp.write_all(b"hello").await.unwrap();
+    let mut back = [0u8; 5];
+    tokio::time::timeout(Duration::from_secs(5), tcp.read_exact(&mut back)).await.unwrap().unwrap();
+    assert_eq!(&back, b"hello");
+    server.await.unwrap();
+    assert!(f.control.lock().unwrap().is_empty());
 }
 
 #[tokio::test]

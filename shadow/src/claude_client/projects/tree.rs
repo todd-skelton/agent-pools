@@ -1,6 +1,6 @@
-//! Each owned worker waits for a one-byte launch handshake. The supervisor assigns it to
-//! a kill-on-close job BEFORE releasing that handshake, so all subsequent CLI descendants
-//! are owned too. No PID adoption, process-name killing, or orphaned inference on a crash.
+//! Each worker puts itself in a kill-on-close job before it launches Claude, so all of its
+//! CLI descendants are owned: when the worker ends (stopped, crashed or killed), so do they.
+//! The supervisor holds no job of its own over workers, so a service restart leaves them running.
 #[cfg(windows)]
 pub struct Tree(windows_sys::Win32::Foundation::HANDLE);
 #[cfg(windows)]
@@ -10,10 +10,12 @@ unsafe impl Send for Tree {}
 
 #[cfg(windows)]
 impl Tree {
-    pub fn attach(child: &tokio::process::Child) -> std::io::Result<Self> {
+    /// A fresh kill-on-close job holding the calling process; its future children join it.
+    pub fn current() -> std::io::Result<Self> {
         use windows_sys::Win32::System::JobObjects::*;
-        // SAFETY: a fresh non-inheritable job; only this Child's live process handle is
-        // assigned, while it waits for its handshake. The owned job is closed once.
+        use windows_sys::Win32::System::Threading::GetCurrentProcess;
+        // SAFETY: a fresh non-inheritable job; only this process (a pseudo-handle) is assigned.
+        // The owned job is closed once, when the process ends or the guard drops.
         unsafe {
             let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
             if job.is_null() {
@@ -22,16 +24,13 @@ impl Tree {
             let tree = Self(job);
             let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
             info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-            let process = child
-                .raw_handle()
-                .ok_or_else(|| std::io::Error::other("Worker has no process handle"))?;
             if SetInformationJobObject(
                 job,
                 JobObjectExtendedLimitInformation,
                 (&info as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
                 std::mem::size_of_val(&info) as u32,
             ) == 0
-                || AssignProcessToJobObject(job, process.cast()) == 0
+                || AssignProcessToJobObject(job, GetCurrentProcess()) == 0
             {
                 return Err(std::io::Error::last_os_error());
             }
@@ -53,7 +52,7 @@ impl Drop for Tree {
 pub struct Tree;
 #[cfg(not(windows))]
 impl Tree {
-    pub fn attach(_: &tokio::process::Child) -> std::io::Result<Self> {
+    pub fn current() -> std::io::Result<Self> {
         Err(std::io::Error::other(
             "Managed Claude RC process trees currently require Windows",
         ))

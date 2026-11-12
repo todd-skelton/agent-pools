@@ -21,7 +21,6 @@ param(
   [string]$ClaudeProfile = $(if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { Join-Path $HOME '.claude' }),
   [Security.SecureString]$PoolKey,
   [ValidateRange(1024,65535)][int]$Port = 8326,
-  [string[]]$AllowHost = @(),
   [string]$TaskName = 'Agent Pools - Claude split',
   [switch]$StageOnly,
   [switch]$MigrateNode,
@@ -61,9 +60,7 @@ if ($oldConfig) {
   if ($PSBoundParameters.ContainsKey('Port') -and $Port -ne $oldConfig.port) { throw 'An existing client must retain its port; use a different client directory to reconfigure.' }
   if ($Url -ne $oldConfig.poolOrigin) { throw 'An existing client must retain its pool origin; use a different client directory to reconfigure.' }
   $Port = [int]$oldConfig.port
-  if (-not $PSBoundParameters.ContainsKey('AllowHost')) { $AllowHost = @($oldConfig.additionalTunnelHosts) }
 }
-foreach ($hostName in $AllowHost) { if ($hostName -notmatch '^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$' -or $hostName.Contains('..')) { throw 'AllowHost entries must be exact lowercase DNS names.' } }
 if (-not $PoolKey) {
   $legacy = Join-Path $ClientRoot 'pool-key.clixml'
   if (Test-Path -LiteralPath $legacy) { $PoolKey = (Import-Clixml -LiteralPath $legacy).Password }
@@ -89,7 +86,7 @@ if ($PoolKey) {
   try { [IO.File]::WriteAllBytes((Join-Path $ClientRoot 'pool-key.dpapi'), [Security.Cryptography.ProtectedData]::Protect($bytes, $null, [Security.Cryptography.DataProtectionScope]::CurrentUser)) }
   finally { [Array]::Clear($bytes); $credential = $null }
 }
-@{ schema = 'claude-splitter/v1'; poolOrigin = $Url; port = $Port; additionalTunnelHosts = @($AllowHost) } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ClientRoot 'splitter.json') -Encoding utf8
+@{ schema = 'claude-splitter/v1'; poolOrigin = $Url; port = $Port } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ClientRoot 'splitter.json') -Encoding utf8
 $hash = (Get-FileHash -LiteralPath $Exe).Hash.ToLowerInvariant()
 $bin = Join-Path $ClientRoot "bin\$hash"
 [IO.Directory]::CreateDirectory($bin) | Out-Null

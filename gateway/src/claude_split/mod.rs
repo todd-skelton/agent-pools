@@ -44,7 +44,6 @@ pub struct Config {
     pub tls: TlsAcceptor,
     /// Unix seconds; health and new CONNECTs fail closed after expiration.
     pub certificate_expires_at: i64,
-    pub additional_tunnel_hosts: Vec<String>,
     pub max_body_bytes: usize,
     pub header_timeout: Duration,
     pub idle_timeout: Duration,
@@ -64,7 +63,6 @@ impl Config {
             tls,
             certificate_expires_at,
             control_origin: "https://api.anthropic.com".into(),
-            additional_tunnel_hosts: Vec::new(),
             max_body_bytes: MAX_BODY,
             header_timeout: Duration::from_secs(180),
             idle_timeout: Duration::from_secs(300),
@@ -140,9 +138,6 @@ pub fn app(cfg: Config) -> Result<(App<Proxy>, Handle), String> {
     }
     let pool = origin(&cfg.pool_origin)?;
     let control = origin(&cfg.control_origin)?;
-    if cfg.additional_tunnel_hosts.iter().any(|h| !policy::dns_name(h)) {
-        return Err("Additional tunnel hosts must be exact lowercase DNS names".into());
-    }
     let auth = format!("Basic {}", base64::engine::general_purpose::STANDARD.encode(format!("probe:{}", cfg.proxy_key)));
     let mut http = reqwest::Client::builder()
         .no_proxy()
@@ -176,15 +171,11 @@ pub fn app(cfg: Config) -> Result<(App<Proxy>, Handle), String> {
         .deadline(None)
         .middleware(Decrypted(shared.clone()))
         .router();
-    let mut policy = corten::security::Policy::new();
-    for d in policy::TUNNEL_DOMAINS {
-        policy = policy.host(&format!(".{d}"));
-    }
-    for d in &shared.cfg.additional_tunnel_hosts {
-        policy = policy.host(d);
-    }
+    // Every Claude session's tools inherit this proxy (git, gh, doctl, MCP servers), so any
+    // destination is tunneled blind; only api.anthropic.com:443 is intercepted. Proxy
+    // authorization is checked before anything else, which is what keeps a rebinding page out.
     let app = App::new(corten::Routes::new())
-        .policy(policy)
+        .policy(corten::security::Policy::new().any_host())
         .deadline(None)
         // No head timeout on the CONNECT listener: Corten's clock keeps only a 101 busy, so it
         // counts a tunnel's 200 as an answered request and cut every tunnel 30 s after it opened,
@@ -257,27 +248,28 @@ impl Middleware for Proxy {
         if req.method() != Method::CONNECT {
             return refuse(405, "CONNECT only");
         }
-        let authority = req.uri().authority().map(|a| a.as_str()).unwrap_or_default();
-        let Some(host) = authority
-            .strip_suffix(":443")
-            .map(str::to_ascii_lowercase)
-            .filter(|h| policy::tunnel_host(h, &self.shared.cfg.additional_tunnel_hosts))
-        else {
-            return refuse(403, "Tunnel host or port not permitted");
-        };
         if req.uri().scheme().is_some() || req.uri().path_and_query().is_some() {
             return refuse(400, "CONNECT requires an authority");
         }
+        let Some((host, port)) = req
+            .uri()
+            .authority()
+            .and_then(|a| Some((a.host().trim_matches(['[', ']']).to_ascii_lowercase(), a.port_u16().filter(|p| *p != 0)?)))
+            .filter(|(h, _)| policy::tunnel_host(h))
+        else {
+            return refuse(400, "CONNECT requires host:port");
+        };
+        let intercept = host == "api.anthropic.com" && port == 443;
         let permit = match self.shared.connections.clone().try_acquire_owned() {
             Ok(p) => p,
             Err(_) => return refuse(503, "Too many active tunnels"),
         };
         let tls = self.shared.tls.read().unwrap_or_else(|e| e.into_inner()).clone();
-        if host == "api.anthropic.com" && tls.1 <= (crate::now_ms() / 1000.0) as i64 {
+        if intercept && tls.1 <= (crate::now_ms() / 1000.0) as i64 {
             return refuse(503, "Splitter certificate expired; renew before reconnecting");
         }
-        let mut remote = if host != "api.anthropic.com" {
-            match tokio::time::timeout(Duration::from_secs(15), TcpStream::connect((host.as_str(), 443))).await {
+        let mut remote = if !intercept {
+            match tokio::time::timeout(Duration::from_secs(15), TcpStream::connect((host.as_str(), port))).await {
                 Ok(Ok(stream)) => Some(stream),
                 _ => return refuse(502, "Tunnel upstream unavailable"),
             }

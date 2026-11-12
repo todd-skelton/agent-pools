@@ -81,11 +81,6 @@ pub async fn run(command: &str, profile: &Path) -> std::io::Result<()> {
         catalog.validate().map_err(std::io::Error::other)?;
         cfg.model_catalog = Some(catalog);
     }
-    cfg.additional_tunnel_hosts = match c.get("additionalTunnelHosts") {
-        None => Vec::new(),
-        Some(Value::Array(a)) if a.iter().all(Value::is_string) => a.iter().map(|v| v.as_str().unwrap().to_string()).collect(),
-        _ => return Err(std::io::Error::other("additionalTunnelHosts must be an array of exact DNS names")),
-    };
     let log_profile = profile.to_path_buf();
     cfg.observe = Arc::new(move |event| log(&log_profile, event));
     let (app, handle) = claude_split::app(cfg).map_err(std::io::Error::other)?;

@@ -712,8 +712,9 @@ replays a turn or falls back to inference on the control account.
 
 The authenticated proxy binds IPv4 loopback (default 8326). Corten serves the CONNECT surface
 and the decrypted HTTP API, with hyper/rustls handing the upgraded connection between them.
-Only `api.anthropic.com` is TLS-intercepted. Documented Claude/Anthropic domains tunnel on port
-443 without interception; additional exact DNS names require `-AllowHost`. A private profile CA
+Only `api.anthropic.com:443` is TLS-intercepted. Every other `host:port` is tunneled blind,
+because a session's own tools (git, gh, doctl, MCP servers) inherit the same `HTTPS_PROXY`;
+the local proxy credential is still required for every CONNECT. A private profile CA
 is trusted through Claude's settings only, never the OS certificate store. The native runtime
 renews the 30-day leaf hourly when fewer than seven days remain, retaining the CA and key.
 An expiring five-year CA requires explicit replacement and client restart, not silent rotation.
@@ -780,8 +781,8 @@ tools fail closed. Local tool schemas/arguments and inline image/PDF content are
 Compaction in Messages, signed context, beta headers and tool IDs pass unchanged. WebSocket
 control traffic is bidirectional; cancellation closes the pool stream. SSE errors/truncation
 are recorded as incomplete, not successful responses. Logs contain metadata, never prompts,
-credentials, session URLs or query strings. Image-generation endpoints and other unclassified APIs are
-not automatically enabled by adding a tunnel hostname.
+credentials, session URLs or query strings. Image-generation endpoints and other unclassified APIs on
+`api.anthropic.com` stay closed: blind tunnels never reach the decrypted router.
 
 ### Mixed-provider Claude sessions
 
@@ -906,18 +907,24 @@ fallback.
 Rejected path components also carry bounded, domain-separated HMAC tags keyed by the private
 local proxy credential, allowing local code-vocabulary comparison without logging raw handles.
 
-Each server and its spawned sessions belong to a kill-on-close Windows Job Object. A
-launch handshake prevents child creation before ownership is established. Removing a
-project, stopping the manager or a manager crash kills its owned descendants, not other
-Claude processes. Sessions are persisted by Claude normally, but running work is interrupted
-by a service restart. Crashed workers restart with bounded backoff; setup failures retry
-once per minute. Status is metadata only, with a stale indicator after 20 seconds, available
+Each project's `claude-rc-worker` is started detached, outside any job of the service's, and
+puts itself in its own kill-on-close Windows Job Object before it launches Claude; the server
+and its sessions end with their worker, never orphaned, and no other Claude process is touched.
+A service restart leaves the workers running: `claude-rc-workers.json` records each one's pid,
+creation date and launch configuration, and the next service adopts a worker only while it is
+still that process, launched for the same project, Claude binary and config directory. A
+removed or reconfigured project's worker is ended (adopted or not); a recorded pid that is
+now another process is left alone. Workers report state in `claude-rc-<id>.json`. Crashed
+workers restart with bounded backoff; setup failures retry once per minute. During the
+restart itself the splitter is briefly unavailable, so a session's requests retry until the
+new service answers. Status is metadata only, with a stale indicator after 20 seconds, available
 through the local CLI or the pool service's `GET /api/claude/projects`. No session URLs,
 prompts or CLI output are persisted by the supervisor.
 
 `cargo test -p pools-shadow --lib claude_client::projects` covers registry validation,
 trust-scoped discovery, disabled overrides, routing conflicts, streamed consent detection,
-normal permissions, backoff, crash recovery, project removal and owned descendant cleanup.
+normal permissions, backoff, crash recovery, handover to the next supervisor, refusal to
+adopt a reconfigured or reused process, project removal and owned descendant cleanup.
 Phone login and creating a real mobile session remain interactive acceptance checks.
 
 ### The inference relay

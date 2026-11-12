@@ -15,7 +15,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{
-    io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWriteExt, BufReader},
+    io::{AsyncRead, AsyncReadExt},
     process::{Child, Command},
     sync::mpsc,
 };
@@ -427,9 +427,6 @@ async fn observe(mut pipe: impl AsyncRead + Unpin, tx: mpsc::Sender<State>) {
         }
     }
 }
-fn emit(state: State, pid: Option<u32>) {
-    println!("{}", json!({"rcState":state,"pid":pid}));
-}
 
 fn removed_environment() -> &'static [&'static str] {
     &[
@@ -515,21 +512,40 @@ fn child_command(r: &Registry, p: &Project, profile: &Path) -> std::io::Result<C
     Ok(cmd)
 }
 
-/// Private process entry point. It cannot launch Claude unless its owning supervisor has
-/// first assigned its entire future process tree and released the launch handshake.
+fn valid_id(id: &str) -> bool {
+    id.len() == 16 && id.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+}
+/// The worker's own report of its state, read by whichever supervisor runs now.
+fn state_path(profile: &Path, id: &str) -> PathBuf {
+    profile.join(format!("claude-rc-{id}.json"))
+}
+fn report(profile: &Path, id: &str, state: State, pid: Option<u32>) {
+    let doc = json!({"rcState":state,"pid":pid,"workerPid":std::process::id(),"updatedAtMs":crate::writer::io::now_ms()});
+    let _ = private::write(&state_path(profile, id), doc.to_string().as_bytes());
+}
+fn read_report(profile: &Path, id: &str, worker: u32) -> Option<(State, Option<u32>)> {
+    let v = crate::live::read_json(&state_path(profile, id)).ok()?;
+    if v["workerPid"].as_u64() != Some(u64::from(worker)) {
+        return None;
+    }
+    let state = serde_json::from_value(v["rcState"].clone()).ok()?;
+    Some((state, v["pid"].as_u64().and_then(|n| u32::try_from(n).ok())))
+}
+
+/// Private process entry point, started detached by the supervisor so a service restart leaves
+/// it (and the sessions it hosts) running. Before launching Claude it puts itself in its own
+/// kill-on-close job, so Claude and every session end with the worker, never orphaned.
 pub async fn worker(args: &[String]) -> std::io::Result<()> {
-    if args.len() != 2 {
+    if args.len() != 2 || !valid_id(&args[1]) {
         return Err(invalid("RC worker requires profile and project ID"));
     }
-    let mut byte = [0u8; 1];
-    tokio::io::stdin().read_exact(&mut byte).await?;
-    if byte != *b"R" {
-        return Err(invalid("Invalid RC worker handshake"));
-    }
     let profile = Path::new(&args[0]);
+    let id = args[1].as_str();
+    let _tree = tree::Tree::current()?;
+    let emit = |state: State, pid: Option<u32>| report(profile, id, state, pid);
     let r = load(profile)?;
     let p = desired(&r)?
-        .remove(&args[1])
+        .remove(id)
         .ok_or_else(|| invalid("RC project no longer enabled"))?;
     if !trusted(&r, &p) {
         emit(State::NeedsTrust, None);
@@ -577,65 +593,103 @@ pub async fn worker(args: &[String]) -> std::io::Result<()> {
     outcome
 }
 
-struct Owned {
-    child: Child,
-    tree: Option<tree::Tree>,
-    events: mpsc::Receiver<(State, Option<u32>)>,
-    reader: tokio::task::JoinHandle<()>,
+const WORKERS: &str = "claude-rc-workers.json";
+
+/// A running worker: spawned by this supervisor, or adopted from the one before it.
+struct Worker {
+    pid: u32,
+    /// Its CreationDate, which tells it apart from a later process given the same id.
+    created: Value,
+    /// What it was launched for; a worker for another configuration is replaced, not adopted.
+    launch: String,
+    child: Option<Child>,
 }
-impl Owned {
-    async fn start(mut cmd: Command) -> std::io::Result<Self> {
-        cmd.stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .kill_on_drop(true);
-        crate::live::machine::hide_window(&mut cmd);
-        let mut child = cmd.spawn()?;
-        let tree = tree::Tree::attach(&child)?;
-        child.stdin.take().unwrap().write_all(b"R").await?;
-        let (tx, events) = mpsc::channel(8);
-        let out = child.stdout.take().unwrap();
-        let reader = tokio::spawn(async move {
-            let mut lines = BufReader::new(out).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                // The worker emits only this bounded metadata protocol, never CLI output.
-                if line.len() > 2048 {
-                    continue;
-                }
-                if let Ok(v) = serde_json::from_str::<Value>(&line)
-                    && let Ok(s) = serde_json::from_value::<State>(v["rcState"].clone())
-                {
-                    let _ = tx
-                        .send((s, v["pid"].as_u64().and_then(|n| u32::try_from(n).ok())))
-                        .await;
-                }
-            }
-        });
-        Ok(Self {
-            child,
-            tree: Some(tree),
-            events,
-            reader,
+impl Worker {
+    fn record(&self) -> Value {
+        json!({"pid":self.pid,"creationDate":self.created,"launch":self.launch})
+    }
+    /// Still the worker the record names: the same process start, running this project's worker.
+    fn running(&self, id: &str) -> bool {
+        !self.created.is_null()
+            && crate::live::machine::win_process_info(self.pid).is_some_and(|i| {
+                i["CreationDate"] == self.created
+                    && i["CommandLine"].as_str().is_some_and(|c| c.contains("claude-rc-worker") && c.contains(id))
+            })
+    }
+    fn exited(&mut self, id: &str) -> Option<Option<i32>> {
+        match &mut self.child {
+            Some(c) => match c.try_wait() {
+                Ok(None) => None,
+                Ok(Some(code)) => Some(code.code()),
+                Err(_) => Some(None),
+            },
+            None => (!self.running(id)).then_some(None),
+        }
+    }
+    /// Ends the worker; its job ends Claude and every session it hosts.
+    async fn stop(&mut self, id: &str) {
+        if self.running(id) {
+            crate::live::machine::kill(self.pid);
+        }
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline && self.exited(id).is_none() {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    }
+}
+fn launch_id(r: &Registry, p: &Project) -> String {
+    use sha2::{Digest, Sha256};
+    let doc = json!({"project":p,"claudeBinary":r.claude_binary,"claudeConfigDir":r.claude_config_dir});
+    format!("{:x}", Sha256::digest(doc.to_string().as_bytes()))[..16].into()
+}
+/// Its own hidden console and process group, in no job of the service's, so a service stop or
+/// restart does not end it. It owns its own tree (see `worker`). Not DETACHED_PROCESS: a
+/// console program with no console at all may exit at once.
+fn spawn(mut cmd: Command, launch: String) -> std::io::Result<Worker> {
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .kill_on_drop(false);
+    #[cfg(windows)]
+    cmd.creation_flags(crate::live::machine::CREATE_NO_WINDOW | crate::live::machine::CREATE_NEW_PROCESS_GROUP);
+    let child = cmd.spawn()?;
+    let pid = child.id().ok_or_else(|| invalid("Worker exited at once"))?;
+    let created = crate::live::machine::win_process_info(pid)
+        .map(|i| i["CreationDate"].clone())
+        .unwrap_or(Value::Null);
+    Ok(Worker {
+        pid,
+        created,
+        launch,
+        child: Some(child),
+    })
+}
+fn read_records(profile: &Path) -> BTreeMap<String, Worker> {
+    let doc = crate::live::read_json(&profile.join(WORKERS)).unwrap_or(Value::Null);
+    doc["workers"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter(|(id, _)| valid_id(id))
+        .filter_map(|(id, w)| {
+            Some((
+                id.clone(),
+                Worker {
+                    pid: u32::try_from(w["pid"].as_u64()?).ok()?,
+                    created: w["creationDate"].clone(),
+                    launch: w["launch"].as_str()?.into(),
+                    child: None,
+                },
+            ))
         })
-    }
-    async fn stop(&mut self) {
-        // Closing the job stops exactly this worker and its descendants, not other CLI use.
-        self.tree.take();
-        let _ = self.child.start_kill();
-        let _ = tokio::time::timeout(Duration::from_secs(5), self.child.wait()).await;
-        self.reader.abort();
-    }
+        .collect()
 }
-impl Drop for Owned {
-    fn drop(&mut self) {
-        self.reader.abort();
-        self.tree.take();
-    }
-}
+
 struct Slot {
     project: Project,
-    launch: (PathBuf, PathBuf),
-    owned: Option<Owned>,
+    launch: String,
+    worker: Option<Worker>,
+    adopted: bool,
     state: State,
     pid: Option<u32>,
     restarts: u32,
@@ -668,6 +722,8 @@ async fn supervise_with(
 ) {
     tokio::pin!(stop);
     let mut slots: BTreeMap<String, Slot> = BTreeMap::new();
+    // Workers the previous supervisor left running, until each is adopted or ended.
+    let mut previous = read_records(&profile);
     loop {
         let registry = if profile.join(REGISTRY).exists() {
             load(&profile).and_then(|r| desired(&r).map(|p| (r, p)))
@@ -682,50 +738,66 @@ async fn supervise_with(
             .iter()
             .filter(|(id, s)| {
                 desired.get(*id) != Some(&s.project)
-                    || r.as_ref().is_none_or(|r| {
-                        s.launch != (r.claude_binary.clone(), r.claude_config_dir.clone())
-                    })
+                    || r.as_ref().is_none_or(|r| s.launch != launch_id(r, &s.project))
             })
             .map(|(id, _)| id.clone())
             .collect();
         for id in removed {
             if let Some(mut s) = slots.remove(&id)
-                && let Some(ref mut c) = s.owned
+                && let Some(ref mut w) = s.worker
             {
-                c.stop().await;
+                w.stop(&id).await;
             }
         }
         if let Some(ref r) = r {
             for (id, p) in desired {
-                slots.entry(id).or_insert_with(|| Slot {
-                    project: p,
-                    launch: (r.claude_binary.clone(), r.claude_config_dir.clone()),
-                    owned: None,
-                    state: State::Starting,
-                    pid: None,
-                    restarts: 0,
-                    failures: 0,
-                    retry: Instant::now(),
-                    started: Instant::now(),
-                    last_exit: None,
-                });
+                let launch = launch_id(r, &p);
+                if slots.contains_key(&id) {
+                    continue;
+                }
+                let mut adopted = previous.remove(&id);
+                if let Some(mut w) = adopted.take_if(|w| w.launch != launch || !w.running(&id)) {
+                    w.stop(&id).await;
+                }
+                let state = adopted
+                    .as_ref()
+                    .and_then(|w| read_report(&profile, &id, w.pid))
+                    .unwrap_or((State::Ready, None));
+                slots.insert(
+                    id,
+                    Slot {
+                        project: p,
+                        launch,
+                        adopted: adopted.is_some(),
+                        worker: adopted,
+                        state: state.0,
+                        pid: state.1,
+                        restarts: 0,
+                        failures: 0,
+                        retry: Instant::now(),
+                        started: Instant::now(),
+                        last_exit: None,
+                    },
+                );
+            }
+        }
+        // Left over: removed while no supervisor ran, or Claude projects turned off. An unreadable
+        // registry keeps them until it reads again.
+        if r.is_some() || !profile.join(REGISTRY).exists() {
+            for (id, mut w) in std::mem::take(&mut previous) {
+                w.stop(&id).await;
             }
         }
         for (id, s) in &mut slots {
-            if let Some(ref mut c) = s.owned {
-                while let Ok((state, pid)) = c.events.try_recv() {
+            if let Some(ref mut w) = s.worker {
+                if let Some((state, pid)) = read_report(&profile, id, w.pid) {
                     s.state = state;
                     s.pid = pid;
                 }
-                match c.child.try_wait() {
-                    Ok(None) => continue,
-                    Ok(Some(code)) => s.last_exit = code.code(),
-                    Err(_) => s.last_exit = None,
-                }
-                let _ = tokio::time::timeout(Duration::from_secs(1), &mut c.reader).await;
-                while let Ok((state, pid)) = c.events.try_recv() {
+                let Some(code) = w.exited(id) else { continue };
+                s.last_exit = code;
+                if let Some((state, _)) = read_report(&profile, id, w.pid) {
                     s.state = state;
-                    s.pid = pid;
                 }
                 let blocked = s.state.blocked();
                 if !blocked && s.state != State::StartupTimeout {
@@ -736,20 +808,18 @@ async fn supervise_with(
                 }
                 s.failures = s.failures.saturating_add(1);
                 s.retry = Instant::now() + retry_delay(s.failures, blocked);
-                s.owned.take();
+                s.worker = None;
+                s.adopted = false;
                 s.pid = None;
             }
             if Instant::now() < s.retry {
                 continue;
             }
             s.restarts += 1;
-            let result = match worker(&profile, id) {
-                Ok(cmd) => Owned::start(cmd).await,
-                Err(e) => Err(e),
-            };
-            match result {
-                Ok(c) => {
-                    s.owned = Some(c);
+            let _ = std::fs::remove_file(state_path(&profile, id));
+            match worker(&profile, id).and_then(|cmd| spawn(cmd, s.launch.clone())) {
+                Ok(w) => {
+                    s.worker = Some(w);
                     s.state = State::Starting;
                     s.started = Instant::now();
                 }
@@ -760,17 +830,20 @@ async fn supervise_with(
                 }
             }
         }
-        let rows: Vec<_> = slots.iter().map(|(id,s)| json!({"id":id,"name":s.project.name,"directory":s.project.directory,"spawn":s.project.spawn,"capacity":s.project.capacity,"state":s.state,"pid":s.pid,"workerPid":s.owned.as_ref().and_then(|c|c.child.id()),"starts":s.restarts,"lastExitCode":s.last_exit})).collect();
+        let rows: Vec<_> = slots.iter().map(|(id,s)| json!({"id":id,"name":s.project.name,"directory":s.project.directory,"spawn":s.project.spawn,"capacity":s.project.capacity,"state":s.state,"pid":s.pid,"workerPid":s.worker.as_ref().map(|w|w.pid),"adopted":s.adopted,"starts":s.restarts,"lastExitCode":s.last_exit})).collect();
+        let records: serde_json::Map<String, Value> = slots
+            .iter()
+            .filter_map(|(id, s)| Some((id.clone(), s.worker.as_ref()?.record())))
+            .chain(previous.iter().map(|(id, w)| (id.clone(), w.record())))
+            .collect();
+        let _ = private::write(&profile.join(WORKERS), json!({"schema":SCHEMA,"workers":records}).to_string().as_bytes());
         if profile.join(REGISTRY).exists() {
             let doc = json!({"schema":SCHEMA,"ownerPid":std::process::id(),"updatedAtMs":crate::writer::io::now_ms(),"state":if r.is_some(){"running"}else{"registry-invalid"},"projects":rows});
             let _ = private::write(&profile.join(STATUS), doc.to_string().as_bytes());
         }
         tokio::select! { _ = &mut stop => break, _ = tokio::time::sleep(Duration::from_secs(3)) => {} }
     }
-    for s in slots.values_mut() {
-        if let Some(ref mut c) = s.owned {
-            c.stop().await;
-        }
-    }
+    // Workers are left running for the next supervisor (see `claude-rc-workers.json`): a
+    // service restart must not end the sessions they host. Removing a project ends its worker.
     let _ = private::write(&profile.join(STATUS), json!({"schema":SCHEMA,"state":"stopped","updatedAtMs":crate::writer::io::now_ms(),"projects":[]}).to_string().as_bytes());
 }

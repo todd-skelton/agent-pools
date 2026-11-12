@@ -1,4 +1,5 @@
 use super::*;
+use tokio::io::AsyncWriteExt;
 
 struct Temp(PathBuf);
 impl Temp {
@@ -306,158 +307,173 @@ fn child_uses_normal_permissions_and_removes_gateway_auth() {
     assert!(child_command(&r, &shared, &t.0).is_err());
 }
 
+
+/// Run only by `worker_job_ends_its_descendants`, in its own process: the job it takes would
+/// otherwise end the test runner with it.
+#[cfg(windows)]
+#[test]
+#[ignore = "helper process for worker_job_ends_its_descendants"]
+fn helper_tree_owner() {
+    let _tree = tree::Tree::current().unwrap();
+    let mut cmd = std::process::Command::new("powershell.exe");
+    cmd.args(["-NoProfile", "-NonInteractive", "-Command", "Start-Sleep -Seconds 60"]);
+    let mut child = cmd.spawn().unwrap();
+    println!("descendant={}", child.id());
+    std::io::Write::flush(&mut std::io::stdout()).unwrap();
+    std::thread::sleep(Duration::from_secs(60));
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
 #[cfg(windows)]
 #[tokio::test]
-async fn job_close_kills_owned_worker_and_descendants() {
+async fn worker_job_ends_its_descendants() {
+    use tokio::io::{AsyncBufReadExt, BufReader};
     use windows_sys::Win32::{
         Foundation::CloseHandle,
         System::Threading::{OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject},
     };
-    let mut cmd = Command::new("powershell.exe");
-    cmd.args(["-NoProfile","-NonInteractive","-Command", "$null=[Console]::Read(); $p=Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile -NonInteractive -Command Start-Sleep -Seconds 60' -PassThru; [Console]::WriteLine($p.Id); Start-Sleep -Seconds 60"])
-        .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).kill_on_drop(true);
+    let mut cmd = Command::new(std::env::current_exe().unwrap());
+    cmd.args(["--ignored", "--exact", "claude_client::projects::tests::helper_tree_owner", "--nocapture", "--test-threads=1"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .kill_on_drop(true);
     crate::live::machine::hide_window(&mut cmd);
-    let mut child = cmd.spawn().unwrap();
-    let tree = tree::Tree::attach(&child).unwrap();
-    child.stdin.take().unwrap().write_all(b"R").await.unwrap();
-    let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
-    let pid: u32 = tokio::time::timeout(Duration::from_secs(15), lines.next_line())
-        .await
-        .unwrap()
-        .unwrap()
-        .unwrap()
-        .parse()
-        .unwrap();
-    // SAFETY: this handle refers only to the live descendant just reported by our test.
+    let mut helper = cmd.spawn().unwrap();
+    let mut lines = BufReader::new(helper.stdout.take().unwrap()).lines();
+    let pid: u32 = tokio::time::timeout(Duration::from_secs(60), async {
+        loop {
+            let line = lines.next_line().await.unwrap().expect("helper ended before its descendant");
+            if let Some(pid) = line.split("descendant=").nth(1) {
+                return pid.trim().parse().unwrap();
+            }
+        }
+    })
+    .await
+    .unwrap();
+    // SAFETY: this handle refers only to the live descendant just reported by our helper.
     let handle = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, pid) };
     assert!(!handle.is_null());
-    drop(tree);
-    tokio::time::timeout(Duration::from_secs(5), child.wait())
-        .await
-        .unwrap()
-        .unwrap();
-    // SAFETY: the live process handle above is waited on and closed exactly once.
+    helper.start_kill().unwrap();
+    helper.wait().await.unwrap();
+    // SAFETY: the handle above is waited on and closed exactly once.
     let result = unsafe {
         let r = WaitForSingleObject(handle, 5000);
         CloseHandle(handle);
         r
     };
-    assert_eq!(result, 0, "owned descendant survived job close");
+    assert_eq!(result, 0, "descendant survived its worker");
+}
+
+/// A stand-in worker: reports `ready` the way `worker` does and keeps running.
+#[cfg(windows)]
+fn fake_worker(profile: &Path, id: &str) -> std::io::Result<Command> {
+    let state = state_path(profile, id);
+    let mut cmd = Command::new("powershell.exe");
+    cmd.args([
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        &format!(
+            "$null='claude-rc-worker {id}'; [IO.File]::WriteAllText('{}', (@{{rcState='ready';pid=$PID;workerPid=$PID}} | ConvertTo-Json -Compress)); Start-Sleep -Seconds 120",
+            state.display()
+        ),
+    ]);
+    Ok(cmd)
 }
 
 #[cfg(windows)]
-#[tokio::test]
-async fn owned_stop_and_drop_reap_workers() {
-    for explicit_stop in [true, false] {
-        let mut cmd = Command::new("powershell.exe");
-        cmd.args(["-NoProfile","-NonInteractive","-Command", "$null=[Console]::Read(); [Console]::WriteLine('{\"rcState\":\"ready\",\"pid\":123}'); Start-Sleep -Seconds 60"]);
-        let mut owned = Owned::start(cmd).await.unwrap();
-        assert_eq!(
-            tokio::time::timeout(Duration::from_secs(15), owned.events.recv())
-                .await
-                .unwrap(),
-            Some((State::Ready, Some(123)))
-        );
-        use windows_sys::Win32::{
-            Foundation::CloseHandle,
-            System::Threading::{OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject},
-        };
-        // SAFETY: the process is our own live test worker.
-        let h = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, owned.child.id().unwrap()) };
-        assert!(!h.is_null());
-        if explicit_stop {
-            owned.stop().await;
-        }
-        drop(owned);
-        // SAFETY: the handle above is waited on and closed exactly once.
-        assert_eq!(
-            unsafe {
-                let r = WaitForSingleObject(h, 5000);
-                CloseHandle(h);
-                r
-            },
-            0
-        );
-    }
-}
-
-#[cfg(windows)]
-#[tokio::test]
-async fn supervisor_restarts_crashes_and_stops_removed_projects() {
-    let t = Temp::new();
-    let mut r = t.registry();
-    r.projects.push(project(&t.repo("a"), None).unwrap());
-    save(&t.0, &r).unwrap();
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    let profile = t.0.clone();
-    let task = tokio::spawn(supervise_with(
-        profile,
-        async {
-            let _ = rx.await;
-        },
-        |_, _| {
-            let mut cmd = Command::new("powershell.exe");
-            cmd.args(["-NoProfile","-NonInteractive","-Command","$null=[Console]::Read(); [Console]::WriteLine(('{\"rcState\":\"ready\",\"pid\":'+$PID+'}')); Start-Sleep -Seconds 60"]);
-            Ok(cmd)
-        },
-    ));
-    async fn wait_for(profile: &Path, starts: u64) -> u32 {
-        tokio::time::timeout(Duration::from_secs(25), async {
-            loop {
-                let s = status(profile);
-                if s["projects"][0]["state"] == "ready"
-                    && s["projects"][0]["starts"].as_u64().unwrap_or(0) >= starts
-                {
-                    return s["projects"][0]["workerPid"].as_u64().unwrap() as u32;
-                }
-                tokio::time::sleep(Duration::from_millis(100)).await;
+async fn wait_for_row(profile: &Path, what: &str, ok: impl Fn(&Value) -> bool) -> Value {
+    // A replacement waits out its 10 s backoff, then a PowerShell start, which a busy machine
+    // running the whole suite can make slow.
+    tokio::time::timeout(Duration::from_secs(60), async {
+        loop {
+            let s = status(profile);
+            if s["state"] == "running" && ok(&s["projects"]) {
+                return s["projects"].clone();
             }
-        })
-        .await
-        .unwrap()
-    }
-    let pid = wait_for(&t.0, 1).await;
-    use windows_sys::Win32::{
-        Foundation::CloseHandle,
-        System::Threading::{
-            OpenProcess, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE, TerminateProcess,
-            WaitForSingleObject,
-        },
-    };
-    // SAFETY: this is the test's own live fake worker reported by its supervisor.
-    unsafe {
-        let h = OpenProcess(PROCESS_TERMINATE, 0, pid);
-        assert!(!h.is_null());
-        assert_ne!(TerminateProcess(h, 1), 0);
-        CloseHandle(h);
-    }
-    let next = wait_for(&t.0, 2).await;
-    assert_ne!(pid, next);
-    // SAFETY: own live replacement worker; the handle survives process exit for the check.
-    let h = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, 0, next) };
-    assert!(!h.is_null());
-    r.projects[0].enabled = false;
-    save(&t.0, &r).unwrap();
-    tokio::time::timeout(Duration::from_secs(8), async {
-        while status(&t.0)["projects"]
-            .as_array()
-            .is_none_or(|p| !p.is_empty())
-        {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
     })
     .await
-    .unwrap();
-    // SAFETY: handle above is waited on and closed exactly once.
-    assert_eq!(
-        unsafe {
-            let result = WaitForSingleObject(h, 5000);
-            CloseHandle(h);
-            result
-        },
-        0
-    );
+    .unwrap_or_else(|_| panic!("timed out waiting for {what}: {}", status(profile)))
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn supervisor_restarts_crashes_hands_workers_over_and_stops_removed_projects() {
+    use crate::live::machine::{alive, kill};
+    let t = Temp::new();
+    let mut r = t.registry();
+    r.projects.push(project(&t.repo("a"), None).unwrap());
+    save(&t.0, &r).unwrap();
+    let start = |profile: PathBuf| {
+        let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+        let task = tokio::spawn(supervise_with(profile, async { let _ = rx.await; }, fake_worker));
+        (tx, task)
+    };
+    let ready = |starts: u64| move |p: &Value| p[0]["state"] == "ready" && p[0]["starts"].as_u64() >= Some(starts) && p[0]["workerPid"].is_u64();
+    let (tx, task) = start(t.0.clone());
+    let first = wait_for_row(&t.0, "first worker", ready(1)).await[0]["workerPid"].as_u64().unwrap() as u32;
+
+    // A crashed worker is started again.
+    assert!(kill(first));
+    let rows = wait_for_row(&t.0, "replacement", ready(2)).await;
+    let second = rows[0]["workerPid"].as_u64().unwrap() as u32;
+    assert_ne!(first, second);
+
+    // Stopping the supervisor (a service restart) leaves the worker and its sessions running.
     tx.send(()).unwrap();
     task.await.unwrap();
     assert_eq!(status(&t.0)["state"], "stopped");
+    assert!(alive(second), "a supervisor stop ended its worker");
+
+    // The next supervisor adopts it instead of starting another.
+    let (tx, task) = start(t.0.clone());
+    let rows = wait_for_row(&t.0, "adoption", |p| p[0]["adopted"] == true && p[0]["state"] == "ready").await;
+    assert_eq!(rows[0]["workerPid"].as_u64(), Some(u64::from(second)));
+    assert_eq!(rows[0]["starts"], 0);
+
+    // Removing the project ends the adopted worker.
+    r.projects[0].enabled = false;
+    save(&t.0, &r).unwrap();
+    wait_for_row(&t.0, "removal", |p| p.as_array().is_some_and(Vec::is_empty)).await;
+    assert!(!alive(second), "removed project's worker still running");
+    tx.send(()).unwrap();
+    task.await.unwrap();
+}
+
+/// A record for a worker started for another configuration, or a process that is not that
+/// worker any more, is never adopted.
+#[cfg(windows)]
+#[tokio::test]
+async fn reconfigured_or_reused_workers_are_not_adopted() {
+    use crate::live::machine::alive;
+    let t = Temp::new();
+    let mut r = t.registry();
+    let p = project(&t.repo("a"), None).unwrap();
+    r.projects.push(p.clone());
+    save(&t.0, &r).unwrap();
+    let mut stale = spawn(fake_worker(&t.0, &p.id).unwrap(), "another-launch".into()).unwrap();
+    let stale_pid = stale.pid;
+    // Someone else's process under a recorded pid: wrong creation date, so never ended.
+    let bystander = std::process::id();
+    let records = json!({"schema":SCHEMA,"workers":{
+        p.id.clone(): stale.record(),
+        "0123456789abcdef": {"pid":bystander,"creationDate":"20000101000000.000000+000","launch":"x"},
+    }});
+    std::fs::write(t.0.join(WORKERS), records.to_string()).unwrap();
+    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    let task = tokio::spawn(supervise_with(t.0.clone(), async { let _ = rx.await; }, fake_worker));
+    let rows = wait_for_row(&t.0, "a fresh worker", |p| p[0]["state"] == "ready" && p[0]["starts"] == 1).await;
+    assert_eq!(rows[0]["adopted"], false);
+    assert_ne!(rows[0]["workerPid"].as_u64(), Some(u64::from(stale_pid)));
+    assert!(!alive(stale_pid), "a worker for another configuration was left running");
+    let _ = stale.child.take();
+    r.projects[0].enabled = false;
+    save(&t.0, &r).unwrap();
+    wait_for_row(&t.0, "removal", |p| p.as_array().is_some_and(Vec::is_empty)).await;
+    tx.send(()).unwrap();
+    task.await.unwrap();
 }

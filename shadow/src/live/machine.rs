@@ -17,7 +17,7 @@ use pool_core::supervise::{LookupError, Machine};
 use serde_json::Value;
 
 #[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+pub const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 #[cfg(windows)]
 pub const DETACHED_PROCESS: u32 = 0x0000_0008;
 #[cfg(windows)]
