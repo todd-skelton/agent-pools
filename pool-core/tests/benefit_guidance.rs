@@ -133,7 +133,7 @@ fn disabled_automation_never_spends_banked_supply_in_guidance() {
 fn reset_just_before_natural_renewal_has_no_marginal_capacity() {
     let a = account("a", false, 100.0, 1.0, vec![72.0]);
     let opts = SimOptions::new(0.0, 10.0, true, 50.0);
-    let with = simulate_policy(&[a.clone()], &|_| 0.1, &opts, &Policy::legacy());
+    let with = simulate_policy(std::slice::from_ref(&a), &|_| 0.1, &opts, &Policy::legacy());
     let mut without = a;
     without.credits.clear();
     let without = simulate_policy(&[without], &|_| 0.1, &opts, &Policy::legacy());
