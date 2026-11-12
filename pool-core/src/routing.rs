@@ -465,7 +465,7 @@ fn choose_full_reset(
                     return false;
                 };
                 if policy.redemption == "refill" {
-                    refill_runway_ok(a, Some(c), policy, now, &pool)
+                    refill_runway_ok(a, Some(c), policy, now, pool)
                 } else {
                     reset - now >= EARLY_MIN_REFILL_MS || credit_expiry(c) < reset
                 }
@@ -498,7 +498,7 @@ fn choose_full_reset(
                 .iter()
                 .find(|c| {
                     !skip.contains(&credit_key(&a.id, js::get(Some(c), "id")))
-                        && refill_runway_ok(a, Some(c), policy, now, &pool)
+                        && refill_runway_ok(a, Some(c), policy, now, pool)
                 })
                 .filter(|c| js::truthy(Some(c)))
                 .map(|c| (a, c))
