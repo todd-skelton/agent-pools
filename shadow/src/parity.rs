@@ -366,7 +366,7 @@ pub fn forecast_at(inp: &ForecastInputs, t: f64) -> Value {
     };
     let policies = resets::reset_policies(&settings);
     let automation = inp.pool.get("resetAutomation") != Some(&json!(false));
-    forecast::build_forecast(
+    forecast::build_guided_forecast(
         &accounts,
         &samples,
         &config,
@@ -390,7 +390,17 @@ pub fn check_forecast(live: &Value, inp: &ForecastInputs, now: f64) -> Check {
         );
     }
     let started = std::time::Instant::now();
-    let built = forecast_at(inp, t);
+    let mut built = forecast_at(inp, t);
+    // Historical Node documents predate advisory guidance. Compare their full
+    // original contract; new documents must match guidance as well.
+    if let Some(providers) = built["providers"].as_object_mut() {
+        for (provider, f) in providers {
+            if live["providers"][provider].get("guidance").is_none()
+                && inp.previous.and_then(|d| d["providers"][provider].get("guidance")).is_none() {
+                f.as_object_mut().unwrap().remove("guidance");
+            }
+        }
+    }
     Check::compared(
         Kind::Forecast,
         subject,

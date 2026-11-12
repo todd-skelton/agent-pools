@@ -100,6 +100,48 @@ those have not changed what the report shows.
 
 ### The dashboard
 
+#### Reset and refill guidance
+
+The live forecast adds `providers.<provider>.guidance` (`benefit-guidance/v1`) beside the
+historical current-policy forecast. `/api/summary` includes the same block and the overview
+shows the schedule, account deadlines, recurring supply, finite-horizon supply including
+known banked benefits, extra useful work needed, and differences from the legacy baseline. The existing
+`pace`, `creditPlan`, provider state, balance, routing prices and redemption automation are
+unchanged. Legacy `pace.maxUnits` is a burst reference, not an optimum.
+
+Guidance uses a deterministic, bounded search over hourly simulations: account priorities,
+OpenAI redemption gates (resets restart the clock), Claude drain-first choices (refills keep
+the renewal date), and up to three rate segments at quota/credit events. `optimal: false`
+means best found, not a global-optimum guarantee. The objective is delivered work plus window
+quota left at the end. Banked credits at the end have zero objective value and are reported
+separately. Both current-policy and candidate schedules use the same horizon. The nominal
+stock ledger includes overwritten quota and terminal stock stranded behind model/session
+caps. Per-credit marginal value removes that credit and replays the chosen schedule; those
+values are not independently additive.
+
+The highest-scoring benchmark and the recommendation are separate: `recommended` selects a
+lower peak when it is within `0.002 * naturalUnitsPerHour * horizonHours` of `bestFound`, and
+publishes its exact ledger and objective gap. `capacityGainUnits` is the benchmark improvement;
+`extraWorkNeededUnits` is the extra work delivered by the recommendation, not a minimum work
+requirement. Account actions belong to that extra-work schedule. `currentDemandAction` and
+`differsFromLegacyBaseline` compare policies at the same measured demand. `creditsModeled: false`
+and `automation-off` mean banked benefits are excluded by policy, not that they are worthless.
+
+`currentPolicyBasis` explicitly identifies bare `simulate` (the legacy `pace` baseline), not
+an actual automation replay: real-time headroom, before-lapse selection, refusal/cooldown gates,
+holder tie-breaks and future replanning are not reproduced. `legacyBaselineAction` and the
+difference flag refer to that baseline; the flag requires a material provider-wide gain and is
+not an account-specific attribution. For Claude, `creditPlanAction` and `creditPlanDrainBy`
+copy the published plan without simulation; null values carry `creditPlanReason`.
+
+`sustainableUnitsPerHour` is natural renewal only. `finiteHorizonUnitsPerHour` includes the
+modeled banked benefit and ends at `until`; it is not indefinitely sustainable. No future
+grants are assumed. Every candidate rate is finite and capped at 100 times natural supply;
+`feasibility: "unverified"` explicitly avoids treating the quota model as a measured throughput
+limit. More useful work and a different account schedule may be required. Guidance never
+records hypothetical work as actual demand or redeems a real credit. Unknown/stale account
+readings suppress guidance, and disabled automation prevents credit use in candidate runs.
+
 `shadow/src/dash/` is `dashboard.html` on Corten: `model.rs` ports its pure functions of `S`
 (`/api/status`), `V` (`/api/value`) and `NOW` (names kept, so the two read side by side),
 `fmt.rs` its en-US formatting in US Central time with daylight saving (`SHADOW_UTC_STANDARD_HOURS`,

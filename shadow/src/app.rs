@@ -799,8 +799,8 @@ impl SummaryView {
                         ("Remaining units", num(js::get(f, "remainingUnits"))),
                         ("Next reset", when_of(js::get(f, "nextResetAt"))),
                         (
-                            "Pace: max units",
-                            num(js::get(js::get(f, "pace"), "maxUnits")),
+                            if js::get(f, "guidance").is_some() { "Best-found units (not proven optimal)" } else { "Legacy burst reference units" },
+                            num(js::get(js::get(js::get(f, "guidance"), "benchmark"), "bestFoundUnits").or_else(|| js::get(js::get(f, "pace"), "maxUnits"))),
                         ),
                     ]);
                 }

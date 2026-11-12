@@ -889,6 +889,13 @@ impl<'a> Ctx<'a> {
 
     /// `paceSentence(p)`
     pub fn pace_sentence(&self, p: &str) -> String {
+        if let Some(g) = self.benefit_guidance(p) {
+            if n(g.get("capacityGainUnits")) < 0.05 { return String::new(); }
+            return format!(
+                "Recommended capacity gain: {} account-weeks by {}. This schedule delivers {} additional account-weeks of useful work, not a minimum workload claim. This is advisory; throughput feasibility is unverified and automation is unchanged. ",
+                num(n(g.get("recommendedGainUnits")), 1), self.dt(g.get("until")), num(n(g.get("extraWorkNeededUnits")), 1)
+            );
+        }
         let Some((pc, lost, days)) = self.pace_parts(p) else { return String::new() };
         if lost < 0.05 {
             return String::new();
@@ -933,6 +940,7 @@ impl<'a> Ctx<'a> {
 
     /// `paceHtml(p)`
     pub fn pace(&self, p: &str) -> Option<Ladder> {
+        if let Some(g) = self.benefit_guidance(p) { return Some(self.guidance_ladder(p, g)); }
         let (pc, lost, days) = self.pace_parts(p)?;
         let t = self.term(p);
         let pc = Some(pc);
@@ -1019,6 +1027,51 @@ impl<'a> Ctx<'a> {
             rows,
             note: Some(format!("{}.", notes.join(". "))),
         })
+    }
+
+    fn benefit_guidance(&self, p: &str) -> Option<&'a Value> {
+        let f = self.f(p)?;
+        let g = f.get("guidance")?;
+        let at = js::date_parse_value(g.get("computedAt"));
+        let expires = js::date_parse_value(get(get(self.sv(), "capacity"), "staleAfter"));
+        (g["format"] == "benefit-guidance/v1" && f["state"] != "unknown" && f["stale"] != true
+            && at <= self.now && self.now - at < 15.0 * 60000.0 && expires > self.now).then_some(g)
+    }
+
+    fn guidance_ladder(&self, p: &str, g: &Value) -> Ladder {
+        let row = |label: &str, value: String, note: String, main: bool| LRow {
+            label: label.into(), value, value_tone: None, note, main, assume: false, title: None,
+        };
+        let current = g.get("currentPolicy");
+        let best = g.get("recommended");
+        let mut rows = vec![
+            row("Best-found capacity", aw(n(get(g.get("bestFound"), "usableUnits"))), "work plus terminal window quota; not a proven optimum".into(), true),
+            row("Capacity gain", aw(n(g.get("capacityGainUnits"))), "benchmark improvement over current policy, including terminal quota".into(), false),
+            row("Recurring supply", wk(n(g.get("sustainableUnitsPerHour"))), "sustainable natural renewals only".into(), false),
+            row("Including banked benefits", wk(n(g.get("finiteHorizonUnitsPerHour"))), format!("finite-horizon average through {}; {} marginal account-weeks", self.day(g.get("until")), num(n(g.get("knownCreditsMarginalUnits")), 1)), false),
+            row("Legacy baseline at current demand", format!("{} work + {} quota left", num(n(get(current, "deliveredUnits")), 1), num(n(get(current, "terminalWindowUnits")), 1)), if g["creditsModeled"] == false { "automation off; banked benefits excluded".into() } else { format!("{} {}s lapse; {} h short; not a replay of automation", cat(get(current, "creditsLapsing")), self.term(p), cat(get(current, "shortHours"))) }, false),
+            row("Better allocation, same demand", format!("{} additional work", num(n(g.get("observedDemandDeliveredGainUnits")), 1)), "not assumed extra demand".into(), false),
+            row("Additional work in schedule", aw(n(g.get("extraWorkNeededUnits"))), format!("by {}; not a minimum workload claim", self.dt(g.get("until"))), false),
+        ];
+        let steady = get(g.get("bestFound"), "steadyUnitsPerHour").and_then(Value::as_f64);
+        rows.push(row("Tested steady alternative", steady.map_or_else(|| "Front-load work now".into(), wk), "lowest tested steady pace near the best-found result; may need different account priorities; feasibility unverified".into(), false));
+        for segment in arr(get(best, "segments")) {
+            rows.push(row("Schedule", wk(n(segment.get("unitsPerHour"))), format!("{} to {}", self.dt(segment.get("from")), self.dt(segment.get("until"))), false));
+        }
+        rows.push(row("Recommended accounting", format!("{} work + {} quota left", num(n(get(best, "deliveredUnits")), 1), num(n(get(best, "terminalWindowUnits")), 1)), format!("{} window waste; {} cap-stranded; {} credits lapse; {} below benchmark", num(n(get(best, "windowWasteUnits")), 1), num(n(get(best, "capStrandedUnits")), 1), cat(get(best, "creditsLapsing")), num(n(get(best, "objectiveGapUnits")), 2)), false));
+        for a in arr(g.get("accounts")) {
+            if arr(a.get("credits")).is_empty() { continue; }
+            let who = self.find_account(a.get("accountId")).map_or_else(|| text(a.get("accountId")), label);
+            let deadline = if truthy(a.get("deadline")) { format!("; redemption {}", self.dt(a.get("deadline"))) } else { String::new() };
+            let plan = if truthy(a.get("creditPlanAction")) { format!("published creditPlan: {}{}", text(a.get("creditPlanAction")), if truthy(a.get("creditPlanDrainBy")) { format!(" by {}", self.dt(a.get("creditPlanDrainBy"))) } else { String::new() }) } else { text(a.get("creditPlanReason")) };
+            rows.push(row(&who, format!("{}{deadline}", text(a.get("action")).replace('-', " ")), format!("extra-work schedule; at current demand: {}{}. {}; {plan}; advisory only", text(a.get("currentDemandAction")).replace('-', " "), if truthy(a.get("currentDemandDeadline")) { format!(" {}", self.dt(a.get("currentDemandDeadline"))) } else { String::new() }, if a["differsFromLegacyBaseline"] == true { "same-demand policy differs from legacy baseline" } else { "no material same-demand difference from legacy baseline" }), false));
+        }
+        let mut note = format!(
+            "Bounded search, {} evaluations. Known general credits only; no future grants. Rates are finite and modeled, not measured throughput. Delivered work, terminal quota and credits are separate; redeeming is not usage. Legacy burst reference: {} account-weeks, not an optimum. Baseline is bare simulate, not a replay of creditPlan, real-time redemption gates or future replanning. Routing and redemption automation are unchanged.",
+            cat(g.get("evaluations")), num(n(get(g.get("benchmark"), "legacyBurstUnits")), 1)
+        );
+        if g["budgetExhausted"] == true { note += " Search budget reached; a better schedule may exist."; }
+        Ladder { heading: "Reset and refill guidance".into(), title: Some(format!("Advisory forecast through {}", self.dt(g.get("until")))), rows, note: Some(note) }
     }
 }
 
@@ -1120,7 +1173,7 @@ impl<'a> Ctx<'a> {
             Stat {
                 tone: (ratio_n > 1.2).then_some(Tone::Warn),
                 label: "Demand".into(),
-                value: if js::nullish(ratio) { "?".into() } else { format!("{}x supply", num(ratio_n, 2)) },
+                value: if js::nullish(ratio) { "?".into() } else { format!("{}x {}", num(ratio_n, 2), if self.benefit_guidance(p).is_some() { "recurring" } else { "supply" }) },
                 sub: format!("{} acct-weeks per week", num(or(get(get(f, "demand"), "unitsPerHour"), 0.0) * 168.0, 1)),
             },
             runway,

@@ -78,6 +78,41 @@ fn forecast_check_matches_the_golden_forecast() {
 }
 
 #[test]
+fn guided_forecast_parity_summary_and_dashboard_show_the_same_advisory_contract() {
+    let t = snapshot("benefit-guidance", false);
+    let install = t.install();
+    let pool = read("inputs/pool-state.json");
+    let previous = read("inputs/capacity-forecast.json");
+    let now = pool_core::js::date_parse_value(read("inputs/manifest.json").get("now"));
+    let inp = parity::ForecastInputs { install: &install, pool: &pool, previous: Some(&previous) };
+    let doc = parity::forecast_at(&inp, now);
+    assert!(doc["providers"]["codex"].get("guidance").is_some());
+    assert_match(&parity::check_forecast(&doc, &inp, now));
+    let mut wrong = doc.clone();
+    wrong["providers"]["codex"]["guidance"]["benchmark"]["bestFoundUnits"] = serde_json::json!(-1);
+    assert_eq!(parity::check_forecast(&wrong, &inp, now).outcome, Outcome::Differs);
+    let next_inp = parity::ForecastInputs { install: &install, pool: &pool, previous: Some(&doc) };
+    let mut dropped = parity::forecast_at(&next_inp, now);
+    dropped["providers"]["codex"].as_object_mut().unwrap().remove("guidance");
+    assert_eq!(parity::check_forecast(&dropped, &next_inp, now).outcome, Outcome::Differs);
+    std::fs::write(t.dir.join("state/capacity-forecast.json"), serde_json::to_vec(&doc).unwrap()).unwrap();
+    let status = parity::status_now(&t.install(), &Default::default(), now).unwrap();
+    let summary = pool_core::summary::build_summary(&pool, &[("codex", "Codex"), ("claude", "Claude")], Some(&doc), None, now);
+    assert_eq!(summary["providers"]["codex"]["forecast"]["guidance"], doc["providers"]["codex"]["guidance"]);
+    assert!(doc["providers"]["codex"]["guidance"]["currentPolicyBasis"].as_str().unwrap().contains("not a replay"));
+    assert!(doc["providers"]["codex"]["guidance"]["accounts"][0].get("conflictsWithAutomation").is_none());
+    assert!(summary["notes"][2].as_str().unwrap().contains("legacy burst reference"));
+    assert!(summary["notes"][2].as_str().unwrap().contains("steps[k-1]"));
+    let data = crate::dash::Data { s: std::sync::Arc::new(status), v: None, now, z: crate::dash::fmt::Zone::from_env(), writable: false, signin: None, service: false };
+    let fragments = crate::dash::fragments(&data, None, None);
+    let html = fragments["prov-codex"].as_str().unwrap();
+    for text in ["Reset and refill guidance", "Best-found capacity", "Recurring supply", "Additional work in schedule", "feasibility unverified", "not an optimum", "advisory only", "Legacy baseline at current demand", "not a replay of creditPlan"] {
+        assert!(html.contains(text), "dashboard shows {text}");
+    }
+    assert!(!html.contains("Most usable"));
+}
+
+#[test]
 fn value_check_matches_the_golden_report() {
     let t = snapshot("value", true);
     let install = t.install();

@@ -539,6 +539,9 @@ pub fn build_summary(
                 scenario_view(js::get(s, "weeklyGrant")),
             );
             fm.insert("pace".into(), or_null(js::get(f, "pace")));
+            if let Some(guidance) = js::get(f, "guidance") {
+                fm.insert("guidance".into(), guidance.clone());
+            }
             fm.insert("creditPlan".into(), plan_value);
             fm.insert("modelLimits".into(), Value::Array(limits));
             Value::Object(fm)
@@ -635,7 +638,12 @@ pub fn build_summary(
             round2(costs.iter().fold(0.0, |s, c| s + c))
         },
     );
-    doc.insert("notes".into(), json!(NOTES));
+    let mut notes: Vec<String> = NOTES.iter().map(|s| (*s).to_owned()).collect();
+    if out.values().any(|p| p["forecast"].get("guidance").is_some()) {
+        notes[2] = notes[2].replace("maxUnits = usage when draining as fast as possible;", "maxUnits = legacy burst reference, not an optimum;");
+        notes.push("guidance: advisory bounded search over known banked resets/refills, with no future grants. optimal=false: bestFound is a modeled benchmark, not a proven optimum. recommended prefers a lower peak within materialityUnits and publishes its own ledger and objectiveGapUnits. Objective: delivered work plus terminal window quota; terminal banked credits count zero. capacityGainUnits is benchmark improvement; extraWorkNeededUnits is additional delivered work in the recommendation, not a minimum workload claim. currentPolicy is the legacy bare-simulate baseline, not a replay of creditPlan, real-time redemption gates or future replanning. observedDemandBest uses the same measured demand. differsFromLegacyBaseline requires a material provider-wide gain, not an account-specific attribution; extra-work actions are separate. creditPlanAction and creditPlanDrainBy copy the published Claude plan, with null/reason when unavailable. sustainableUnitsPerHour is natural renewals only; finiteHorizonUnitsPerHour ends at until. Feasibility is unverified. creditsModeled=false means automation off, not worthless credits. Per-credit marginalUnits are leave-one-out under the recommendation, not additive; null means evaluation budget exhausted. Guidance does not change routing, creditPlan or automation.".into());
+    }
+    doc.insert("notes".into(), json!(notes));
     doc.insert("providers".into(), Value::Object(out));
     doc.insert("accounts".into(), Value::Array(accounts));
     Value::Object(doc)

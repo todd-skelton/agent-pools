@@ -15,6 +15,20 @@ use serde_json::{json, Map, Value};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
+pub mod guidance;
+
+/// The live forecast adds advisory benefit scheduling without changing the
+/// historical policy forecast, its decision digest, or any routing input.
+#[allow(clippy::too_many_arguments)]
+pub fn build_guided_forecast(
+    accounts: &[Value], samples: &[Value], config: &ForecastConfig, now: f64,
+    previous: Option<&Value>, policies: &[ResetPolicy], automation: bool,
+) -> Value {
+    let mut doc = build_forecast(accounts, samples, config, now, previous, policies, automation);
+    guidance::enrich(&mut doc, accounts, samples, config, now, previous, policies, automation);
+    doc
+}
+
 pub const FORECAST_FORMAT: &str = "capacity-forecast/v1";
 pub const HOUR: f64 = 3_600_000.0;
 /// Reset estimates jitter (Claude by milliseconds, Codex by minutes); only a larger move is a

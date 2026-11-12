@@ -230,7 +230,7 @@ impl Publisher {
             }
             (inner.samples.clone().unwrap_or_default(), inner.previous.clone())
         };
-        let doc = forecast::build_forecast(&input.accounts, &samples, &config, now, previous.as_ref(), &input.policies, input.reset_automation);
+        let doc = forecast::build_guided_forecast(&input.accounts, &samples, &config, now, previous.as_ref(), &input.policies, input.reset_automation);
         let digest = |d: Option<&Value>| d.and_then(|d| d.get("decisionDigest")).cloned();
         let changed = digest(previous.as_ref()) != digest(Some(&doc));
         self.inner.lock().unwrap().previous = Some(doc.clone());
