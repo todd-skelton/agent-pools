@@ -71,6 +71,24 @@ fn discovery_requires_trust_main_repository_and_allowed_root() {
 }
 
 #[test]
+fn trust_of_a_parent_folder_covers_projects_beneath_it() {
+    let t = Temp::new();
+    let parent = t.0.join("repos");
+    let inside = parent.join("controller");
+    let sibling = t.0.join("repos-other");
+    std::fs::create_dir_all(&inside).unwrap();
+    std::fs::create_dir_all(&sibling).unwrap();
+    let r = t.registry();
+    let p = project_mode(&inside, None, "same-dir").unwrap();
+    let s = project_mode(&sibling, None, "same-dir").unwrap();
+    t.trust(&[(&parent, false)]);
+    assert!(!trusted(&r, &p));
+    t.trust(&[(&parent, true)]);
+    assert!(trusted(&r, &p));
+    assert!(!trusted(&r, &s), "A shared name prefix is not an ancestor");
+}
+
+#[test]
 fn explicit_shared_containers_do_not_require_git_or_grant_trust() {
     let t = Temp::new();
     let path = t.0.join("container");

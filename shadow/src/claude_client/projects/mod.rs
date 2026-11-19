@@ -208,10 +208,11 @@ fn trusted(r: &Registry, p: &Project) -> bool {
         .as_object()
         .into_iter()
         .flatten()
+        // Claude treats a trusted folder as covering everything beneath it, so a project inside
+        // a trusted parent starts without its own entry, as it would interactively.
         .any(|(path, v)| {
             v["hasTrustDialogAccepted"] == true
-                && canonical(Path::new(path))
-                    .is_ok_and(|path| identity(&path) == identity(&p.directory))
+                && canonical(Path::new(path)).is_ok_and(|path| within(&p.directory, &path))
         })
 }
 
