@@ -13,15 +13,23 @@ pub struct Policy {
     pub legacy: bool,
     pub gates: Vec<f64>,
     pub drain_first: Vec<bool>,
+    /// Start every renewed first-use window in the hour it renews while the
+    /// provider has demand, as routing across the roster does. The legacy
+    /// simulation instead leaves a window idle until the drain order reaches it.
+    pub start_windows: bool,
 }
 
 impl Policy {
     pub fn legacy() -> Self {
-        Self { legacy: true, gates: Vec::new(), drain_first: Vec::new() }
+        Self { legacy: true, gates: Vec::new(), drain_first: Vec::new(), start_windows: false }
     }
 
     fn candidate(n: usize) -> Self {
-        Self { legacy: false, gates: vec![0.0; n], drain_first: vec![false; n] }
+        Self { legacy: false, gates: vec![0.0; n], drain_first: vec![false; n], start_windows: true }
+    }
+
+    fn starting_windows(&self) -> Self {
+        Self { start_windows: true, ..self.clone() }
     }
 }
 
@@ -36,6 +44,8 @@ pub struct Run {
     pub overwritten: f64,
     pub terminal_nominal: f64,
     pub per_account: Vec<f64>,
+    /// Simulated instants at which a weekly window renewed naturally.
+    pub renewals: Vec<f64>,
 }
 
 impl Run {
@@ -151,6 +161,7 @@ pub fn simulate_policy(supply: &[Supply], rate: &dyn Fn(f64) -> f64, o: &SimOpti
                 r.result.expiring_units += a.effective_units_left();
                 r.window_waste += a.units_left();
                 r.renewed += a.weight;
+                r.renewals.push(t);
                 a.used = 0.0;
                 if a.first_use { a.reset_at = None; a.floating = true; }
                 else { a.reset_at = Some(reset + a.period_ms); }
@@ -206,6 +217,12 @@ pub fn simulate_policy(supply: &[Supply], rate: &dyn Fn(f64) -> f64, o: &SimOpti
             r.result.outage_hours += 1.0;
             r.result.first_outage_at.get_or_insert(t);
         }
+        if p.start_windows && rate_now > 0.0 {
+            for a in accts.iter_mut().filter(|a| a.first_use && a.reset_at.is_none() && !a.stale) {
+                a.reset_at = Some(t + a.period_ms);
+                a.floating = false;
+            }
+        }
         h += 1.0;
     }
     r.result.remaining_units = accts.iter().fold(0.0, |s, a| s + a.effective_units_left());
@@ -246,7 +263,7 @@ struct Search<'a> {
 
 impl Search<'_> {
     fn evaluate(&mut self, policy: &Policy, segments: &[(f64, f64)]) -> Option<Candidate> {
-        let key = js::stringify(&json!([policy.legacy, policy.gates, policy.drain_first, segments]));
+        let key = js::stringify(&json!([policy.legacy, policy.gates, policy.drain_first, policy.start_windows, segments]));
         if let Some(&i) = self.memo.get(&key) { return Some(self.evaluated[i].clone()); }
         if self.evaluations >= BUDGET { self.exhausted = true; return None; }
         self.evaluations += 1;
@@ -264,10 +281,12 @@ impl Search<'_> {
     }
 }
 
-fn segments_view(c: &Candidate, now: f64) -> Value {
+/// `uncapped` marks a segment at the search's rate ceiling: use as fast as
+/// possible. `unitsPerHour` there is the modeled ceiling, not a target.
+fn segments_view(c: &Candidate, now: f64, cap: f64) -> Value {
     let mut from = now;
     Value::Array(c.segments.iter().map(|&(until, rate)| {
-        let s = json!({ "from": js::iso(from), "until": js::iso(until), "unitsPerHour": rate });
+        let s = json!({ "from": js::iso(from), "until": js::iso(until), "unitsPerHour": rate, "uncapped": rate >= cap - EPS });
         from = until;
         s
     }).collect())
@@ -332,13 +351,29 @@ fn guidance(supply: &[Supply], f: &Value, replay: &Replay, now: f64, config: &Fo
     events.extend(best.run.result.redemptions.iter().map(|r| r.at + HOUR).filter(|t| *t < end));
     events.sort_by(f64::total_cmp);
     events.dedup();
-    let policy = best.policy.clone();
+    // A reset restarts a first-use window's clock, so the time spent draining
+    // before each redemption delays every later renewal. Uncapped use until the
+    // last modeled redemption, then the recurring pace, keeps that benefit as
+    // long as renewed windows start when they renew rather than sitting idle.
+    let first_use = supply.iter().any(|a| a.first_use);
+    let policy = if first_use { best.policy.starting_windows() } else { best.policy.clone() };
+    // Nothing renews between the last redemption and the first renewal after
+    // it, so the schedule can pause there instead of asking for empty quota.
+    if let Some(last) = best.run.result.redemptions.iter().map(|r| r.at).max_by(f64::total_cmp).map(|t| t + HOUR).filter(|t| *t < end) {
+        if let Some(c) = search.evaluate(&policy, &[(last, cap), (end, natural)]) {
+            let renewal = c.run.renewals.iter().copied().filter(|t| *t >= last).reduce(f64::min);
+            if c.better(&best) { best = c; }
+            if let Some(renewal) = renewal.filter(|t| *t > last) {
+                search.improve(&mut best, &policy, &[(last, cap), (renewal, 0.0), (end, natural)]);
+            }
+        }
+    }
     for &at in events.iter().take(16) {
         for &rate in &rates {
             search.improve(&mut best, &policy, &[(at, rate), (end, natural)]);
         }
     }
-    let policy = best.policy.clone();
+    let policy = if first_use { best.policy.starting_windows() } else { best.policy.clone() };
     for pair in events.windows(2).take(8) {
         for &rate in &rates {
             search.improve(&mut best, &policy, &[(pair[0], cap), (pair[1], rate), (end, natural)]);
@@ -356,12 +391,13 @@ fn guidance(supply: &[Supply], f: &Value, replay: &Replay, now: f64, config: &Fo
             || ((c.peak() - recommended.peak()).abs() <= EPS && c.better(&recommended)) { recommended = c.clone(); }
     }
     let mut best_view = best.run.view();
-    best_view["segments"] = segments_view(&best, now);
+    best_view["segments"] = segments_view(&best, now, cap);
     best_view["frontLoad"] = json!(steady.is_none() || best.segments.len() > 1);
     best_view["steadyUnitsPerHour"] = json!(steady);
     best_view["requiredPeakUnitsPerHour"] = json!(best.peak());
     let mut recommended_view = recommended.run.view();
-    recommended_view["segments"] = segments_view(&recommended, now);
+    recommended_view["segments"] = segments_view(&recommended, now, cap);
+    recommended_view["creditsUsedBy"] = json!(recommended.run.result.redemptions.iter().map(|r| r.at).max_by(f64::total_cmp).map(js::iso));
     recommended_view["requiredPeakUnitsPerHour"] = json!(recommended.peak());
     recommended_view["objectiveGapUnits"] = json!(rounded(best.run.value() - recommended.run.value()));
     recommended_view["materialityUnits"] = json!(tolerance);
@@ -420,6 +456,8 @@ fn guidance(supply: &[Supply], f: &Value, replay: &Replay, now: f64, config: &Fo
             "recommendedUnitsPerHour": rounded(recommended.run.per_account[i] / horizon),
         })
     }).collect();
+    let mut assumptions = vec!["known general credits only; no future grants", "hourly quota algebra, not measured throughput", "session and model caps constrain the same weekly stock", "requires useful additional work and account scheduling; does not change automation"];
+    if first_use { assumptions.push("segmented schedules start each first-use window when it renews; an idle renewed window delays its next renewal"); }
     json!({
         "format": FORMAT, "computedAt": js::iso(now), "key": "",
         "horizonHours": horizon, "until": js::iso(end),
@@ -429,7 +467,7 @@ fn guidance(supply: &[Supply], f: &Value, replay: &Replay, now: f64, config: &Fo
         "demandUnitsPerHour": demand,
         "advisoryOnly": true, "feasibility": "unverified", "rateCapUnitsPerHour": cap,
         "creditsModeled": enabled,
-        "assumptions": ["known general credits only; no future grants", "hourly quota algebra, not measured throughput", "session and model caps constrain the same weekly stock", "requires useful additional work and account scheduling; does not change automation"],
+        "assumptions": assumptions,
         "currentPolicy": current.run.view(), "observedDemandBest": observed.run.view(),
         "currentPolicyBasis": "legacy forecast baseline (bare simulate, same as pace); not a replay of creditPlan, before-lapse selection, real-time headroom/cooldown/refusal gates, holder tie-breaks, or future replanning",
         "observedDemandDeliveredGainUnits": rounded(observed.run.delivered() - current.run.delivered()),

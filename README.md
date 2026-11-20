@@ -137,8 +137,14 @@ copy the published plan without simulation; null values carry `creditPlanReason`
 `sustainableUnitsPerHour` is natural renewal only. `finiteHorizonUnitsPerHour` includes the
 modeled banked benefit and ends at `until`; it is not indefinitely sustainable. No future
 grants are assumed. Every candidate rate is finite and capped at 100 times natural supply;
-`feasibility: "unverified"` explicitly avoids treating the quota model as a measured throughput
-limit. More useful work and a different account schedule may be required. Guidance never
+a segment at that ceiling carries `uncapped: true`, meaning use as fast as possible, and its
+`unitsPerHour` is the modeled ceiling rather than a target. For OpenAI, a reset restarts the
+window clock, so time spent draining before each redemption delays later renewals: the search
+tries uncapped use until the last modeled redemption (`recommended.creditsUsedBy`), a pause
+until the first window renews, then the recurring pace. Those segmented schedules assume each
+first-use window starts in the hour it renews, as routing across the roster does; the legacy
+baseline still leaves it idle until its drain turn. `feasibility: "unverified"` explicitly
+avoids treating the quota model as a measured throughput limit. More useful work and a different account schedule may be required. Guidance never
 records hypothetical work as actual demand or redeems a real credit. Unknown/stale account
 readings suppress guidance, and disabled automation prevents credit use in candidate runs.
 

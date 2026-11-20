@@ -1056,7 +1056,15 @@ impl<'a> Ctx<'a> {
         let steady = get(g.get("bestFound"), "steadyUnitsPerHour").and_then(Value::as_f64);
         rows.push(row("Tested steady alternative", steady.map_or_else(|| "Front-load work now".into(), wk), "lowest tested steady pace near the best-found result; may need different account priorities; feasibility unverified".into(), false));
         for segment in arr(get(best, "segments")) {
-            rows.push(row("Schedule", wk(n(segment.get("unitsPerHour"))), format!("{} to {}", self.dt(segment.get("from")), self.dt(segment.get("until"))), false));
+            let span = format!("{} to {}", self.dt(segment.get("from")), self.dt(segment.get("until")));
+            let (value, note) = if segment["uncapped"] == true {
+                ("Uncapped".into(), format!("as fast as possible until the banked {}s are used; modeled {span} at the search ceiling", self.term(p)))
+            } else if n(segment.get("unitsPerHour")) == 0.0 {
+                ("Pause".into(), format!("{span}; no window renews in this span"))
+            } else {
+                (wk(n(segment.get("unitsPerHour"))), span)
+            };
+            rows.push(row("Schedule", value, note, false));
         }
         rows.push(row("Recommended accounting", format!("{} work + {} quota left", num(n(get(best, "deliveredUnits")), 1), num(n(get(best, "terminalWindowUnits")), 1)), format!("{} window waste; {} cap-stranded; {} credits lapse; {} below benchmark", num(n(get(best, "windowWasteUnits")), 1), num(n(get(best, "capStrandedUnits")), 1), cat(get(best, "creditsLapsing")), num(n(get(best, "objectiveGapUnits")), 2)), false));
         for a in arr(g.get("accounts")) {

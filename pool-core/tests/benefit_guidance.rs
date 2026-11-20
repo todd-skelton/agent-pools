@@ -169,6 +169,43 @@ fn sanitized_live_openai_snapshot_beats_the_burst_reference() {
 }
 
 #[test]
+fn openai_resets_are_used_uncapped_then_the_recurring_pace_resumes() {
+    let now = js::date_parse_value(Some(&json!("2026-11-20T22:00:00Z")));
+    let at = |h: f64| now + h * HOUR;
+    let credits: Vec<Value> = [237.0, 264.0, 528.0].iter().map(|h| json!({"expiresAt": js::iso(at(*h))})).collect();
+    let accounts: Vec<Value> = [
+        ("snapshot-a-pro.json", 88.0, 39.0),
+        ("snapshot-b-pro.json", 7.0, 104.0),
+        ("snapshot-c-pro.json", 47.0, 73.0),
+        ("snapshot-d-prolite.json", 8.0, 96.0),
+    ].into_iter().map(|(id, used, reset)| json!({
+        "id": id, "provider": "codex", "status": "available", "creditsKnown": true,
+        "creditCount": 3, "credits": credits,
+        "quotaWindows": [{"id":"codex:primary_window", "common":true, "used":used,
+            "durationSeconds":604800, "resetAt":at(reset)}]
+    })).collect();
+    let config = forecast::ForecastConfig { min_observed_hours: 0.0, ..Default::default() };
+    let doc = forecast::build_guided_forecast(&accounts, &[], &config, now, None, &[], true);
+    let g = &doc["providers"]["codex"]["guidance"];
+    let rec = &g["recommended"];
+    let segments = rec["segments"].as_array().unwrap();
+    assert_eq!(segments.len(), 3, "{rec}");
+    assert_eq!(segments[0]["uncapped"], true);
+    let used_by = js::date_parse_value(rec.get("creditsUsedBy"));
+    assert_eq!(js::date_parse_value(segments[0].get("until")), used_by + HOUR, "uncapped only until the last reset is redeemed");
+    assert!(used_by < at(237.0));
+    assert_eq!(segments[1]["unitsPerHour"], 0.0);
+    assert_eq!(segments[1]["uncapped"], false);
+    assert!(js::date_parse_value(segments[1].get("until")) > used_by + HOUR);
+    assert_eq!(segments[2]["unitsPerHour"].as_f64().unwrap(), g["sustainableUnitsPerHour"].as_f64().unwrap());
+    assert_eq!(rec["creditsLapsing"], 0.0);
+    assert_eq!(rec["shortHours"], 0.0);
+    assert!(rec["usableUnits"].as_f64().unwrap() + 1e-9 >= g["benchmark"]["legacyBurstUnits"].as_f64().unwrap(), "{g}");
+    assert_eq!(rec["usableUnits"], g["bestFound"]["usableUnits"]);
+    assert!(g["assumptions"].as_array().unwrap().iter().any(|a| a.as_str().unwrap().contains("first-use window")));
+}
+
+#[test]
 fn unknown_and_stale_account_evidence_suppresses_guidance() {
     let (mut accounts, mut config, now) = inputs();
     config.min_observed_hours = 0.0;
