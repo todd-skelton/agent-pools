@@ -85,6 +85,9 @@ function Restart-One($t) {
     }
   } else {
     Stop-ScheduledTask -TaskName $t.Name -ErrorAction SilentlyContinue
+    # The tunnel command starts a cloudflared when it sees none and can outlive its task's stop by
+    # seconds, which left a second connector: it is ended before its cloudflared.
+    if ($t.Key -eq 'tunnel') { foreach ($p in Running 'tunnel') { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue } }
     foreach ($p in $was) { if (Get-Process -Id $p.ProcessId -ErrorAction SilentlyContinue) { Stop-Process -Id $p.ProcessId -Force } }
     if ($t.Key -ne 'tunnel') { Wait-Until { -not (Get-PortOwner (Port-For $t.Key)) } 30 "port $(Port-For $t.Key) to be free" }
     else { Wait-Until { -not (Tunnel-Processes) } 30 'cloudflared to stop' }
