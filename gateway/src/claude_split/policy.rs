@@ -51,6 +51,10 @@ pub fn control_endpoint(method: &Method, path: &str) -> Option<&'static str> {
         (&Method::GET, "/api/claude_code_grove") => return Some("/api/claude_code_grove"),
         (&Method::GET, "/api/frame/contract/latest") => return Some("/api/frame/contract/latest"),
         (&Method::GET, "/api/directory/plugins") => return Some("/api/directory/plugins"),
+        (&Method::GET, "/api/directory/server-urls") => return Some("/api/directory/server-urls"),
+        // A file the session sends to its Remote Control user, stored under the session's own
+        // login. Its ID goes to the user's client, never into a pooled Messages call.
+        (&Method::POST, "/api/oauth/file_upload") => return Some("/api/oauth/file_upload"),
         (&Method::GET, "/mcp-registry/v0/servers") => return Some("/mcp-registry/v0/servers"),
         (&Method::POST, "/api/claude_code/metrics") => return Some("/api/claude_code/metrics"),
         _ => {}
@@ -251,6 +255,8 @@ mod tests {
     fn remote_control_is_method_and_shape_scoped() {
         for (method, path) in [
             (Method::GET, "/api/directory/plugins"),
+            (Method::GET, "/api/directory/server-urls"),
+            (Method::POST, "/api/oauth/file_upload"),
             (Method::GET, "/api/frame/contract/latest"),
             (Method::GET, "/mcp-registry/v0/servers"),
             (Method::GET, "/v2/ccr-sessions/session_1/mcp"),
@@ -289,6 +295,7 @@ mod tests {
             "/api/oauth/files//content", "/api/oauth/files/file%2f1/content", "/api/oauth/files/a/b/content",
             "/api/oauth/files/file_1/content/", "/api/oauth/files/file_1/content/extra",
             "/api/oauth/files/file_1/metadata", "/api/oauth/file_upload/file_1/content",
+            "/api/oauth/file_upload/", "/api/oauth/file_upload/file_1", "/api/directory/server-urls/unknown",
         ] {
             for method in [Method::GET, Method::POST, Method::DELETE] {
                 assert_eq!(classify(&method, path), Route::Unsupported, "{method} {path}");
@@ -298,6 +305,10 @@ mod tests {
         for method in [Method::POST, Method::DELETE, Method::PATCH] {
             assert_eq!(classify(&method, "/api/oauth/files/file_1/content"), Route::Unsupported, "{method}");
         }
+        for method in [Method::GET, Method::DELETE, Method::PATCH] {
+            assert_eq!(classify(&method, "/api/oauth/file_upload"), Route::Unsupported, "{method}");
+        }
+        assert_eq!(classify(&Method::POST, "/api/directory/server-urls"), Route::Unsupported);
         assert_eq!(classify(&Method::POST, "/api/claude_code_grove"), Route::Unsupported);
         assert_eq!(classify(&Method::GET, "/api/claude_code/metrics"), Route::Unsupported);
         assert_eq!(classify(&Method::POST, "/v1/session_ingress/session/session_1"), Route::Unsupported);
@@ -338,7 +349,7 @@ mod tests {
             "/v1/code/agent-proxy",
             "/v1/code/agent-proxy/x",
             "/api/oauth/files/x",
-            "/api/oauth/file_upload",
+            "/api/oauth/file_upload/x",
             "/api/unknown",
         ] {
             assert_eq!(classify(&Method::POST, p), Route::Unsupported, "{p}");

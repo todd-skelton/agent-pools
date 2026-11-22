@@ -785,8 +785,9 @@ authenticated CONNECT, verified TLS and pool Models, without inference. The othe
 Unknown API routes, Files API handles, server containers/thread IDs and hosted code-execution
 tools fail closed. Local tool schemas/arguments and inline image/PDF content are supported.
 A file or image attached to a Remote Control message is fetched with the session's own login
-(`GET /api/oauth/files/<id>/content`) and read from disk; every other Files route, and
-`/api/oauth/file_upload`, stays closed.
+(`GET /api/oauth/files/<id>/content`) and read from disk, and a file the session sends back is
+uploaded the same way (`POST /api/oauth/file_upload`, at most the splitter's 32 MiB body limit);
+every other Files route stays closed.
 Compaction in Messages, signed context, beta headers and tool IDs pass unchanged. WebSocket
 control traffic is bidirectional; cancellation closes the pool stream. SSE errors/truncation
 are recorded as incomplete, not successful responses. Logs contain metadata, never prompts,

@@ -370,6 +370,8 @@ async fn remote_control_bridge_lifecycle_preserves_control_auth_without_logging_
     let body = r#"{"directory":"private-directory","max_sessions":4}"#;
     for (method, path) in [
         (reqwest::Method::GET, "/api/directory/plugins?private=query"),
+        (reqwest::Method::GET, "/api/directory/server-urls"),
+        (reqwest::Method::POST, "/api/oauth/file_upload?session_received=yes"),
         (reqwest::Method::GET, "/api/frame/contract/latest"),
         (reqwest::Method::GET, "/mcp-registry/v0/servers"),
         (reqwest::Method::GET, "/v2/ccr-sessions/session_private/mcp"),
@@ -396,8 +398,9 @@ async fn remote_control_bridge_lifecycle_preserves_control_auth_without_logging_
     }
     assert!(f.pool.lock().unwrap().is_empty());
     let control = f.control.lock().unwrap();
-    assert_eq!(control.len(), 19);
+    assert_eq!(control.len(), 21);
     assert!(control.iter().any(|r| r.path == "/api/oauth/files/file_private/content?model_copy=inference_highres"));
+    assert!(control.iter().any(|r| r.path == "/api/oauth/file_upload?session_received=yes"));
     for request in control.iter() {
         assert_eq!(request.headers["authorization"], "Bearer control-secret");
         assert_eq!(request.headers["cookie"], "control-cookie=1");
@@ -408,8 +411,11 @@ async fn remote_control_bridge_lifecycle_preserves_control_auth_without_logging_
     let events = f.events.lock().unwrap();
     assert!(events.iter().any(|e| e["endpoint"] == "/v1/environments/bridge" && e["status"] == 200));
     assert!(events.iter().any(|e| e["endpoint"] == "/api/oauth/files/:file/content" && e["route"] == "anthropic-control" && e["status"] == 200));
+    for endpoint in ["/api/oauth/file_upload", "/api/directory/server-urls"] {
+        assert!(events.iter().any(|e| e["endpoint"] == endpoint && e["route"] == "anthropic-control" && e["status"] == 200), "{endpoint}");
+    }
     let logs = serde_json::to_string(&*events).unwrap();
-    for secret in ["control-secret", "fixture-pool-key", "env_private", "work_private", "session_private", "file_private", "model_copy", "private=query", "private-directory"] {
+    for secret in ["control-secret", "fixture-pool-key", "env_private", "work_private", "session_private", "file_private", "model_copy", "session_received", "private=query", "private-directory"] {
         assert!(!logs.contains(secret));
     }
 }
@@ -422,7 +428,8 @@ async fn unsupported_resources_paths_encodings_and_oversized_bodies_never_reach_
         ("/v1/code/agent-proxy", "{}", "identity", 501),
         ("/api/oauth/files/x", "{}", "identity", 501),
         ("/api/oauth/files/file_private/content", "{}", "identity", 501),
-        ("/api/oauth/file_upload", "{}", "identity", 501),
+        ("/api/oauth/file_upload/x", "{}", "identity", 501),
+        ("/api/directory/server-urls", "{}", "identity", 501),
         ("/v1/environments/env_private/work/work_private/inference", "{}", "identity", 501),
         ("/v1/environments/env_private/work/poll", "{}", "identity", 501),
         ("/v1/sessions", "{}", "identity", 501),
