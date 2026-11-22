@@ -50,12 +50,19 @@ function New-PoolRsAction([string]$Root, [string]$Version, $Task, [bool]$Live) {
 }
 
 # Registers $Task (disabled when new; an existing task keeps its state) or, with -ActionOnly,
-# points an existing one at $Version and changes nothing else.
+# points an existing one at $Version and changes nothing else, but for a keepalive that ends its
+# running task each day (below), which is corrected.
 function Set-PoolRsTask([string]$Root, [string]$Version, $Task, [bool]$Live, [switch]$ActionOnly) {
   $action = New-PoolRsAction $Root $Version $Task $Live
   $existing = Get-ScheduledTask -TaskName $Task.Name -ErrorAction SilentlyContinue
   if ($ActionOnly) {
     if (-not $existing) { return }
+    $ending = @($existing.Triggers | Where-Object { $_.Repetition.Interval -and $_.Repetition.StopAtDurationEnd })
+    if ($ending) {
+      foreach ($t in $ending) { $t.Repetition.StopAtDurationEnd = $false }
+      Set-ScheduledTask -TaskName $Task.Name -Action $action -Trigger $existing.Triggers | Out-Null
+      return "task '$($Task.Name)' -> $Version; its keepalive no longer ends the running task each day"
+    }
     Set-ScheduledTask -TaskName $Task.Name -Action $action | Out-Null
     return "task '$($Task.Name)' -> $Version"
   }
@@ -64,6 +71,10 @@ function Set-PoolRsTask([string]$Root, [string]$Version, $Task, [bool]$Live, [sw
   if ($Task.Keepalive) {
     $keepalive = New-ScheduledTaskTrigger -Daily -At '00:00'
     $keepalive.Repetition = (New-ScheduledTaskTrigger -Once -At '00:00' -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 1)).Repetition
+    # New-ScheduledTaskTrigger sets this, and Task Scheduler then ends the running task when the
+    # day's repetition ends: the relays were cut every night, and the guardian was ended while its
+    # service ran on, which every later guardian stepped aside for (guardian-duplicate).
+    $keepalive.Repetition.StopAtDurationEnd = $false
     $triggers += $keepalive
     $opts = @{ ExecutionTimeLimit = [TimeSpan]::Zero; MultipleInstances = 'IgnoreNew'; DontStopIfGoingOnBatteries = $true; AllowStartIfOnBatteries = $true; StartWhenAvailable = $true }
   } else {

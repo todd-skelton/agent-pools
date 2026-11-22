@@ -6,6 +6,7 @@ Starts the port's commands again on pool-rs.json's current version (after Instal
   service    state\guardian-stop.request stops the guardian, which stops its service gracefully and
              leaves the proxy running; the task starts a new guardian, whose service adopts the same
              proxy (state\process-proxy.json). About 10-30 s without the dashboard and the API.
+             A service with no guardian is asked to stop itself (POST /api/shutdown).
   inference  The task and its process are stopped and the task started: Codex turns in flight
   gateway    through that relay or the gateway are cut, so pick an idle moment.
   tunnel     The same for cloudflared; the public hostname is unreachable for a few seconds.
@@ -55,7 +56,15 @@ function Restart-One($t) {
   if ($t.Key -eq 'service') {
     $proxy = [int](Read-Json (Join-Path $Root 'state\process-proxy.json')).pid
     $stop = Join-Path $Root 'state\guardian-stop.request'
-    New-Item -ItemType File -Force -Path $stop | Out-Null
+    if (Running 'guardian') {
+      New-Item -ItemType File -Force -Path $stop | Out-Null
+    } elseif (Running 'serve-service') {
+      # A service whose guardian was ended: nothing reads the stop file (a new guardian would only
+      # remove it and exit), so the service is asked as its guardian asks it.
+      Say 'no guardian is running; asking the service to stop'
+      $key = (Read-Json (Join-Path $Root 'state\secrets.json')).managementKey
+      Invoke-RestMethod -Method Post "http://127.0.0.1:$(Port-For 'service')/api/shutdown" -Headers @{ Authorization = "Bearer $key" } -TimeoutSec 5 | Out-Null
+    }
     Wait-Until { -not (Running 'guardian') -and -not (Running 'serve-service') -and -not (Get-PortOwner (Port-For 'service')) } 90 'the guardian and its service to stop'
     Say "stopped; stop file left: $(Test-Path -LiteralPath $stop)"
     Start-ScheduledTask -TaskName $t.Name

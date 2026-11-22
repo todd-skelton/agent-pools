@@ -13,7 +13,8 @@ Installs a build of the port into <Root>\pool-rs\<Version>\ and points the wrapp
    relay", "- public gateway", "- cloudflare tunnel" and "- backup"; a task registered here for
    the first time is left Disabled (Enable-ScheduledTask, or ops\Set-Inference-Relay.ps1 and
    ops\Set-Public-Gateway.ps1 for theirs, enables it). An existing task keeps its triggers,
-   settings and state; only its action changes.
+   settings and state; only its action changes, and a keepalive registered before 0.2.28 that
+   ended its running task every day (StopAtDurationEnd) is corrected.
 
 -Use <Version> points "current" and the tasks at a version already installed (a rollback).
 Either way a running command keeps its version until Restart-Pool-Rs.ps1 starts it again.

@@ -515,10 +515,15 @@ through wscript and `Run-Pool-Rs.vbs`, as Agent Pools' own tasks still do.
    5-minute keepalive, IgnoreNew; all but the guardian restart on failure; the gateway and
    tunnel at priority 4) and "- backup" (03:30 daily and at logon). New tasks start disabled.
    `-Use <v>` points `current` and the tasks back at an installed version of 0.2 or later.
-   Agent Pools' own files are not changed.
+   Agent Pools' own files are not changed. The keepalive does not end a running task when its
+   day ends (`StopAtDurationEnd`, which `New-ScheduledTaskTrigger` sets): until 0.2.28 it did,
+   so each night the relays, the gateway and the tunnel were cut and the guardian was ended
+   while its service ran on unwatched. A task registered that way is corrected by the next
+   install.
 2. `Restart-Pool-Rs.ps1 -Root <install> -Step service|inference|gateway|tunnel|all` starts a
    command again on the current version: the service through `state\guardian-stop.request`
-   (the proxy is adopted, not restarted), the others by stopping and starting their task.
+   (the proxy is adopted, not restarted), or through `POST /api/shutdown` when its guardian is
+   gone, the others by stopping and starting their task.
 3. Until 2026-11-01, `Cutover-Pool-Rs.ps1 -Root <install> -Step gateway|inference|service|tunnel|backup|models [-Undo]`
    moved one job between the Agent Pools task and the port's: it disabled the old task, stopped
    its process (the service through `state\guardian-stop.request`, leaving the proxy running),
