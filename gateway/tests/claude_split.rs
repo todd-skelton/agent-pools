@@ -379,6 +379,7 @@ async fn remote_control_bridge_lifecycle_preserves_control_auth_without_logging_
         (reqwest::Method::POST, "/api/claude_code/metrics"),
         (reqwest::Method::GET, "/v1/session_ingress/session/session_private"),
         (reqwest::Method::POST, "/v1/sessions/session_private/archive"),
+        (reqwest::Method::GET, "/api/oauth/files/file_private/content?model_copy=inference_highres"),
         (reqwest::Method::POST, "/v1/environments/bridge"),
         (reqwest::Method::DELETE, "/v1/environments/bridge/env_private"),
         (reqwest::Method::POST, "/v1/environments/bridge/env_private/offline"),
@@ -395,7 +396,8 @@ async fn remote_control_bridge_lifecycle_preserves_control_auth_without_logging_
     }
     assert!(f.pool.lock().unwrap().is_empty());
     let control = f.control.lock().unwrap();
-    assert_eq!(control.len(), 18);
+    assert_eq!(control.len(), 19);
+    assert!(control.iter().any(|r| r.path == "/api/oauth/files/file_private/content?model_copy=inference_highres"));
     for request in control.iter() {
         assert_eq!(request.headers["authorization"], "Bearer control-secret");
         assert_eq!(request.headers["cookie"], "control-cookie=1");
@@ -405,8 +407,9 @@ async fn remote_control_bridge_lifecycle_preserves_control_auth_without_logging_
     drop(control);
     let events = f.events.lock().unwrap();
     assert!(events.iter().any(|e| e["endpoint"] == "/v1/environments/bridge" && e["status"] == 200));
+    assert!(events.iter().any(|e| e["endpoint"] == "/api/oauth/files/:file/content" && e["route"] == "anthropic-control" && e["status"] == 200));
     let logs = serde_json::to_string(&*events).unwrap();
-    for secret in ["control-secret", "fixture-pool-key", "env_private", "work_private", "session_private", "private=query", "private-directory"] {
+    for secret in ["control-secret", "fixture-pool-key", "env_private", "work_private", "session_private", "file_private", "model_copy", "private=query", "private-directory"] {
         assert!(!logs.contains(secret));
     }
 }
@@ -418,6 +421,8 @@ async fn unsupported_resources_paths_encodings_and_oversized_bodies_never_reach_
         ("/v1/files", "{}", "identity", 501),
         ("/v1/code/agent-proxy", "{}", "identity", 501),
         ("/api/oauth/files/x", "{}", "identity", 501),
+        ("/api/oauth/files/file_private/content", "{}", "identity", 501),
+        ("/api/oauth/file_upload", "{}", "identity", 501),
         ("/v1/environments/env_private/work/work_private/inference", "{}", "identity", 501),
         ("/v1/environments/env_private/work/poll", "{}", "identity", 501),
         ("/v1/sessions", "{}", "identity", 501),
@@ -454,7 +459,7 @@ async fn unsupported_resources_paths_encodings_and_oversized_bodies_never_reach_
     assert!(f.pool.lock().unwrap().is_empty());
     assert!(f.control.lock().unwrap().is_empty());
     let logs = serde_json::to_string(&*f.events.lock().unwrap()).unwrap();
-    for secret in ["env_private", "work_private", "new-private-api", "secret=query"] {
+    for secret in ["env_private", "work_private", "file_private", "new-private-api", "secret=query"] {
         assert!(!logs.contains(secret));
     }
 }

@@ -66,6 +66,11 @@ pub fn control_endpoint(method: &Method, path: &str) -> Option<&'static str> {
     if *method == Method::POST && path.strip_prefix("/v1/sessions/").and_then(|p| p.strip_suffix("/archive")).is_some_and(id) {
         return Some("/v1/sessions/:session/archive");
     }
+    // A file attached to a Remote Control message. Claude Code downloads it with the session's
+    // own login and reads it from disk, so no account-bound handle reaches a pooled Messages call.
+    if *method == Method::GET && path.strip_prefix("/api/oauth/files/").and_then(|p| p.strip_suffix("/content")).is_some_and(id) {
+        return Some("/api/oauth/files/:file/content");
+    }
     let rest = path.strip_prefix("/v1/environments/")?;
     let parts: Vec<_> = rest.split('/').collect();
     match (method, parts.as_slice()) {
@@ -112,7 +117,9 @@ pub fn diagnostic_tags(path: &str, local_key: &str) -> Vec<String> {
 }
 
 pub fn classify(method: &Method, path: &str) -> Route {
-    if under(path, "/api/oauth/file_upload") || under(path, "/api/oauth/files") || under(path, "/v1/code/agent-proxy") {
+    let control = control_endpoint(method, path);
+    // These sit under control prefixes; only a shape `control_endpoint` names is let through.
+    if control.is_none() && (under(path, "/api/oauth/file_upload") || under(path, "/api/oauth/files") || under(path, "/v1/code/agent-proxy")) {
         return Route::Unsupported;
     }
     if *method == Method::POST && matches!(path, "/v1/messages" | "/v1/messages/count_tokens") {
@@ -144,7 +151,7 @@ pub fn classify(method: &Method, path: &str) -> Route {
             return Route::Control;
         }
     }
-    if control_endpoint(method, path).is_some() || CONTROL_EXACT.contains(&path) || CONTROL_PREFIXES.iter().any(|p| path.starts_with(p)) {
+    if control.is_some() || CONTROL_EXACT.contains(&path) || CONTROL_PREFIXES.iter().any(|p| path.starts_with(p)) {
         Route::Control
     } else {
         Route::Unsupported
@@ -253,6 +260,7 @@ mod tests {
             (Method::POST, "/api/claude_code/metrics"),
             (Method::GET, "/v1/session_ingress/session/session_1"),
             (Method::POST, "/v1/sessions/session_1/archive"),
+            (Method::GET, "/api/oauth/files/3f0c9a1e-file_1/content"),
             (Method::POST, "/v1/environments/bridge"),
             (Method::DELETE, "/v1/environments/bridge/env_1"),
             (Method::POST, "/v1/environments/bridge/env_1/offline"),
@@ -277,12 +285,19 @@ mod tests {
             "/v2/ccr-sessions//mcp", "/v2/ccr-sessions/session%2f1/mcp",
             "/api/frame/contract/unknown", "/mcp-registry/v0/servers/unknown",
             "/api/directory/plugins/unknown",
+            "/api/oauth/files", "/api/oauth/files/", "/api/oauth/files/file_1", "/api/oauth/files/content",
+            "/api/oauth/files//content", "/api/oauth/files/file%2f1/content", "/api/oauth/files/a/b/content",
+            "/api/oauth/files/file_1/content/", "/api/oauth/files/file_1/content/extra",
+            "/api/oauth/files/file_1/metadata", "/api/oauth/file_upload/file_1/content",
         ] {
             for method in [Method::GET, Method::POST, Method::DELETE] {
                 assert_eq!(classify(&method, path), Route::Unsupported, "{method} {path}");
             }
         }
         assert!(control_endpoint(&Method::GET, &format!("/v1/environments/{}/work/poll", "x".repeat(129))).is_none());
+        for method in [Method::POST, Method::DELETE, Method::PATCH] {
+            assert_eq!(classify(&method, "/api/oauth/files/file_1/content"), Route::Unsupported, "{method}");
+        }
         assert_eq!(classify(&Method::POST, "/api/claude_code_grove"), Route::Unsupported);
         assert_eq!(classify(&Method::GET, "/api/claude_code/metrics"), Route::Unsupported);
         assert_eq!(classify(&Method::POST, "/v1/session_ingress/session/session_1"), Route::Unsupported);
