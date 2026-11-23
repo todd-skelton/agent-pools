@@ -43,7 +43,11 @@ try {
   # and the single send boundary it must keep. pool.27 adds the Codex stream
   # bootstrap buffering suite (overload behind an empty reasoning item).
   # pool.34 retains thread tool symbols and exercises rotation/replay and remapping.
-  & $poolGo test ./internal/runtime/executor -run 'SearchProvenance|ForeignSearchProvenance|TranslatedResponsesHistoryRecovers|DoesNotResendOnOtherBadRequests|ResendsAtMostOnce|SingleUpstreamSendBoundary|InStreamOverload|HandshakeBuffer|BootstrapBuffering|ToolThreads|RemapOAuthToolNames' -count=1 -timeout 300s
+  # pool.36 keeps a Fable-only limit model-scoped when Anthropic sends no 5h headers, and
+  # gates the Claude rate-limit scope suites that catch the opposite mistake; pool.37 extends
+  # that to every model window (helps, gated above) and keeps named models in quota recovery
+  # (sdk/cliproxy/auth, gated above); pool.38 marks quota-caused model blocks there.
+  & $poolGo test ./internal/runtime/executor -run 'SearchProvenance|ForeignSearchProvenance|TranslatedResponsesHistoryRecovers|DoesNotResendOnOtherBadRequests|ResendsAtMostOnce|SingleUpstreamSendBoundary|InStreamOverload|HandshakeBuffer|BootstrapBuffering|ToolThreads|RemapOAuthToolNames|FableOnly|FableRetryDuration|SharedOrAmbiguousRejection|AuthManager_|RateLimit_|HonorsAnthropicRateLimitHeaders|RealRateLimitStaysCredentialScoped' -count=1 -timeout 300s
   if ($LASTEXITCODE -ne 0) { throw 'Proxy executor tests failed' }
   $poolBuiltAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
   & $poolGo build -ldflags "-s -w -X main.Version=$Version -X main.Commit=5b278561+pool-recovery -X main.BuildDate=$poolBuiltAt" -o $Output ./cmd/server

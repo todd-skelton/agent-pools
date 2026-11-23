@@ -547,10 +547,10 @@ index 0000000000000000000000000000000000000000..9c97208a17378250df4b746e8135ac5c
 +	c.JSON(http.StatusOK, h.authManager.OutageHoldStatus())
 +}
 diff --git a/internal/api/handlers/management/quota.go b/internal/api/handlers/management/quota.go
-index a87a05ef52161e26a90e79b7756fc0d9b40d560f..4bc60fe24b410cda12b115d0f54d8bebec101447 100644
+index a87a05ef52161e26a90e79b7756fc0d9b40d560f..af1da33e14fd3a0f3387452a94ea9e42faf68ee4 100644
 --- a/internal/api/handlers/management/quota.go
 +++ b/internal/api/handlers/management/quota.go
-@@ -1,13 +1,57 @@
+@@ -1,13 +1,59 @@
  package management
  
  import (
@@ -574,6 +574,8 @@ index a87a05ef52161e26a90e79b7756fc0d9b40d560f..4bc60fe24b410cda12b115d0f54d8beb
 +		AuthIndex     string    `json:"auth_index"`
 +		Generation    string    `json:"generation"`
 +		ObservedAfter time.Time `json:"observed_after"`
++		// KeepModels are models whose own limit is still spent; their blocks stay.
++		KeepModels []string `json:"keep_models"`
 +	}
 +	if errBind := c.ShouldBindJSON(&req); errBind != nil {
 +		c.JSON(400, gin.H{"error": "invalid recovery request"})
@@ -589,7 +591,7 @@ index a87a05ef52161e26a90e79b7756fc0d9b40d560f..4bc60fe24b410cda12b115d0f54d8beb
 +		c.JSON(404, gin.H{"error": "auth not found"})
 +		return
 +	}
-+	updated, changed, errRecover := h.authManager.RecoverQuota(c.Request.Context(), auth.ID, generation, req.ObservedAfter)
++	updated, changed, errRecover := h.authManager.RecoverQuota(c.Request.Context(), auth.ID, generation, req.ObservedAfter, req.KeepModels...)
 +	if errors.Is(errRecover, coreauth.ErrQuotaRecoveryConflict) {
 +		c.JSON(409, gin.H{"error": "routing changed; obtain fresh status"})
 +		return
@@ -2271,6 +2273,52 @@ index 0d50d99134274b1c66bc5c8d3d8934cbed20ca9e..90f805fc4a954305fba2316a40f1770b
  		commitClaudeContinuity(diagnosticsState, claudeMessageIDFromResponse(data), helps.HeaderValueCaseInsensitive(httpResp.Header, "request-id"))
  		reporter.Publish(ctx, helps.ParseClaudeUsage(data))
  		var errRestore error
+diff --git a/internal/runtime/executor/claude_executor_fable_ratelimit_test.go b/internal/runtime/executor/claude_executor_fable_ratelimit_test.go
+index 688883cae1f96439426bd33b3e8370314c47d5fb..eb6120d42a46ae52321d97374712cf780f9d7ca7 100644
+--- a/internal/runtime/executor/claude_executor_fable_ratelimit_test.go
++++ b/internal/runtime/executor/claude_executor_fable_ratelimit_test.go
+@@ -159,6 +159,27 @@ func TestClassifyClaudeUpstreamError_FableRetryDuration(t *testing.T) {
+ }
+ 
+ func TestClaudeExecutor_AuthManager_FableOnlyRejectionDoesNotBlockOpus(t *testing.T) {
++	runFableOnlyRejectionDoesNotBlockOpus(t, map[string]string{
++		"Anthropic-Ratelimit-Unified-Status":       "rejected",
++		"Anthropic-Ratelimit-Unified-5h-Status":    "allowed",
++		"Anthropic-Ratelimit-Unified-7d-Status":    "allowed",
++		"Anthropic-Ratelimit-Unified-7d_oi-Status": "rejected",
++	})
++}
++
++// Anthropic sends no 5h headers for some subscriptions; the shared windows it does
++// report are enough to tell a Fable-only rejection apart from a shared one.
++func TestClaudeExecutor_AuthManager_FableOnlyRejectionWithout5hDoesNotBlockOpus(t *testing.T) {
++	runFableOnlyRejectionDoesNotBlockOpus(t, map[string]string{
++		"Anthropic-Ratelimit-Unified-Status":       "rejected",
++		"Anthropic-Ratelimit-Unified-7d-Status":    "allowed",
++		"Anthropic-Ratelimit-Unified-7d_oi-Status": "rejected",
++		"Anthropic-Ratelimit-Unified-Reset":        strconv.FormatInt(time.Now().Add(7*24*time.Hour).Unix(), 10),
++	})
++}
++
++func runFableOnlyRejectionDoesNotBlockOpus(t *testing.T, fableHeaders map[string]string) {
++	t.Helper()
+ 	var fableAttempts, opusAttempts atomic.Int32
+ 	reset := time.Now().Add(7 * 24 * time.Hour).Unix()
+ 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+@@ -171,10 +192,9 @@ func TestClaudeExecutor_AuthManager_FableOnlyRejectionDoesNotBlockOpus(t *testin
+ 		case strings.Contains(string(body), `"model":"claude-fable-5"`):
+ 			fableAttempts.Add(1)
+ 			w.Header().Set("Content-Type", "application/json")
+-			w.Header().Set("Anthropic-Ratelimit-Unified-Status", "rejected")
+-			w.Header().Set("Anthropic-Ratelimit-Unified-5h-Status", "allowed")
+-			w.Header().Set("Anthropic-Ratelimit-Unified-7d-Status", "allowed")
+-			w.Header().Set("Anthropic-Ratelimit-Unified-7d_oi-Status", "rejected")
++			for name, value := range fableHeaders {
++				w.Header().Set(name, value)
++			}
+ 			w.Header().Set("Anthropic-Ratelimit-Unified-7d_oi-Reset", strconv.FormatInt(reset, 10))
+ 			w.Header().Set("Retry-After", "120")
+ 			w.WriteHeader(http.StatusTooManyRequests)
 diff --git a/internal/runtime/executor/claude_executor_native_helper_test.go b/internal/runtime/executor/claude_executor_native_helper_test.go
 index 69d846d3ea20662b449a31a6acc4a704021c1f21..4c13680d5c2852b8890906d483c5915c6dcd76c8 100644
 --- a/internal/runtime/executor/claude_executor_native_helper_test.go
@@ -5230,6 +5278,267 @@ index 0000000000000000000000000000000000000000..333d1100ce819210c1de52c82d4a9047
 +		t.Fatalf("configured override = %q", got)
 +	}
 +}
+diff --git a/internal/runtime/executor/helps/claude_ratelimit.go b/internal/runtime/executor/helps/claude_ratelimit.go
+index 45fea296d1a08375860f5a9bb7cc330b7c20917a..1afe2cff2815756603e0e3adda0111e3d655f539 100644
+--- a/internal/runtime/executor/helps/claude_ratelimit.go
++++ b/internal/runtime/executor/helps/claude_ratelimit.go
+@@ -4,6 +4,7 @@ import (
+ 	cryptorand "crypto/rand"
+ 	"math/big"
+ 	"net/http"
++	"sort"
+ 	"strconv"
+ 	"strings"
+ 	"time"
+@@ -17,8 +18,9 @@ const (
+ )
+ 
+ // ClaudeHeadersIndicateUnifiedRateLimitRejection reports whether response headers explicitly
+-// declare an Anthropic shared 5h or 7d rate-limit rejection. A Fable-only 7d_oi rejection
+-// remains model-scoped when both shared windows are explicitly allowed (status "allowed" or "allowed_warning").
++// declare an Anthropic shared 5h or 7d rate-limit rejection. A rejection of a model family's
++// window alone (Fable's 7d_oi, or an opus, sonnet or haiku window) remains model-scoped when
++// the shared windows are allowed; see isModelOnlyRejection.
+ func ClaudeHeadersIndicateUnifiedRateLimitRejection(headers http.Header) bool {
+ 	if headers == nil {
+ 		return false
+@@ -35,16 +37,68 @@ func ClaudeHeadersIndicateUnifiedRateLimitRejection(headers http.Header) bool {
+ 	if unifiedStatus != "rejected" {
+ 		return false
+ 	}
+-	status7dOI := strings.ToLower(strings.TrimSpace(getHeaderCaseInsensitive(headers, "Anthropic-Ratelimit-Unified-7d_oi-Status")))
+-	return !isFableOnlyRejection(status5h, status7d, status7dOI)
++	modelWindows, otherRejected := rejectedClaudeWindows(headers)
++	return !isModelOnlyRejection(status5h, status7d, modelWindows, otherRejected)
+ }
+ 
+ func isClaudeWindowAllowed(status string) bool {
+ 	return status == "allowed" || status == "allowed_warning"
+ }
+ 
+-func isFableOnlyRejection(status5h, status7d, status7dOI string) bool {
+-	return isClaudeWindowAllowed(status5h) && isClaudeWindowAllowed(status7d) && status7dOI == "rejected"
++// isModelOnlyRejection requires the shared 7d window to be explicitly allowed, at least one
++// model-specific window to be rejected and no other window (oauth_apps, cowork) to be
++// rejected. The 5h window must be allowed when reported, but Anthropic sends no 5h headers at
++// all for some subscriptions, and requiring them made every Fable limit on those accounts
++// block all models.
++func isModelOnlyRejection(status5h, status7d string, rejectedModelWindows []string, otherRejected bool) bool {
++	return (status5h == "" || isClaudeWindowAllowed(status5h)) && isClaudeWindowAllowed(status7d) &&
++		len(rejectedModelWindows) > 0 && !otherRejected
++}
++
++const claudeUnifiedHeaderPrefix = "anthropic-ratelimit-unified-"
++
++// rejectedClaudeWindows lists the model-family unified windows (a duration, an underscore and
++// a model scope, such as 7d_oi) whose status is rejected, in sorted order, and reports whether
++// any other window besides the overall status, 5h, 7d and overage is rejected. Overage is
++// rejected on every subscription without extra usage, so it says nothing about the limit hit.
++func rejectedClaudeWindows(headers http.Header) (modelWindows []string, otherRejected bool) {
++	for key, values := range headers {
++		lower := strings.ToLower(key)
++		if len(values) == 0 || !strings.HasPrefix(lower, claudeUnifiedHeaderPrefix) || !strings.HasSuffix(lower, "-status") {
++			continue
++		}
++		if strings.ToLower(strings.TrimSpace(values[0])) != "rejected" {
++			continue
++		}
++		window := strings.TrimSuffix(strings.TrimPrefix(lower, claudeUnifiedHeaderPrefix), "-status")
++		switch {
++		case window == "status" || window == "5h" || window == "7d" || window == "overage":
++		case isClaudeModelWindow(window):
++			if !containsString(modelWindows, window) {
++				modelWindows = append(modelWindows, window)
++			}
++		default:
++			otherRejected = true
++		}
++	}
++	sort.Strings(modelWindows)
++	return modelWindows, otherRejected
++}
++
++// claudeModelWindowScopes are the window scopes that limit one model family: oi is Fable's.
++// Other scopes Anthropic reports in the same shape (oauth_apps, cowork) cover traffic across
++// models, so a rejection of one of them stays credential-wide.
++var claudeModelWindowScopes = map[string]bool{"oi": true, "fable": true, "opus": true, "sonnet": true, "haiku": true}
++
++func isClaudeModelWindow(window string) bool {
++	digits := 0
++	for digits < len(window) && window[digits] >= '0' && window[digits] <= '9' {
++		digits++
++	}
++	if digits == 0 || digits+2 >= len(window) || (window[digits] != 'h' && window[digits] != 'd') || window[digits+1] != '_' {
++		return false
++	}
++	return claudeModelWindowScopes[window[digits+2:]]
+ }
+ 
+ // ParseClaudeRateLimitReset inspects Anthropic response headers for shared and Fable-specific
+@@ -63,8 +117,8 @@ func parseClaudeRateLimitResetWithFuzz(headers http.Header, now time.Time, minFu
+ 	unifiedStatus := strings.ToLower(strings.TrimSpace(getHeaderCaseInsensitive(headers, "Anthropic-Ratelimit-Unified-Status")))
+ 	status5h := strings.ToLower(strings.TrimSpace(getHeaderCaseInsensitive(headers, "Anthropic-Ratelimit-Unified-5h-Status")))
+ 	status7d := strings.ToLower(strings.TrimSpace(getHeaderCaseInsensitive(headers, "Anthropic-Ratelimit-Unified-7d-Status")))
+-	status7dOI := strings.ToLower(strings.TrimSpace(getHeaderCaseInsensitive(headers, "Anthropic-Ratelimit-Unified-7d_oi-Status")))
+-	fableOnlyRejection := isFableOnlyRejection(status5h, status7d, status7dOI)
++	modelWindows, otherRejected := rejectedClaudeWindows(headers)
++	modelOnlyRejection := isModelOnlyRejection(status5h, status7d, modelWindows, otherRejected)
+ 
+ 	var candidateDeadlines []time.Time
+ 	var rejectedWindows []string
+@@ -78,9 +132,7 @@ func parseClaudeRateLimitResetWithFuzz(headers http.Header, now time.Time, minFu
+ 	if status7d == "rejected" {
+ 		rejectedWindows = append(rejectedWindows, "7d")
+ 	}
+-	if status7dOI == "rejected" {
+-		rejectedWindows = append(rejectedWindows, "7d_oi")
+-	}
++	rejectedWindows = append(rejectedWindows, modelWindows...)
+ 
+ 	// 1. Retry-After header
+ 	if rawRetryAfter := getHeaderCaseInsensitive(headers, "Retry-After"); rawRetryAfter != "" {
+@@ -110,17 +162,19 @@ func parseClaudeRateLimitResetWithFuzz(headers http.Header, now time.Time, minFu
+ 		}
+ 	}
+ 
+-	// 4. Fable-specific 7-day window reset (only when rejected and not a Fable-only rejection)
+-	if status7dOI == "rejected" && !fableOnlyRejection {
+-		if raw := getHeaderCaseInsensitive(headers, "Anthropic-Ratelimit-Unified-7d_oi-Reset"); raw != "" {
+-			if t, ok := parseUnixOrTimestamp(raw); ok && t.After(now) {
+-				candidateDeadlines = append(candidateDeadlines, t)
++	// 4. Model-specific window resets (only when rejected and not a model-only rejection)
++	if !modelOnlyRejection {
++		for _, window := range modelWindows {
++			if raw := getHeaderCaseInsensitive(headers, "Anthropic-Ratelimit-Unified-"+window+"-Reset"); raw != "" {
++				if t, ok := parseUnixOrTimestamp(raw); ok && t.After(now) {
++					candidateDeadlines = append(candidateDeadlines, t)
++				}
+ 			}
+ 		}
+ 	}
+ 
+ 	// 5. Unified reset header:
+-	unifiedRejected := !fableOnlyRejection && (unifiedStatus == "rejected" || status5h == "rejected" || status7d == "rejected" || status7dOI == "rejected" ||
++	unifiedRejected := !modelOnlyRejection && (unifiedStatus == "rejected" || status5h == "rejected" || status7d == "rejected" || len(modelWindows) > 0 ||
+ 		(unifiedStatus == "" && !isClaudeWindowAllowed(status5h) && !isClaudeWindowAllowed(status7d)))
+ 
+ 	if unifiedRejected {
+diff --git a/internal/runtime/executor/helps/claude_ratelimit_test.go b/internal/runtime/executor/helps/claude_ratelimit_test.go
+index 4a0a861b5251f8fbb7d755322854222e8878ef9b..b5d365268c332e15cc098b3830a60448311051dd 100644
+--- a/internal/runtime/executor/helps/claude_ratelimit_test.go
++++ b/internal/runtime/executor/helps/claude_ratelimit_test.go
+@@ -132,6 +132,21 @@ func TestParseClaudeRateLimitReset_AllCases(t *testing.T) {
+ 		}
+ 	})
+ 
++	t.Run("fable-only rejection without 5h headers uses retry-after only", func(t *testing.T) {
++		h := make(http.Header)
++		h.Set("Anthropic-Ratelimit-Unified-Status", "rejected")
++		h.Set("Anthropic-Ratelimit-Unified-7d-Status", "allowed")
++		h.Set("Anthropic-Ratelimit-Unified-7d_oi-Status", "rejected")
++		h.Set("Anthropic-Ratelimit-Unified-7d_oi-Reset", strconv.FormatInt(now.Add(7*24*time.Hour).Unix(), 10))
++		h.Set("Anthropic-Ratelimit-Unified-Reset", strconv.FormatInt(now.Add(7*24*time.Hour).Unix(), 10))
++		h.Set("Retry-After", "60")
++
++		got := parseClaudeRateLimitResetWithFuzz(h, now, 0, 0)
++		if got == nil || *got != 60*time.Second {
++			t.Fatalf("expected 60s from Retry-After, got %v", got)
++		}
++	})
++
+ 	t.Run("fable-only rejection with 7d_oi reset only returns nil for exponential backoff", func(t *testing.T) {
+ 		h := make(http.Header)
+ 		h.Set("Anthropic-Ratelimit-Unified-Status", "rejected")
+@@ -274,6 +289,89 @@ func TestClaudeHeadersIndicateUnifiedRateLimitRejection_AllowedWarning(t *testin
+ 			},
+ 			expected: false,
+ 		},
++		{
++			name: "5h not reported and 7d allowed with 7d_oi rejected is fable-only",
++			headers: http.Header{
++				"Anthropic-Ratelimit-Unified-Status":       []string{"rejected"},
++				"Anthropic-Ratelimit-Unified-7d-Status":    []string{"allowed"},
++				"Anthropic-Ratelimit-Unified-7d_oi-Status": []string{"rejected"},
++			},
++			expected: false,
++		},
++		{
++			name: "another model window rejected with shared windows allowed is model-only",
++			headers: http.Header{
++				"Anthropic-Ratelimit-Unified-Status":         []string{"rejected"},
++				"Anthropic-Ratelimit-Unified-7d-Status":      []string{"allowed"},
++				"Anthropic-Ratelimit-Unified-7d_opus-Status": []string{"rejected"},
++			},
++			expected: false,
++		},
++		{
++			name: "a product-wide window is not a model window",
++			headers: http.Header{
++				"Anthropic-Ratelimit-Unified-Status":               []string{"rejected"},
++				"Anthropic-Ratelimit-Unified-7d-Status":            []string{"allowed"},
++				"Anthropic-Ratelimit-Unified-7d_oauth_apps-Status": []string{"rejected"},
++			},
++			expected: true,
++		},
++		{
++			name: "a product-wide window rejected alongside a model window stays credential-wide",
++			headers: http.Header{
++				"Anthropic-Ratelimit-Unified-Status":               []string{"rejected"},
++				"Anthropic-Ratelimit-Unified-7d-Status":            []string{"allowed"},
++				"Anthropic-Ratelimit-Unified-7d_oi-Status":         []string{"rejected"},
++				"Anthropic-Ratelimit-Unified-7d_oauth_apps-Status": []string{"rejected"},
++			},
++			expected: true,
++		},
++		{
++			name: "overage rejected alongside a model window is still model-only",
++			headers: http.Header{
++				"Anthropic-Ratelimit-Unified-Status":         []string{"rejected"},
++				"Anthropic-Ratelimit-Unified-7d-Status":      []string{"allowed"},
++				"Anthropic-Ratelimit-Unified-7d_oi-Status":   []string{"rejected"},
++				"Anthropic-Ratelimit-Unified-Overage-Status": []string{"rejected"},
++			},
++			expected: false,
++		},
++		{
++			name: "overage rejected is not a model window",
++			headers: http.Header{
++				"Anthropic-Ratelimit-Unified-Status":         []string{"rejected"},
++				"Anthropic-Ratelimit-Unified-7d-Status":      []string{"allowed"},
++				"Anthropic-Ratelimit-Unified-Overage-Status": []string{"rejected"},
++			},
++			expected: true,
++		},
++		{
++			name: "5h not reported and 7d not reported with 7d_oi rejected is unified rejection",
++			headers: http.Header{
++				"Anthropic-Ratelimit-Unified-Status":       []string{"rejected"},
++				"Anthropic-Ratelimit-Unified-7d_oi-Status": []string{"rejected"},
++			},
++			expected: true,
++		},
++		{
++			name: "5h unrecognized with 7d allowed and 7d_oi rejected is unified rejection",
++			headers: http.Header{
++				"Anthropic-Ratelimit-Unified-Status":       []string{"rejected"},
++				"Anthropic-Ratelimit-Unified-5h-Status":    []string{"unknown"},
++				"Anthropic-Ratelimit-Unified-7d-Status":    []string{"allowed"},
++				"Anthropic-Ratelimit-Unified-7d_oi-Status": []string{"rejected"},
++			},
++			expected: true,
++		},
++		{
++			name: "5h not reported and 7d rejected is unified rejection",
++			headers: http.Header{
++				"Anthropic-Ratelimit-Unified-Status":       []string{"rejected"},
++				"Anthropic-Ratelimit-Unified-7d-Status":    []string{"rejected"},
++				"Anthropic-Ratelimit-Unified-7d_oi-Status": []string{"rejected"},
++			},
++			expected: true,
++		},
+ 		{
+ 			name: "5h rejected even if 7d allowed_warning is unified rejection",
+ 			headers: http.Header{
 diff --git a/internal/runtime/executor/helps/claude_tool_threads.go b/internal/runtime/executor/helps/claude_tool_threads.go
 new file mode 100644
 index 0000000000000000000000000000000000000000..e72ae05e5945507efe21a344c6cabd1376d201dc
@@ -8744,9 +9053,18 @@ index 0000000000000000000000000000000000000000..6779dfac3814720029472ef6e23705f2
 +	}
 +}
 diff --git a/internal/translator/claude/openai/responses/claude_openai-responses_request.go b/internal/translator/claude/openai/responses/claude_openai-responses_request.go
-index 83cb854478556bf8f75d4dc0dd81dca489817de9..5d1310ebcc40faa2f132e1e6048670bec84fd7ce 100644
+index 83cb854478556bf8f75d4dc0dd81dca489817de9..85948332431b36c09729f4a34fd9948a4b889dce 100644
 --- a/internal/translator/claude/openai/responses/claude_openai-responses_request.go
 +++ b/internal/translator/claude/openai/responses/claude_openai-responses_request.go
+@@ -133,7 +133,7 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
+ 	messageBlocks := common.NewRawArrayItems(messageCapacity)
+ 	systemBlocks := make([][]byte, 0, 4)
+ 	appendSystemText := func(text string, cacheSource gjson.Result) {
+-		if text == "" {
++		if isBlankClaudeText(text) {
+ 			return
+ 		}
+ 		block := []byte(`{"type":"text","text":""}`)
 @@ -289,6 +289,8 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
  		}
  	}
@@ -8756,7 +9074,28 @@ index 83cb854478556bf8f75d4dc0dd81dca489817de9..5d1310ebcc40faa2f132e1e6048670be
  
  	for _, item := range inputItems {
  		// System-level items already became top-level system blocks.
-@@ -446,6 +448,7 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
+@@ -309,7 +311,10 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
+ 					ptype := part.Get("type").String()
+ 					switch ptype {
+ 					case "input_text", "output_text":
+-						if t := part.Get("text"); t.Exists() {
++						// Claude rejects empty and whitespace-only text blocks. Codex
++						// sends an empty input_text ahead of an uncaptioned image, and
++						// the turn stays in the thread's history, so drop it here.
++						if t := part.Get("text"); t.Exists() && !isBlankClaudeText(t.String()) {
+ 							txt := t.String()
+ 							contentPart := []byte(`{"type":"text","text":""}`)
+ 							contentPart, _ = sjson.SetBytes(contentPart, "text", txt)
+@@ -393,7 +398,7 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
+ 					}
+ 					return true
+ 				})
+-			} else if parts.Type == gjson.String && parts.String() != "" {
++			} else if parts.Type == gjson.String && !isBlankClaudeText(parts.String()) {
+ 				contentPart := []byte(`{"type":"text","text":""}`)
+ 				contentPart, _ = sjson.SetBytes(contentPart, "text", parts.String())
+ 				partsJSON = append(partsJSON, contentPart)
+@@ -446,6 +451,7 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
  			toolUse := []byte(`{"type":"tool_use","id":"","name":"","input":{}}`)
  			toolUse, _ = sjson.SetBytes(toolUse, "id", callID)
  			toolUse, _ = sjson.SetBytes(toolUse, "name", name)
@@ -8764,7 +9103,7 @@ index 83cb854478556bf8f75d4dc0dd81dca489817de9..5d1310ebcc40faa2f132e1e6048670be
  			if isCustomToolCall {
  				toolUse, _ = sjson.SetBytes(toolUse, "input.input", item.Get("input").String())
  			} else {
-@@ -463,7 +466,6 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
+@@ -463,7 +469,6 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
  		case "function_call_output", "custom_tool_call_output":
  			// Map to user tool_result
  			rawID := common.ExtractResponsesCallID(item)
@@ -8772,7 +9111,7 @@ index 83cb854478556bf8f75d4dc0dd81dca489817de9..5d1310ebcc40faa2f132e1e6048670be
  			if rawID != "" {
  				if _, exists := emittedToolResults[rawID]; exists {
  					continue
-@@ -476,6 +478,18 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
+@@ -476,6 +481,18 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
  					output = lastItem.Get("output")
  				}
  			}
@@ -8791,7 +9130,7 @@ index 83cb854478556bf8f75d4dc0dd81dca489817de9..5d1310ebcc40faa2f132e1e6048670be
  			toolResult := []byte(`{"type":"tool_result","tool_use_id":"","content":""}`)
  			toolResult, _ = sjson.SetBytes(toolResult, "tool_use_id", callID)
  			toolResult = applyResponsesToolResultContent(toolResult, output)
-@@ -488,16 +502,23 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
+@@ -488,16 +505,23 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
  			// whose Claude counterpart still has to be decided, so make the gap
  			// visible instead of dropping the turn content in silence.
  			if typ := item.Get("type").String(); typ != "" {
@@ -8816,7 +9155,7 @@ index 83cb854478556bf8f75d4dc0dd81dca489817de9..5d1310ebcc40faa2f132e1e6048670be
  	// Preserve a minimal conversational turn for system-only inputs or when messages became empty
  	// so downstream validation still sees a Claude-shaped request.
  	if len(messageBlocks) == 0 && (len(systemBlocks) > 0 || hadMessages) {
-@@ -587,15 +608,21 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
+@@ -587,15 +611,21 @@ func convertOpenAIResponsesRequestToClaude(modelName string, inputRawJSON []byte
  	return out
  }
  
@@ -8844,7 +9183,7 @@ index 83cb854478556bf8f75d4dc0dd81dca489817de9..5d1310ebcc40faa2f132e1e6048670be
  }
  
  // isResponsesSystemLevelRole reports whether an input item carries system-level
-@@ -819,6 +846,189 @@ func applyResponsesToolResultContent(toolResult []byte, output gjson.Result) []b
+@@ -819,11 +849,200 @@ func applyResponsesToolResultContent(toolResult []byte, output gjson.Result) []b
  	return toolResult
  }
  
@@ -9031,14 +9370,30 @@ index 83cb854478556bf8f75d4dc0dd81dca489817de9..5d1310ebcc40faa2f132e1e6048670be
 +	return [][]byte{contentPart}
 +}
 +
++// isBlankClaudeText reports text Anthropic refuses as a text block ("text
++// content blocks must be non-empty" / "must contain non-whitespace text").
++func isBlankClaudeText(text string) bool {
++	return strings.TrimSpace(text) == ""
++}
++
  func convertResponsesContentPartToClaude(part gjson.Result) []byte {
  	ptype := part.Get("type").String()
  	switch ptype {
+ 	case "input_text", "output_text":
+-		if t := part.Get("text"); t.Exists() {
++		if t := part.Get("text"); t.Exists() && !isBlankClaudeText(t.String()) {
+ 			contentPart := []byte(`{"type":"text","text":""}`)
+ 			contentPart, _ = sjson.SetBytes(contentPart, "text", t.String())
+ 			return contentPart
 diff --git a/internal/translator/claude/openai/responses/claude_openai-responses_request_test.go b/internal/translator/claude/openai/responses/claude_openai-responses_request_test.go
-index 24b77674d329db57fc26b6100a2c9b94ae7acf04..48a7f756f8ee481945f2dee88b0b5f8d7b308df6 100644
+index 24b77674d329db57fc26b6100a2c9b94ae7acf04..4bfe20554517121794b7344c82d89c847cab1f58 100644
 --- a/internal/translator/claude/openai/responses/claude_openai-responses_request_test.go
 +++ b/internal/translator/claude/openai/responses/claude_openai-responses_request_test.go
-@@ -6,6 +6,7 @@ import (
+@@ -3,9 +3,11 @@ package responses
+ import (
+ 	"encoding/base64"
+ 	"fmt"
++	"strconv"
  	"strings"
  	"testing"
  
@@ -9046,7 +9401,7 @@ index 24b77674d329db57fc26b6100a2c9b94ae7acf04..48a7f756f8ee481945f2dee88b0b5f8d
  	sigcompat "github.com/router-for-me/CLIProxyAPI/v7/internal/signature"
  	"github.com/tidwall/gjson"
  	"google.golang.org/protobuf/encoding/protowire"
-@@ -42,59 +43,83 @@ func TestConvertOpenAIResponsesRequestToClaude_SanitizesToolCallIDsForClaude(t *
+@@ -42,59 +44,83 @@ func TestConvertOpenAIResponsesRequestToClaude_SanitizesToolCallIDsForClaude(t *
  	}
  }
  
@@ -9119,6 +9474,17 @@ index 24b77674d329db57fc26b6100a2c9b94ae7acf04..48a7f756f8ee481945f2dee88b0b5f8d
 +		t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient("test-claude-live-limit-raise") })
 +		if got := maxTokens(t, model, `{"model":"`+model+`","input":"hello"}`); got != 100000 {
 +			t.Fatalf("max_tokens = %d, want 100000", got)
++		}
++	})
++
++	t.Run("a live registered limit lowers the default", func(t *testing.T) {
++		const model = "claude-test-live-limit-lower"
++		registry.GetGlobalRegistry().RegisterClient("test-claude-live-limit-lower", "claude", []*registry.ModelInfo{
++			{ID: model, Type: "claude", MaxCompletionTokens: 16000},
++		})
++		t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient("test-claude-live-limit-lower") })
++		if got := maxTokens(t, model, `{"model":"`+model+`","input":"hello"}`); got != 16000 {
++			t.Fatalf("max_tokens = %d, want 16000", got)
  		}
  	})
  
@@ -9130,17 +9496,6 @@ index 24b77674d329db57fc26b6100a2c9b94ae7acf04..48a7f756f8ee481945f2dee88b0b5f8d
 -		)
 -		if got := gjson.GetBytes(out, "max_tokens").Int(); got != 64000 {
 -			t.Fatalf("max_tokens = %d, want 64000; output=%s", got, out)
-+	t.Run("a live registered limit lowers the default", func(t *testing.T) {
-+		const model = "claude-test-live-limit-lower"
-+		registry.GetGlobalRegistry().RegisterClient("test-claude-live-limit-lower", "claude", []*registry.ModelInfo{
-+			{ID: model, Type: "claude", MaxCompletionTokens: 16000},
-+		})
-+		t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient("test-claude-live-limit-lower") })
-+		if got := maxTokens(t, model, `{"model":"`+model+`","input":"hello"}`); got != 16000 {
-+			t.Fatalf("max_tokens = %d, want 16000", got)
-+		}
-+	})
-+
 +	t.Run("unregistered models fall back to 32k", func(t *testing.T) {
 +		if got := maxTokens(t, "claude-test-unregistered", `{"model":"claude-test-unregistered","input":"hello"}`); got != 32000 {
 +			t.Fatalf("max_tokens = %d, want 32000", got)
@@ -9171,7 +9526,87 @@ index 24b77674d329db57fc26b6100a2c9b94ae7acf04..48a7f756f8ee481945f2dee88b0b5f8d
  		}
  	})
  }
-@@ -572,6 +597,179 @@ func TestConvertOpenAIResponsesRequestToClaude_FunctionCallOutputPreservesInputI
+@@ -525,6 +551,79 @@ func TestConvertOpenAIResponsesRequestToClaude_EmptyStringContentDoesNotBreakAss
+ 	}
+ }
+ 
++// Codex sends an uncaptioned image as an empty input_text followed by the image
++// tag and the image. Anthropic answers an empty or whitespace-only text block
++// with 400 "text content blocks must be non-empty", and because the turn stays
++// in the thread's history every later turn failed too (2026-11-16).
++func TestConvertOpenAIResponsesRequestToClaude_DropsBlankTextParts(t *testing.T) {
++	const imageB64 = "/9j/4AAQSkZJRg=="
++	raw := []byte(`{
++		"model":"claude-test",
++		"instructions":"  ",
++		"input":[
++			{"type":"message","role":"user","content":[
++				{"type":"input_text","text":""},
++				{"type":"input_text","text":"<image name=[Image #1] path=\"a.jpg\">"},
++				{"type":"input_image","image_url":"data:image/jpeg;base64,` + imageB64 + `"}
++			]},
++			{"type":"message","role":"assistant","content":[
++				{"type":"output_text","text":" \n"},
++				{"type":"output_text","text":"Looks like a chart."}
++			]},
++			{"type":"function_call","call_id":"call_view","name":"view_image","arguments":"{}"},
++			{"type":"function_call_output","call_id":"call_view","output":[
++				{"type":"input_text","text":""},
++				{"type":"input_image","image_url":"data:image/png;base64,iVBORw0KGgo="}
++			]},
++			{"type":"message","role":"user","content":[{"type":"input_text","text":"Continue"}]}
++		]
++	}`)
++
++	out := ConvertOpenAIResponsesRequestToClaude("claude-test", raw, false)
++	root := gjson.ParseBytes(out)
++	var blank []string
++	var walk func(path string, node gjson.Result)
++	walk = func(path string, node gjson.Result) {
++		if node.IsArray() {
++			for i, child := range node.Array() {
++				walk(path+"."+strconv.Itoa(i), child)
++			}
++			return
++		}
++		if !node.IsObject() {
++			return
++		}
++		if node.Get("type").String() == "text" && strings.TrimSpace(node.Get("text").String()) == "" {
++			blank = append(blank, path)
++		}
++		walk(path+".content", node.Get("content"))
++	}
++	walk("system", root.Get("system"))
++	walk("messages", root.Get("messages"))
++	if len(blank) > 0 {
++		t.Fatalf("blank text blocks at %v. Output: %s", blank, string(out))
++	}
++
++	first := root.Get("messages.0")
++	if got := first.Get("role").String(); got != "user" {
++		t.Fatalf("messages.0.role = %q, want user. Output: %s", got, string(out))
++	}
++	content := first.Get("content").Array()
++	if len(content) != 2 || content[0].Get("type").String() != "text" || content[1].Get("type").String() != "image" {
++		t.Fatalf("messages.0.content = %s, want image tag text then image", first.Get("content").Raw)
++	}
++	if got := content[1].Get("source.data").String(); got != imageB64 {
++		t.Fatalf("image data = %q, want %q", got, imageB64)
++	}
++	if got := root.Get("messages.1.content.0.text").String(); got != "Looks like a chart." {
++		t.Fatalf("assistant text = %q. Output: %s", got, string(out))
++	}
++	toolResult := root.Get("messages.2.content.0")
++	if toolResult.Get("type").String() != "tool_result" || toolResult.Get("content.#").Int() != 1 || toolResult.Get("content.0.type").String() != "image" {
++		t.Fatalf("tool_result = %s, want only the image", toolResult.Raw)
++	}
++}
++
+ func TestConvertOpenAIResponsesRequestToClaude_FunctionCallOutputPreservesInputImage(t *testing.T) {
+ 	const imageB64 = "iVBORw0KGgo="
+ 	dataURL := "data:image/png;base64," + imageB64
+@@ -572,6 +671,179 @@ func TestConvertOpenAIResponsesRequestToClaude_FunctionCallOutputPreservesInputI
  	}
  }
  
@@ -9351,7 +9786,7 @@ index 24b77674d329db57fc26b6100a2c9b94ae7acf04..48a7f756f8ee481945f2dee88b0b5f8d
  func TestConvertOpenAIResponsesRequestToClaude_KeepsToolUseAdjacentToToolResult(t *testing.T) {
  	raw := []byte(`{
  		"model":"claude-test",
-@@ -1295,27 +1493,33 @@ func TestConvertOpenAIResponsesRequestToClaude_DeduplicatesToolOutputs(t *testin
+@@ -1295,27 +1567,33 @@ func TestConvertOpenAIResponsesRequestToClaude_DeduplicatesToolOutputs(t *testin
  		t.Fatalf("messages[3].content.1.id = %q, want toolu_parallel", got)
  	}
  
@@ -13203,10 +13638,10 @@ index a03edd9dc56ac82b5d4c58f42bd7014f081ffac5..5c1a5d143a6e34d5fea12a68bbfe7a63
  	}
 diff --git a/sdk/cliproxy/auth/quota_recovery.go b/sdk/cliproxy/auth/quota_recovery.go
 new file mode 100644
-index 0000000000000000000000000000000000000000..04b13be92e8076e1786854addac99a07886e2c02
+index 0000000000000000000000000000000000000000..ebdeb7ac84d8297777fa003d70e6c7677b7467cf
 --- /dev/null
 +++ b/sdk/cliproxy/auth/quota_recovery.go
-@@ -0,0 +1,158 @@
+@@ -0,0 +1,219 @@
 +package auth
 +
 +import (
@@ -13223,6 +13658,10 @@ index 0000000000000000000000000000000000000000..04b13be92e8076e1786854addac99a07
 +type RoutingEligibility struct {
 +	Status         string    `json:"status"`
 +	NextRetryAfter time.Time `json:"next_retry_after,omitempty"`
++	// Quota reports that the block is a quota cooldown RecoverQuota may clear, so a caller
++	// does not ask it to clear a model blocked for another reason (an unsupported model, an
++	// auth error).
++	Quota bool `json:"quota"`
 +}
 +
 +type RoutingObservation struct {
@@ -13254,7 +13693,7 @@ index 0000000000000000000000000000000000000000..04b13be92e8076e1786854addac99a07
 +	if auth.Disabled || auth.Status == StatusDisabled {
 +		out.Status = "disabled"
 +	}
-+	out.QuotaBlocked = auth.Quota.Exceeded && (auth.Quota.Reason == "quota" || auth.Quota.Reason == "credential_quota")
++	out.QuotaBlocked = credentialQuotaFailure(auth)
 +	eligibility := func(model string) RoutingEligibility {
 +		blocked, _, next := isAuthBlockedForModel(auth, model, now)
 +		status := "ready"
@@ -13264,7 +13703,7 @@ index 0000000000000000000000000000000000000000..04b13be92e8076e1786854addac99a07
 +		if out.Status == "disabled" {
 +			status = "disabled"
 +		}
-+		return RoutingEligibility{Status: status, NextRetryAfter: next}
++		return RoutingEligibility{Status: status, NextRetryAfter: next, Quota: status == "blocked" && quotaBlocksModel(auth, model, now)}
 +	}
 +	registered := map[string]bool{}
 +	for _, model := range dedupeStrings(modelsForRegisteredAuth(auth.ID)) {
@@ -13283,21 +13722,75 @@ index 0000000000000000000000000000000000000000..04b13be92e8076e1786854addac99a07
 +		}
 +	}
 +	for _, state := range auth.ModelStates {
-+		if state != nil && state.Quota.Exceeded && (state.Quota.Reason == "quota" || state.Quota.Reason == "credential_quota") {
++		if modelQuotaFailure(state) {
 +			out.QuotaBlocked = true
 +		}
 +	}
 +	return out
 +}
 +
-+func oldQuotaFailure(quota QuotaState, lastError *Error, updated, cutoff time.Time) bool {
++func quotaFailure(quota QuotaState, lastError *Error) bool {
 +	return quota.Exceeded && (quota.Reason == "quota" || quota.Reason == "credential_quota") &&
-+		!updated.IsZero() && !updated.After(cutoff) && (lastError == nil || lastError.HTTPStatus == 429)
++		(lastError == nil || lastError.HTTPStatus == 429)
++}
++
++// credentialQuotaFailure is the credential's own quota block RecoverQuota clears. With model
++// states present, a "quota" reason on the credential is only the aggregate
++// updateAggregatedAvailability rebuilds from them (a kept model's block, say); clearing it
++// would change nothing yet report a change on every call.
++func credentialQuotaFailure(auth *Auth) bool {
++	return (auth.Quota.Reason == "credential_quota" || len(auth.ModelStates) == 0) && quotaFailure(auth.Quota, auth.LastError)
++}
++
++// modelQuotaFailure is a model's quota block RecoverQuota clears. A credential-wide 429 sweeps
++// credential_quota onto every other model and leaves each one's own last error as it was (a
++// 529, say), so that error says nothing about the block; the block is the credential's.
++func modelQuotaFailure(state *ModelState) bool {
++	if state == nil || state.Status == StatusDisabled {
++		return false
++	}
++	if state.Quota.Exceeded && state.Quota.Reason == "credential_quota" {
++		return true
++	}
++	return quotaFailure(state.Quota, state.LastError)
++}
++
++// observedBefore: a failure recorded no later than the caller's observation, so the caller
++// saw it when it decided the quota had recovered.
++func observedBefore(updated, cutoff time.Time) bool {
++	return !updated.IsZero() && !updated.After(cutoff)
++}
++
++// quotaBlocksModel reports whether a blocked model is held by a quota failure RecoverQuota
++// clears: the credential's own (credential-wide, or the only state when no model has one) or
++// the model's.
++func quotaBlocksModel(auth *Auth, model string, now time.Time) bool {
++	if auth.Quota.Reason == "credential_quota" && auth.Quota.NextRecoverAt.After(now) && credentialQuotaFailure(auth) {
++		return true
++	}
++	if len(auth.ModelStates) == 0 {
++		return credentialQuotaFailure(auth)
++	}
++	key := canonicalModelKey(model)
++	for stateModel, state := range auth.ModelStates {
++		if canonicalModelKey(stateModel) == key && modelQuotaFailure(state) {
++			return true
++		}
++	}
++	return false
 +}
 +
 +// RecoverQuota clears quota-derived failures only. Generation checking and
 +// mutation share the manager lock, so concurrent results cannot be erased.
-+func (m *Manager) RecoverQuota(ctx context.Context, authID string, generation uint64, cutoff time.Time) (*Auth, bool, error) {
++// Models in keep (a model-specific limit the caller knows is still spent) keep
++// their own state, so clearing a credential-wide block frees every other model.
++func (m *Manager) RecoverQuota(ctx context.Context, authID string, generation uint64, cutoff time.Time, keep ...string) (*Auth, bool, error) {
++	kept := make(map[string]bool, len(keep))
++	for _, model := range keep {
++		if model = canonicalModelKey(model); model != "" {
++			kept[model] = true
++		}
++	}
 +	now := time.Now()
 +	if cutoff.IsZero() || cutoff.After(now) || now.Sub(cutoff) > time.Minute {
 +		return nil, false, ErrQuotaRecoveryConflict
@@ -13317,13 +13810,16 @@ index 0000000000000000000000000000000000000000..04b13be92e8076e1786854addac99a07
 +	// unrelated old model quota is cleared.
 +	preserveFailure := auth.LastError != nil && auth.LastError.HTTPStatus != 429
 +	previousUnavailable, previousRetry, previousStatus := auth.Unavailable, auth.NextRetryAfter, auth.Status
-+	for _, state := range auth.ModelStates {
-+		if state != nil && state.Status != StatusDisabled && oldQuotaFailure(state.Quota, state.LastError, state.UpdatedAt, cutoff) {
++	for model, state := range auth.ModelStates {
++		if kept[canonicalModelKey(model)] {
++			continue
++		}
++		if modelQuotaFailure(state) && observedBefore(state.UpdatedAt, cutoff) {
 +			resetModelState(state, now)
 +			changed = true
 +		}
 +	}
-+	if oldQuotaFailure(auth.Quota, auth.LastError, auth.UpdatedAt, cutoff) {
++	if credentialQuotaFailure(auth) && observedBefore(auth.UpdatedAt, cutoff) {
 +		applyCooldownFields(&auth.Quota, QuotaState{})
 +		auth.NextRetryAfter = time.Time{}
 +		auth.Unavailable = false
@@ -13367,10 +13863,10 @@ index 0000000000000000000000000000000000000000..04b13be92e8076e1786854addac99a07
 +}
 diff --git a/sdk/cliproxy/auth/quota_recovery_test.go b/sdk/cliproxy/auth/quota_recovery_test.go
 new file mode 100644
-index 0000000000000000000000000000000000000000..19d267ec3c23275b595517be4f656ba9f1e40177
+index 0000000000000000000000000000000000000000..8048ada5777c587067ce1288264cdb01f05af96c
 --- /dev/null
 +++ b/sdk/cliproxy/auth/quota_recovery_test.go
-@@ -0,0 +1,133 @@
+@@ -0,0 +1,257 @@
 +package auth
 +
 +import (
@@ -13424,6 +13920,43 @@ index 0000000000000000000000000000000000000000..19d267ec3c23275b595517be4f656ba9
 +	}
 +}
 +
++// A spent model limit keeps only that model blocked: clearing the credential-wide
++// block frees every other model the credential routes.
++func TestRecoverQuotaKeepsOnlyNamedModels(t *testing.T) {
++	m, a, cutoff := quotaRecoveryFixture(t)
++	a.ModelStates["claude-fable-5-2"] = &ModelState{Status: StatusError, Unavailable: true, UpdatedAt: a.UpdatedAt,
++		NextRetryAfter: a.NextRetryAfter, Quota: a.Quota, LastError: &Error{HTTPStatus: 429}}
++	registry.GetGlobalRegistry().RegisterClient(a.ID, "codex", []*registry.ModelInfo{{ID: "old-quota"}, {ID: "claude-fable-5-2"}, {ID: "never-used"}})
++	t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient(a.ID) })
++
++	updated, changed, errRecover := m.RecoverQuota(t.Context(), a.ID, a.Generation, cutoff, "claude-fable-5-2")
++	if errRecover != nil || !changed {
++		t.Fatalf("changed=%v error=%v", changed, errRecover)
++	}
++	if updated.Quota.Reason == "credential_quota" || updated.ModelStates["old-quota"].Unavailable {
++		t.Fatal("credential block or an unkept model quota was not cleared")
++	}
++	if fable := updated.ModelStates["claude-fable-5-2"]; !fable.Unavailable || !fable.Quota.Exceeded {
++		t.Fatalf("kept model was cleared: %+v", fable)
++	}
++	observed := RoutingObservationForAuth(updated, time.Now())
++	if observed.Status != "ready" || observed.Models["claude-fable-5-2"].Status != "blocked" ||
++		observed.Models["old-quota"].Status != "ready" || observed.Models["never-used"].Status != "ready" {
++		t.Fatalf("observation=%+v", observed)
++	}
++
++	// Asking again, with an observation newer than the first recovery as the service sends,
++	// finds nothing left to clear: the kept model's block does not count as a credential block.
++	// The fixture's newer quota failure is older than that observation, so it goes first.
++	m.mu.Lock()
++	delete(a.ModelStates, "new-quota")
++	m.mu.Unlock()
++	again, changedAgain, errAgain := m.RecoverQuota(t.Context(), a.ID, updated.Generation, time.Now(), "claude-fable-5-2")
++	if errAgain != nil || changedAgain || again.Generation != updated.Generation {
++		t.Fatalf("second recovery changed=%v generation=%d->%d error=%v", changedAgain, updated.Generation, again.Generation, errAgain)
++	}
++}
++
 +func TestRecoverQuotaConflictIsAtomic(t *testing.T) {
 +	m, a, cutoff := quotaRecoveryFixture(t)
 +	expected := a.Generation
@@ -13464,6 +13997,93 @@ index 0000000000000000000000000000000000000000..19d267ec3c23275b595517be4f656ba9
 +	observed := RoutingObservationForAuth(a, now)
 +	if observed.Status != "ready" || observed.Models["expired-model"].Status != "ready" || observed.Models["blocked-model"].Status != "blocked" {
 +		t.Fatalf("observation=%+v", observed)
++	}
++}
++
++// Each blocked model says whether its block is one RecoverQuota clears, so the pool does not
++// ask it to clear a model blocked for another reason.
++func TestRoutingObservationMarksQuotaBlocks(t *testing.T) {
++	now := time.Now()
++	next := now.Add(time.Hour)
++	quota := QuotaState{Exceeded: true, Reason: "quota", NextRecoverAt: next}
++	a := &Auth{ID: "observed-quota", Provider: "claude", Status: StatusActive, ModelStates: map[string]*ModelState{
++		"spent":       {Status: StatusError, Unavailable: true, NextRetryAfter: next, Quota: quota, LastError: &Error{HTTPStatus: 429}},
++		"unsupported": {Status: StatusError, Unavailable: true, NextRetryAfter: next, LastError: &Error{HTTPStatus: 404}},
++	}}
++	registry.GetGlobalRegistry().RegisterClient(a.ID, "claude", []*registry.ModelInfo{{ID: "spent"}, {ID: "unsupported"}, {ID: "free"}})
++	t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient(a.ID) })
++
++	observed := RoutingObservationForAuth(a, now)
++	if m := observed.Models["spent"]; m.Status != "blocked" || !m.Quota {
++		t.Fatalf("spent=%+v", m)
++	}
++	if m := observed.Models["unsupported"]; m.Status != "blocked" || m.Quota {
++		t.Fatalf("unsupported=%+v", m)
++	}
++	if m := observed.Models["free"]; m.Status != "ready" || m.Quota {
++		t.Fatalf("free=%+v", m)
++	}
++
++	// A credential-wide quota block holds every model, whatever its own state says.
++	a.Quota = QuotaState{Exceeded: true, Reason: "credential_quota", NextRecoverAt: next}
++	a.LastError = &Error{HTTPStatus: 429}
++	observed = RoutingObservationForAuth(a, now)
++	for _, model := range []string{"spent", "unsupported", "free"} {
++		if m := observed.Models[model]; m.Status != "blocked" || !m.Quota {
++			t.Fatalf("%s under a credential block=%+v", model, m)
++		}
++	}
++}
++
++// The quota flag is what RecoverQuota does: every model marked quota is freed, every other
++// blocked model stays, and once only those remain the credential is not quota-blocked, so the
++// pool stops asking. A model swept into a credential-wide block is the credential's whatever
++// its own last error was.
++func TestRoutingObservationQuotaFlagMatchesRecovery(t *testing.T) {
++	now := time.Now()
++	old := now.Add(-time.Minute)
++	next := now.Add(time.Hour)
++	week := now.Add(7 * 24 * time.Hour)
++	a := &Auth{ID: "observed-recovery", Provider: "claude", Generation: 3, Status: StatusActive, UpdatedAt: old,
++		ModelStates: map[string]*ModelState{
++			"spent": {Status: StatusError, Unavailable: true, UpdatedAt: old, NextRetryAfter: next,
++				Quota: QuotaState{Exceeded: true, Reason: "quota", NextRecoverAt: next}, LastError: &Error{HTTPStatus: 429}},
++			"swept": {Status: StatusError, Unavailable: true, UpdatedAt: old, NextRetryAfter: week,
++				Quota: QuotaState{Exceeded: true, Reason: "credential_quota", NextRecoverAt: week}, LastError: &Error{HTTPStatus: 529}},
++			"overwritten": {Status: StatusError, Unavailable: true, UpdatedAt: old, NextRetryAfter: next,
++				Quota: QuotaState{Exceeded: true, Reason: "quota", NextRecoverAt: next}, LastError: &Error{HTTPStatus: 500}},
++			"unsupported": {Status: StatusError, Unavailable: true, UpdatedAt: old, NextRetryAfter: next, LastError: &Error{HTTPStatus: 404}},
++		}}
++	m := NewManager(nil, nil, nil)
++	m.auths[a.ID] = a
++	registry.GetGlobalRegistry().RegisterClient(a.ID, "claude", []*registry.ModelInfo{{ID: "spent"}, {ID: "swept"}, {ID: "overwritten"}, {ID: "unsupported"}})
++	t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient(a.ID) })
++
++	before := RoutingObservationForAuth(a, now)
++	if !before.QuotaBlocked {
++		t.Fatal("quota blocks were not reported")
++	}
++	updated, changed, errRecover := m.RecoverQuota(t.Context(), a.ID, a.Generation, time.Now())
++	if errRecover != nil || !changed {
++		t.Fatalf("changed=%v error=%v", changed, errRecover)
++	}
++	after := RoutingObservationForAuth(updated, time.Now())
++	for model, seen := range before.Models {
++		if seen.Status != "blocked" {
++			t.Fatalf("%s was not blocked before recovery: %+v", model, seen)
++		}
++		if freed := after.Models[model].Status == "ready"; freed != seen.Quota {
++			t.Fatalf("%s: quota=%v but freed=%v", model, seen.Quota, freed)
++		}
++	}
++	if !before.Models["swept"].Quota || before.Models["overwritten"].Quota {
++		t.Fatalf("models=%+v", before.Models)
++	}
++	if after.QuotaBlocked {
++		t.Fatal("only blocks recovery leaves remain, yet the credential is still reported quota-blocked")
++	}
++	if _, again, _ := m.RecoverQuota(t.Context(), a.ID, updated.Generation, time.Now()); again {
++		t.Fatal("a second recovery changed something")
 +	}
 +}
 +

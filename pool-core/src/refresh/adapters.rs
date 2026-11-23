@@ -59,7 +59,9 @@ pub async fn headers<I: Io>(io: &I, file: &Value) -> Map<String, Value> {
 }
 
 /// `adapter.modelRecoveryBlocked(usage, normalized)`: a model-specific limit is out or
-/// unknown, so a credential-wide quota clear must wait.
+/// unknown. A quota clear then keeps the models that limit covers
+/// ([`recovery_keep`](super::account::recovery_keep)), and waits only when the quota windows
+/// cannot say which models those are.
 pub fn model_recovery_blocked(provider: &str, usage: &Value, normalized: &Usage, now: f64) -> bool {
     if provider == "claude" {
         return normalized
