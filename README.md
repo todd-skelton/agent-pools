@@ -23,7 +23,7 @@ Plan:
 4. Writes and the public gateway, in the port only. Done on a copy, short of cutover (2026-10-28): the refresh cycle
    (`pool-core::refresh`, refresh.mjs with usage.mjs, quota-recovery.mjs, reset-lifecycle.mjs,
    notifications.mjs, projection.mjs and both adapters) takes its I/O through a trait and matches
-   Agent Pools' own cycle on 42 scripted scenarios (61 cycles): every result, proxy call, event,
+   Agent Pools' own cycle on 46 scripted scenarios (65 cycles): every result, proxy call, event,
    sample, toast, save, hook call and final state (`node golden/refresh-traces.mjs`, then
    `cargo test -p pool-core --test refresh`). `pools-shadow run-copy` runs that cycle, the
    capacity publisher, the routing ladders and a manual refresh on a copied state directory
@@ -609,6 +609,52 @@ llvm-mingw (`<install>\build`).
    full-history replay instead of leaking internal MCP aliases. Upstream thread replay
    error codes are preserved. Regression tests cover streamed and non-streamed tool calls,
    repeated continuations, rotation/replay, caller isolation, expiry and cache limits.
+   7.2.158-pool.35 (2026-11-15) drops empty and whitespace-only text parts when translating a
+   Responses request to Claude: Codex sends an uncaptioned image as an empty `input_text`,
+   which Anthropic refused with 400 on that turn and every later one in the thread.
+   7.2.158-pool.36 (2026-11-22) keeps a Fable-only 429 (`7d_oi` rejected, shared 7d allowed)
+   model-scoped when Anthropic sends no 5h headers, as it does for some subscriptions; the
+   5h window still has to be allowed when it is reported. Requiring the 5h header had turned
+   every Fable limit on those accounts into a credential-wide block of all models until the
+   weekly reset. The proxy restores a saved credential-wide block on restart, so an account
+   blocked before pool.36 needed one `POST /v0/management/recover-quota` after the deploy.
+   7.2.158-pool.37 (2026-11-23) applies that to every model family's window (`7d_oi`, which
+   is Fable's, and an `opus`, `sonnet`, `haiku` or `fable` scope), not Fable's alone; a window
+   of another scope (`oauth_apps`, `cowork`) still blocks the credential, also when it is
+   rejected alongside a model window (overage, rejected on every subscription without extra
+   usage, does not count). `recover-quota` takes `keep_models`: those models keep their
+   blocks while every other block it may clear is cleared, and a credential's `quota` reason
+   that only sums its models' blocks is no longer cleared (it reported a change on every
+   call). A single Claude model's limit never blocks the whole account: the service sends
+   `keep_models` for the models a spent (or unread) model window covers, matched by the
+   window's scope, instead of skipping recovery for the whole account. It still waits when a
+   spent window names no model the proxy routes (it cannot tell which models to keep), and for
+   Codex, whose model limits are also flagged by status and whose usage-limit 429 blocks the
+   credential.
+   7.2.158-pool.38 (2026-11-23) marks each model in the routing view with `quota`: whether
+   its block is a quota failure `recover-quota` clears. `quota_blocked`, the routing view's
+   flag, and `recover-quota` itself now use those same tests, so `quota_blocked` means there
+   is something to clear. A model blocked for another reason (a 404's model-support cooldown,
+   an auth error, a 500 after its 429) no longer makes the service ask, every cycle, for a
+   recovery that changes nothing. When a credential-wide 429 sweeps the other models into
+   its block, each keeps its own last error (a 529, say); recovery used to read that error
+   and leave the model blocked until the weekly reset, and now clears it with the
+   credential's block. The service counts a model without the field (an older proxy) as
+   quota.
+   7.2.158-pool.39 (2026-11-23) keeps a swept model's own cooldown when recovery clears the
+   credential's block over it: a model that a 404 or an unsupported-model error had blocked
+   for 12 hours, or an auth error for 30 minutes, stays blocked until that cooldown ends
+   instead of being tried again at once. The sweep leaves the model's error and its time
+   alone, so the cooldown is the one the error set (one function now gives those lengths to
+   both). A credential-wide block is the quota's whatever the credential's last error says:
+   a request already running on another model that failed afterwards (a 529, say) overwrote
+   that error, recovery then left every model blocked until the weekly reset, and pool.38
+   also stopped reporting the block as one to clear. Two gate tests that raced their own
+   channels are fixed: a Responses stream test closed its data before queuing the error the
+   forwarder checks for once data closes, and a publisher test counted a payload the old
+   publisher queued before it stopped. The session
+   cache's refresh test runs on a 1 s TTL instead of 100 ms, so a loaded machine oversleeping
+   by 40 ms no longer expires the entry it checks.
 2. `Build-Pool-Proxy.ps1 -Version 7.2.158-pool.N` runs the proxy's test gate and builds
    `build\candidate.exe`.
 3. `Deploy-Pool-Proxy.ps1 -Root <install> -Live -Version 7.2.158-pool.N` builds, installs to

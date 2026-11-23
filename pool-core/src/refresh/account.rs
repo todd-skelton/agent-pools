@@ -153,13 +153,68 @@ pub fn apply_routing(a: &mut Value, snapshot: Option<&Value>) {
     }
 }
 
+/// The models a quota clear must leave blocked: those a spent (or unread) model-specific
+/// window covers, matched by the window's scope against the models the proxy routes for the
+/// account. A spent model limit blocks only its own models, never the account. `None` when a
+/// spent window names no routed model, or the adapter flagged a model limit the windows do
+/// not show; the clear then waits, as it did for every model limit before.
+pub fn recovery_keep(a: &Value, snapshot: Option<&Value>) -> Option<Vec<String>> {
+    // Codex flags a model limit by its status as well as its windows, and a Codex usage-limit
+    // 429 blocks the whole credential, so a Codex model limit keeps the account-wide wait.
+    if str_at(a, "provider") != Some("claude") {
+        return if js::truthy(at(a, "modelQuotaRecoveryBlocked")) { None } else { Some(Vec::new()) };
+    }
+    let mut scopes: Vec<String> = Vec::new();
+    for w in js::values(at(a, "quotaWindows")) {
+        if js::get(Some(w), "common") == Some(&Value::Bool(true)) {
+            continue;
+        }
+        let used = js::number(js::get(Some(w), "used"));
+        if used.is_some_and(|u| u.is_finite() && u < 100.0) {
+            continue;
+        }
+        let scope = js::to_string(js::get(Some(w), "scope")).trim().to_lowercase().replace(' ', "-");
+        if scope.is_empty() || scope == "undefined" || scope == "null" {
+            return None;
+        }
+        scopes.push(scope);
+    }
+    if scopes.is_empty() {
+        return if js::truthy(at(a, "modelQuotaRecoveryBlocked")) { None } else { Some(Vec::new()) };
+    }
+    let routing = snapshot.and_then(|s| at(s, "routing"));
+    let routed: Vec<String> = ["models", "unlisted"]
+        .iter()
+        .flat_map(|k| js::entries(js::get(routing, k)))
+        .map(|(model, _)| model)
+        .collect();
+    let mut keep: Vec<String> = Vec::new();
+    for scope in &scopes {
+        let covered: Vec<&String> = routed.iter().filter(|m| model_in_scope(m, scope)).collect();
+        if covered.is_empty() {
+            return None;
+        }
+        keep.extend(covered.into_iter().cloned());
+    }
+    keep.sort();
+    keep.dedup();
+    Some(keep)
+}
+
+fn model_in_scope(model: &str, scope: &str) -> bool {
+    let m = model.to_lowercase();
+    m == scope || m.starts_with(&format!("{scope}-")) || m.split(['-', '_', '.']).any(|t| t == scope)
+}
+
 /// `canRecoverQuota(account, snapshot, now)`: a fresh, available account the proxy still
-/// blocks for quota, with no model limit out and a block long enough to be worth clearing.
+/// blocks for quota, with a block long enough to be worth clearing on a model no spent model
+/// limit covers ([`recovery_keep`]).
 pub fn can_recover_quota(a: &Value, snapshot: Option<&Value>, now: f64) -> bool {
     let Some(provider) = str_at(a, "provider").filter(|p| crate::providers::provider(p).is_some()) else {
         return false;
     };
     let Some(snap) = snapshot else { return false };
+    let Some(keep) = recovery_keep(a, snapshot) else { return false };
     let started = js::date_parse_value(at(a, "usageCheckStartedAt"));
     let routing = at(snap, "routing");
     let eq = |k: &str| super::obj::strict_eq(at(snap, k), at(a, k));
@@ -171,21 +226,32 @@ pub fn can_recover_quota(a: &Value, snapshot: Option<&Value>, now: f64) -> bool 
         && started.is_finite()
         && started <= now
         && now - started <= 60_000.0
-        && !js::truthy(at(a, "modelQuotaRecoveryBlocked"))
         && eq("id")
         && eq("auth_index")
         && eq("provider")
         && !js::truthy(at(snap, "disabled"))
         && js::get(routing, "quota_blocked") == Some(&Value::Bool(true))
         && js::get(routing, "generation").is_some_and(Value::is_string)
-        && long_block(routing, now, adapters::min_recoverable_block_ms(provider))
+        && long_block(routing, now, adapters::min_recoverable_block_ms(provider), &keep)
 }
 
-fn long_block(routing: Option<&Value>, now: f64, min_ms: f64) -> bool {
+/// A block worth clearing on a model the clear would free (not one in `keep`). A model the
+/// proxy says is blocked for another reason than quota (`quota: false`: an unsupported model,
+/// an auth error) is one the clear would not free; a proxy that does not say counts as quota.
+fn long_block(routing: Option<&Value>, now: f64, min_ms: f64, keep: &[String]) -> bool {
+    let freed: Vec<&Value> = ["models", "unlisted"]
+        .iter()
+        .flat_map(|k| js::entries(js::get(routing, k)))
+        .filter(|(model, m)| !keep.contains(model) && at(m, "quota") != Some(&Value::Bool(false)))
+        .map(|(_, m)| m)
+        .collect();
+    if !keep.is_empty() && !freed.iter().any(|m| str_at(m, "status") == Some("blocked")) {
+        return false;
+    }
     if min_ms <= 0.0 {
         return true;
     }
-    ["models", "unlisted"].iter().flat_map(|k| js::values(js::get(routing, k))).any(|m| {
+    freed.iter().any(|m| {
         str_at(m, "status") == Some("blocked") && js::date_parse_value(at(m, "next_retry_after")) - now > min_ms
     })
 }
@@ -209,6 +275,10 @@ pub async fn reconcile_quota<I: Io>(cycle: &Cycle<'_, I>, a: &mut Value) -> Resu
             request.insert(k.into(), v.clone());
         }
     }
+    let keep = recovery_keep(a, Some(&snapshot)).unwrap_or_default();
+    if !keep.is_empty() {
+        request.insert("keep_models".into(), json!(keep));
+    }
     let result = match cycle.io.management("recover-quota", Some(&Value::Object(request)), None).await {
         Ok(r) => r,
         Err(e) if e.status == Some(409) => {
@@ -224,4 +294,92 @@ pub async fn reconcile_quota<I: Io>(cycle: &Cycle<'_, I>, a: &mut Value) -> Resu
         put(a, "quotaRecoveredAt", json!(cycle.iso()));
     }
     Ok(changed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn account(fable_used: Value, flagged: bool) -> Value {
+        json!({
+            "provider": "claude",
+            "modelQuotaRecoveryBlocked": flagged,
+            "quotaWindows": [
+                { "id": "limit:0", "scope": "All models", "used": 59, "common": true },
+                { "id": "limit:1", "scope": "Fable", "used": fable_used, "common": false },
+            ],
+        })
+    }
+
+    fn snapshot(opus: &str) -> Value {
+        let block = |status: &str| json!({ "status": status, "next_retry_after": "2026-11-25T13:00:04Z" });
+        json!({ "routing": { "quota_blocked": true, "models": {
+            "claude-fable-5-2": block("blocked"),
+            "claude-fable-5-1": block("blocked"),
+            "claude-opus-5-5": block(opus),
+            "claude-haiku-5-5": block(opus),
+        } } })
+    }
+
+    #[test]
+    fn a_spent_model_limit_keeps_only_its_models() {
+        let keep = recovery_keep(&account(json!(100), true), Some(&snapshot("blocked")));
+        assert_eq!(keep, Some(vec!["claude-fable-5-1".to_string(), "claude-fable-5-2".to_string()]));
+    }
+
+    #[test]
+    fn an_unread_model_limit_is_treated_as_spent() {
+        let keep = recovery_keep(&account(Value::Null, true), Some(&snapshot("blocked")));
+        assert_eq!(keep.map(|k| k.len()), Some(2));
+    }
+
+    #[test]
+    fn no_spent_model_limit_keeps_nothing() {
+        assert_eq!(recovery_keep(&account(json!(40), false), Some(&snapshot("blocked"))), Some(Vec::new()));
+    }
+
+    #[test]
+    fn a_spent_limit_that_names_no_routed_model_waits() {
+        let mut a = account(json!(100), true);
+        a["quotaWindows"][1]["scope"] = json!("Mystery");
+        assert_eq!(recovery_keep(&a, Some(&snapshot("blocked"))), None);
+    }
+
+    #[test]
+    fn a_codex_model_limit_keeps_the_account_wide_wait() {
+        let mut a = account(json!(100), true);
+        a["provider"] = json!("codex");
+        assert_eq!(recovery_keep(&a, Some(&snapshot("blocked"))), None);
+        a["modelQuotaRecoveryBlocked"] = json!(false);
+        assert_eq!(recovery_keep(&a, Some(&snapshot("blocked"))), Some(Vec::new()));
+    }
+
+    #[test]
+    fn a_flag_the_windows_do_not_explain_waits() {
+        assert_eq!(recovery_keep(&account(json!(40), true), Some(&snapshot("blocked"))), None);
+    }
+
+    #[test]
+    fn only_blocks_on_freed_models_are_worth_clearing() {
+        let now = js::date_parse("2026-11-23T04:00:00Z").unwrap();
+        let keep = vec!["claude-fable-5-1".to_string(), "claude-fable-5-2".to_string()];
+        let blocked = snapshot("blocked");
+        assert!(long_block(at(&blocked, "routing"), now, 600_000.0, &keep));
+        let fable_only = snapshot("ready");
+        assert!(!long_block(at(&fable_only, "routing"), now, 600_000.0, &keep));
+        assert!(!long_block(at(&fable_only, "routing"), now, 0.0, &keep));
+    }
+
+    #[test]
+    fn a_freed_model_blocked_for_another_reason_is_not_worth_clearing() {
+        let now = js::date_parse("2026-11-23T04:00:00Z").unwrap();
+        let keep = vec!["claude-fable-5-1".to_string(), "claude-fable-5-2".to_string()];
+        let mut other = snapshot("ready");
+        other["routing"]["models"]["claude-opus-5-5"] =
+            json!({ "status": "blocked", "next_retry_after": "2026-11-23T16:00:00Z", "quota": false });
+        assert!(!long_block(at(&other, "routing"), now, 600_000.0, &keep));
+        assert!(!long_block(at(&other, "routing"), now, 0.0, &keep));
+        other["routing"]["models"]["claude-opus-5-5"]["quota"] = json!(true);
+        assert!(long_block(at(&other, "routing"), now, 600_000.0, &keep));
+    }
 }

@@ -35,6 +35,7 @@ const CODEX_SUB = (n) => "https://chatgpt.com/backend-api/subscriptions?account_
 const clone = (v) => structuredClone(v);
 
 function claudeWeeklyOut() { const u = clone(FX.claude); u.seven_day.utilization = 100; for (const l of u.limits) if (l.kind === "weekly_all") l.percent = 100; return u; }
+function claudeFableOut() { const u = clone(FX.claude); for (const l of u.limits) if (l.kind === "weekly_scoped") l.percent = 100; return u; }
 function claudeSessionOut() { const u = clone(FX.claude); u.five_hour.utilization = 100; for (const l of u.limits) if (l.kind === "session") l.percent = 100; return u; }
 const noCredits = () => ({ ...clone(FX.codexCredits), credits: [], available_count: 0 });
 const file = (provider, n, over = {}) => ({
@@ -151,6 +152,13 @@ const sub = (plan, until) => ({ plan_type: plan, billing_period: "monthly", bill
 const blocked = (over = {}) => ({ routing: { status: "blocked", quota_blocked: true, generation: "g7", checked_at: new Date(T0).toISOString(),
   models: { m: { status: "blocked", next_retry_after: new Date(T0 + 3 * 3600000).toISOString() } } }, ...over });
 const all = { [CODEX_USAGE]: FX.codexAvailable, [CODEX_CREDITS]: FX.codexCredits, [CLAUDE_USAGE]: FX.claude };
+// A Claude account whose Fable weekly is spent: Fable stays blocked by its own limit, and
+// opus is blocked for quota (true), for another reason (false) or by a proxy that does not say
+// (undefined, before pool.38), or not at all (null).
+const fableSpent = (opusQuota) => blocked({ routing: { ...blocked().routing, models: {
+  "claude-fable-5-2": { status: "blocked", next_retry_after: new Date(T0 + 48 * 3600000).toISOString(), quota: true },
+  "claude-opus-5-5": opusQuota === null ? { status: "ready", quota: false } : { status: "blocked", next_retry_after: new Date(T0 + 3 * 3600000).toISOString(), quota: opusQuota },
+} } });
 
 const scenarios = [
   { name: "healthy", files: [...codexFiles(), ...claudeFiles()], routes: all },
@@ -225,6 +233,14 @@ const scenarios = [
     routes: { [CLAUDE_USAGE]: FX.claude, "mgmt:recover-quota": { $throw: { message: "conflict", status: 409 } } } },
   { name: "quota-recovery-short-block-left", files: [file("claude", 1, blocked({ routing: { ...blocked().routing, models: { m: { status: "blocked", next_retry_after: new Date(T0 + 60000).toISOString() } } } })), file("claude", 2), file("claude", 3)],
     expected: { codex: 0, claude: 3 }, routes: { [CLAUDE_USAGE]: FX.claude, "mgmt:recover-quota": { changed: true, routing: {} } } },
+  { name: "quota-recovery-keeps-a-spent-model-limit", files: [file("claude", 1, fableSpent(true)), file("claude", 2), file("claude", 3)], expected: { codex: 0, claude: 3 },
+    routes: { [CLAUDE_USAGE]: claudeFableOut(), "mgmt:recover-quota": { changed: true, routing: { ...fableSpent(null).routing, status: "ready", generation: "g8" } } } },
+  { name: "quota-recovery-keeps-a-model-limit-on-a-proxy-that-does-not-say-why", files: [file("claude", 1, fableSpent(undefined)), file("claude", 2), file("claude", 3)], expected: { codex: 0, claude: 3 },
+    routes: { [CLAUDE_USAGE]: claudeFableOut(), "mgmt:recover-quota": { changed: true, routing: { ...fableSpent(null).routing, status: "ready", generation: "g8" } } } },
+  { name: "quota-recovery-leaves-a-model-limit-alone", files: [file("claude", 1, fableSpent(null)), file("claude", 2), file("claude", 3)], expected: { codex: 0, claude: 3 },
+    routes: { [CLAUDE_USAGE]: claudeFableOut(), "mgmt:recover-quota": { changed: true, routing: {} } } },
+  { name: "quota-recovery-skips-a-block-quota-did-not-cause", files: [file("claude", 1, fableSpent(false)), file("claude", 2), file("claude", 3)], expected: { codex: 0, claude: 3 },
+    routes: { [CLAUDE_USAGE]: claudeFableOut(), "mgmt:recover-quota": { changed: true, routing: {} } } },
   { name: "codex-recovery-fails", files: [file("codex", 1, blocked()), file("codex", 2)], routes: { ...all, "mgmt:recover-quota": { $throw: { message: "Proxy management recover-quota returned HTTP 500", status: 500 } } } },
   { name: "disabled-account", files: [file("codex", 1, { disabled: true }), file("codex", 2)], routes: all,
     state: { accounts: [{ id: "codex-1.json", provider: "codex", plan: { plan: "pro" }, planCheckedAt: new Date(T0 - 1000).toISOString() }] } },
