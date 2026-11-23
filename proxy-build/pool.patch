@@ -11085,6 +11085,44 @@ index ea5723db924822b4ca7818d8560c94a5ff571991..cbd1065ba18350d460b51c913d1792e8
  	}
  }
  
+diff --git a/sdk/api/handlers/openai/openai_responses_handlers_stream_test.go b/sdk/api/handlers/openai/openai_responses_handlers_stream_test.go
+index b0ca07b9aa022ccece6a8d1b536b2f9bb17944eb..69aa07f27be693b4efddc909ade5ef7c2736c1b0 100644
+--- a/sdk/api/handlers/openai/openai_responses_handlers_stream_test.go
++++ b/sdk/api/handlers/openai/openai_responses_handlers_stream_test.go
+@@ -325,14 +325,16 @@ func TestForwardResponsesStreamErrorEventPreservesNestedError(t *testing.T) {
+ 	go func() {
+ 		data <- []byte("event: response.created\ndata: {\"type\":\"response.created\",\"sequence_number\":0}\n\n")
+ 		data <- []byte("event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"sequence_number\":1}\n\n")
+-		close(data)
+ 
++		// The error is queued before data closes: the forwarder checks for a pending error
++		// without waiting once data closes, so the other order races.
+ 		errText := `{"error":{"type":"invalid_request","code":"cyber_policy","message":"This content was flagged for possible cybersecurity risk. If this seems wrong, try rephrasing your request. To get authorized for security work, join the Trusted Access for Cyber program: https://chatgpt.com/cyber","param":null}}`
+ 		errs <- &interfaces.ErrorMessage{
+ 			StatusCode: http.StatusBadRequest,
+ 			Error:      errors.New(errText),
+ 		}
+ 		close(errs)
++		close(data)
+ 	}()
+ 
+ 	framer := &responsesSSEFramer{}
+@@ -426,13 +428,14 @@ func TestForwardResponsesStreamErrorEventPreservesExplicitSequenceNumber(t *test
+ 	errs := make(chan *interfaces.ErrorMessage, 1)
+ 
+ 	go func() {
+-		close(data)
++		// Queued before data closes, as above.
+ 		errText := `{"error":{"type":"invalid_request","code":"custom"},"sequence_number":9}`
+ 		errs <- &interfaces.ErrorMessage{
+ 			StatusCode: http.StatusBadRequest,
+ 			Error:      errors.New(errText),
+ 		}
+ 		close(errs)
++		close(data)
+ 	}()
+ 
+ 	framer := &responsesSSEFramer{}
 diff --git a/sdk/api/handlers/openai/openai_responses_runtime_identity.go b/sdk/api/handlers/openai/openai_responses_runtime_identity.go
 new file mode 100644
 index 0000000000000000000000000000000000000000..7cf65fb852e4a40682588d9459d99a694d3f1f01
@@ -12021,10 +12059,54 @@ index da42cd2f446382e5bd4f4efbedc80683351370e9..1d52bd315731d309aba873db9a2a71bc
  
  // NewManager constructs a manager with optional custom selector and hook.
 diff --git a/sdk/cliproxy/auth/conductor_cooldown.go b/sdk/cliproxy/auth/conductor_cooldown.go
-index 28f88a139f02bd82cbb0c0e1b54315158a102f9a..1bc217253034a1a77990d4a57ecb40b22781ddd6 100644
+index 28f88a139f02bd82cbb0c0e1b54315158a102f9a..2279e3c4879cda6ab74ef9bd4077590e3b38357c 100644
 --- a/sdk/cliproxy/auth/conductor_cooldown.go
 +++ b/sdk/cliproxy/auth/conductor_cooldown.go
-@@ -921,7 +921,7 @@ func (m *Manager) MarkResult(ctx context.Context, result Result) {
+@@ -821,12 +821,11 @@ func (m *Manager) MarkResult(ctx context.Context, result Result) {
+ 					}
+ 
+ 					statusCode := statusCodeFromResult(result.Error)
+-					if isModelSupportResultError(result.Error) {
++					if cooldown, fixed := fixedModelCooldown(result.Error); fixed {
+ 						if disableCooling {
+ 							state.NextRetryAfter = time.Time{}
+ 						} else {
+-							next := now.Add(12 * time.Hour)
+-							state.NextRetryAfter = next
++							state.NextRetryAfter = now.Add(cooldown)
+ 						}
+ 					} else if isCloudflareChallengeResultError(result.Error) {
+ 						next, backoffLevel := nextCloudflareCooldown(state.Quota.BackoffLevel, disableCooling, now)
+@@ -841,28 +840,8 @@ func (m *Manager) MarkResult(ctx context.Context, result Result) {
+ 							NextRecoverAt: next,
+ 							BackoffLevel:  backoffLevel,
+ 						})
+-					} else if isInvalidGrantResultError(result.Error) {
+-						if disableCooling {
+-							state.NextRetryAfter = time.Time{}
+-						} else {
+-							state.NextRetryAfter = now.Add(30 * time.Minute)
+-						}
+ 					} else {
+ 						switch statusCode {
+-						case 401, 402, 403:
+-							if disableCooling {
+-								state.NextRetryAfter = time.Time{}
+-							} else {
+-								next := now.Add(30 * time.Minute)
+-								state.NextRetryAfter = next
+-							}
+-						case 404:
+-							if disableCooling {
+-								state.NextRetryAfter = time.Time{}
+-							} else {
+-								next := now.Add(12 * time.Hour)
+-								state.NextRetryAfter = next
+-							}
+ 						case 429:
+ 							var next time.Time
+ 							backoffLevel := state.Quota.BackoffLevel
+@@ -921,7 +900,7 @@ func (m *Manager) MarkResult(ctx context.Context, result Result) {
  								auth.Quota.NextRecoverAt = authNext
  								auth.NextRetryAfter = authNext
  							}
@@ -12033,7 +12115,37 @@ index 28f88a139f02bd82cbb0c0e1b54315158a102f9a..1bc217253034a1a77990d4a57ecb40b2
  							state.NextRetryAfter = recoverableFailureRetryAfterWithHint(now, result.RetryAfter, disableCooling)
  							state.Unavailable = !state.NextRetryAfter.IsZero()
  						default:
-@@ -2135,7 +2135,7 @@ func applyAuthFailureState(auth *Auth, resultErr *Error, retryAfter *time.Durati
+@@ -1177,6 +1156,29 @@ func mergeModelState(target, source *ModelState) *ModelState {
+ 	return target
+ }
+ 
++// fixedModelCooldown is how long a model failure that is neither a quota limit, a Cloudflare
++// challenge nor a transient error keeps the model blocked: an unsupported model or a 404 for
++// 12 hours, an auth failure (401, 402, 403, an invalid grant) for 30 minutes. The checks run
++// in the order markResult applies them.
++func fixedModelCooldown(err *Error) (time.Duration, bool) {
++	if isModelSupportResultError(err) {
++		return 12 * time.Hour, true
++	}
++	if isCloudflareChallengeResultError(err) {
++		return 0, false
++	}
++	if isInvalidGrantResultError(err) {
++		return 30 * time.Minute, true
++	}
++	switch statusCodeFromResult(err) {
++	case 401, 402, 403:
++		return 30 * time.Minute, true
++	case 404:
++		return 12 * time.Hour, true
++	}
++	return 0, false
++}
++
+ func resetModelState(state *ModelState, now time.Time) {
+ 	if state == nil {
+ 		return
+@@ -2135,7 +2137,7 @@ func applyAuthFailureState(auth *Auth, resultErr *Error, retryAfter *time.Durati
  			}
  			auth.Quota.NextRecoverAt = next
  			auth.NextRetryAfter = next
@@ -13636,12 +13748,46 @@ index a03edd9dc56ac82b5d4c58f42bd7014f081ffac5..5c1a5d143a6e34d5fea12a68bbfe7a63
  			coolingSummaries = append(coolingSummaries, authCoolingSummary(candidate, checkModel, next, now))
  		}
  	}
+diff --git a/sdk/cliproxy/auth/home_in_flight_publisher_test.go b/sdk/cliproxy/auth/home_in_flight_publisher_test.go
+index 0e8d94063526e76cac15a8efdd6e3883d4b8720c..01a28c7993af545e34b5d1864ad1ad1563c31f4a 100644
+--- a/sdk/cliproxy/auth/home_in_flight_publisher_test.go
++++ b/sdk/cliproxy/auth/home_in_flight_publisher_test.go
+@@ -428,6 +428,9 @@ func TestHomeInFlightPublisherReplacementStopsOldLifetimeAndPinsDependencies(t *
+ 	case <-time.After(time.Second):
+ 		t.Fatal("old publisher did not stop")
+ 	}
++	// The old publisher ticks every 10ms; a payload it sent before it stopped can still be
++	// queued, and only one sent after counts against it.
++	oldStopped := time.Now()
+ 
+ 	newRegistry := executionregistry.New()
+ 	newRegistry.ObserveBarrier(22)
+@@ -441,10 +444,15 @@ func TestHomeInFlightPublisherReplacementStopsOldLifetimeAndPinsDependencies(t *
+ 		t.Fatalf("new publisher frame = %#v, error = %v", newFrame, errUnmarshal)
+ 	}
+ 	time.Sleep(30 * time.Millisecond)
+-	select {
+-	case published := <-oldTransport.payloads:
+-		t.Fatalf("replaced publisher sent payload at %v", published.observedAt)
+-	default:
++	for drained := false; !drained; {
++		select {
++		case published := <-oldTransport.payloads:
++			if published.observedAt.After(oldStopped) {
++				t.Fatalf("replaced publisher sent payload at %v, after it stopped at %v", published.observedAt, oldStopped)
++			}
++		default:
++			drained = true
++		}
+ 	}
+ 
+ 	freeze := newRegistry.FreezeInFlight(time.Now())
 diff --git a/sdk/cliproxy/auth/quota_recovery.go b/sdk/cliproxy/auth/quota_recovery.go
 new file mode 100644
-index 0000000000000000000000000000000000000000..ebdeb7ac84d8297777fa003d70e6c7677b7467cf
+index 0000000000000000000000000000000000000000..afd3456b63c7d55360ceab45e3574063bcd623d2
 --- /dev/null
 +++ b/sdk/cliproxy/auth/quota_recovery.go
-@@ -0,0 +1,219 @@
+@@ -0,0 +1,249 @@
 +package auth
 +
 +import (
@@ -13660,7 +13806,8 @@ index 0000000000000000000000000000000000000000..ebdeb7ac84d8297777fa003d70e6c767
 +	NextRetryAfter time.Time `json:"next_retry_after,omitempty"`
 +	// Quota reports that the block is a quota cooldown RecoverQuota may clear, so a caller
 +	// does not ask it to clear a model blocked for another reason (an unsupported model, an
-+	// auth error).
++	// auth error). A model swept into a credential-wide block while its own such cooldown ran
++	// is quota until that block is cleared, and then blocked, not quota, until its own ends.
 +	Quota bool `json:"quota"`
 +}
 +
@@ -13734,12 +13881,17 @@ index 0000000000000000000000000000000000000000..ebdeb7ac84d8297777fa003d70e6c767
 +		(lastError == nil || lastError.HTTPStatus == 429)
 +}
 +
-+// credentialQuotaFailure is the credential's own quota block RecoverQuota clears. With model
-+// states present, a "quota" reason on the credential is only the aggregate
-+// updateAggregatedAvailability rebuilds from them (a kept model's block, say); clearing it
-+// would change nothing yet report a change on every call.
++// credentialQuotaFailure is the credential's own quota block RecoverQuota clears. A
++// credential-wide block is the quota's whatever the credential's last error says: a request
++// already running on another model that fails afterwards (a 529, say) overwrites that error
++// but not the block. With model states present, a "quota" reason on the credential is only
++// the aggregate updateAggregatedAvailability rebuilds from them (a kept model's block, say);
++// clearing it would change nothing yet report a change on every call.
 +func credentialQuotaFailure(auth *Auth) bool {
-+	return (auth.Quota.Reason == "credential_quota" || len(auth.ModelStates) == 0) && quotaFailure(auth.Quota, auth.LastError)
++	if auth.Quota.Reason == "credential_quota" {
++		return auth.Quota.Exceeded
++	}
++	return len(auth.ModelStates) == 0 && quotaFailure(auth.Quota, auth.LastError)
 +}
 +
 +// modelQuotaFailure is a model's quota block RecoverQuota clears. A credential-wide 429 sweeps
@@ -13753,6 +13905,21 @@ index 0000000000000000000000000000000000000000..ebdeb7ac84d8297777fa003d70e6c767
 +		return true
 +	}
 +	return quotaFailure(state.Quota, state.LastError)
++}
++
++// ownCooldownUnder reports the model's own cooldown a credential-wide block was laid over,
++// when it is still running. The sweep leaves a model's last error and its time alone, so the
++// fixed cooldown that error set (fixedModelCooldown) ends where it did.
++func ownCooldownUnder(state *ModelState, now time.Time, disableCooling bool) (time.Time, bool) {
++	if disableCooling || state.Quota.Reason != "credential_quota" || state.LastError == nil || state.UpdatedAt.IsZero() {
++		return time.Time{}, false
++	}
++	cooldown, fixed := fixedModelCooldown(state.LastError)
++	if !fixed {
++		return time.Time{}, false
++	}
++	until := state.UpdatedAt.Add(cooldown)
++	return until, until.After(now)
 +}
 +
 +// observedBefore: a failure recorded no later than the caller's observation, so the caller
@@ -13806,16 +13973,25 @@ index 0000000000000000000000000000000000000000..ebdeb7ac84d8297777fa003d70e6c767
 +		return nil, false, ErrQuotaRecoveryConflict
 +	}
 +	changed := false
++	disableCooling := m.cooldownDisabledForAuth(auth)
 +	// Credential-level non-quota failures must survive aggregation even when an
-+	// unrelated old model quota is cleared.
-+	preserveFailure := auth.LastError != nil && auth.LastError.HTTPStatus != 429
++	// unrelated old model quota is cleared. Under a credential-wide quota block the
++	// credential's unavailability is that block, and a non-429 last error is a model's.
++	preserveFailure := auth.LastError != nil && auth.LastError.HTTPStatus != 429 && auth.Quota.Reason != "credential_quota"
 +	previousUnavailable, previousRetry, previousStatus := auth.Unavailable, auth.NextRetryAfter, auth.Status
 +	for model, state := range auth.ModelStates {
 +		if kept[canonicalModelKey(model)] {
 +			continue
 +		}
 +		if modelQuotaFailure(state) && observedBefore(state.UpdatedAt, cutoff) {
-+			resetModelState(state, now)
++			if until, own := ownCooldownUnder(state, now, disableCooling); own {
++				// Swept into a credential-wide block while its own cooldown ran: the quota
++				// block goes, the model's own stays.
++				applyCooldownFields(&state.Quota, QuotaState{})
++				state.NextRetryAfter = until
++			} else {
++				resetModelState(state, now)
++			}
 +			changed = true
 +		}
 +	}
@@ -13863,10 +14039,10 @@ index 0000000000000000000000000000000000000000..ebdeb7ac84d8297777fa003d70e6c767
 +}
 diff --git a/sdk/cliproxy/auth/quota_recovery_test.go b/sdk/cliproxy/auth/quota_recovery_test.go
 new file mode 100644
-index 0000000000000000000000000000000000000000..8048ada5777c587067ce1288264cdb01f05af96c
+index 0000000000000000000000000000000000000000..95ca0b3e6d83c74f7d123ba174519513ee9dc81a
 --- /dev/null
 +++ b/sdk/cliproxy/auth/quota_recovery_test.go
-@@ -0,0 +1,257 @@
+@@ -0,0 +1,313 @@
 +package auth
 +
 +import (
@@ -14053,10 +14229,13 @@ index 0000000000000000000000000000000000000000..8048ada5777c587067ce1288264cdb01
 +			"overwritten": {Status: StatusError, Unavailable: true, UpdatedAt: old, NextRetryAfter: next,
 +				Quota: QuotaState{Exceeded: true, Reason: "quota", NextRecoverAt: next}, LastError: &Error{HTTPStatus: 500}},
 +			"unsupported": {Status: StatusError, Unavailable: true, UpdatedAt: old, NextRetryAfter: next, LastError: &Error{HTTPStatus: 404}},
++			// A 404 an hour ago set a 12-hour cooldown; the sweep then laid the week over it.
++			"swept-unsupported": {Status: StatusError, Unavailable: true, UpdatedAt: now.Add(-time.Hour), NextRetryAfter: week,
++				Quota: QuotaState{Exceeded: true, Reason: "credential_quota", NextRecoverAt: week}, LastError: &Error{HTTPStatus: 404}},
 +		}}
 +	m := NewManager(nil, nil, nil)
 +	m.auths[a.ID] = a
-+	registry.GetGlobalRegistry().RegisterClient(a.ID, "claude", []*registry.ModelInfo{{ID: "spent"}, {ID: "swept"}, {ID: "overwritten"}, {ID: "unsupported"}})
++	registry.GetGlobalRegistry().RegisterClient(a.ID, "claude", []*registry.ModelInfo{{ID: "spent"}, {ID: "swept"}, {ID: "overwritten"}, {ID: "unsupported"}, {ID: "swept-unsupported"}})
 +	t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient(a.ID) })
 +
 +	before := RoutingObservationForAuth(a, now)
@@ -14072,15 +14251,68 @@ index 0000000000000000000000000000000000000000..8048ada5777c587067ce1288264cdb01
 +		if seen.Status != "blocked" {
 +			t.Fatalf("%s was not blocked before recovery: %+v", model, seen)
 +		}
-+		if freed := after.Models[model].Status == "ready"; freed != seen.Quota {
++		if after.Models[model].Quota {
++			t.Fatalf("%s still has a quota block after recovery: %+v", model, after.Models[model])
++		}
++		// Recovery frees every model whose block was quota alone.
++		freed := after.Models[model].Status == "ready"
++		if want := seen.Quota && model != "swept-unsupported"; freed != want {
 +			t.Fatalf("%s: quota=%v but freed=%v", model, seen.Quota, freed)
 +		}
 +	}
-+	if !before.Models["swept"].Quota || before.Models["overwritten"].Quota {
++	if !before.Models["swept"].Quota || !before.Models["swept-unsupported"].Quota || before.Models["overwritten"].Quota {
 +		t.Fatalf("models=%+v", before.Models)
++	}
++	// The swept 404 keeps its own 12 hours, not the week and not nothing.
++	own := updated.ModelStates["swept-unsupported"]
++	if want := now.Add(-time.Hour).Add(12 * time.Hour); !own.NextRetryAfter.Equal(want) || own.LastError == nil || own.LastError.HTTPStatus != 404 {
++		t.Fatalf("swept-unsupported=%+v, want blocked until %v", own, want)
 +	}
 +	if after.QuotaBlocked {
 +		t.Fatal("only blocks recovery leaves remain, yet the credential is still reported quota-blocked")
++	}
++	if _, again, _ := m.RecoverQuota(t.Context(), a.ID, updated.Generation, time.Now()); again {
++		t.Fatal("a second recovery changed something")
++	}
++}
++
++// A request already running on another model can fail after a credential-wide 429 and
++// overwrite the credential's last error; the block is still the quota's, so it is reported
++// and recovery clears it instead of leaving every model blocked until the weekly reset.
++func TestRecoverQuotaClearsCredentialBlockAfterAnotherModelsError(t *testing.T) {
++	now := time.Now()
++	old := now.Add(-time.Minute)
++	week := now.Add(7 * 24 * time.Hour)
++	credential := QuotaState{Exceeded: true, Reason: "credential_quota", NextRecoverAt: week}
++	a := &Auth{ID: "late-error", Provider: "claude", Generation: 5, Status: StatusError, Unavailable: true,
++		UpdatedAt: old, NextRetryAfter: week, Quota: credential, LastError: &Error{HTTPStatus: 529},
++		ModelStates: map[string]*ModelState{
++			"limited": {Status: StatusError, Unavailable: true, UpdatedAt: old, NextRetryAfter: week,
++				Quota: QuotaState{Exceeded: true, Reason: "quota", NextRecoverAt: week}, LastError: &Error{HTTPStatus: 429}},
++			"overloaded": {Status: StatusError, Unavailable: true, UpdatedAt: old, NextRetryAfter: week,
++				Quota: credential, LastError: &Error{HTTPStatus: 529}},
++		}}
++	m := NewManager(nil, nil, nil)
++	m.auths[a.ID] = a
++	registry.GetGlobalRegistry().RegisterClient(a.ID, "claude", []*registry.ModelInfo{{ID: "limited"}, {ID: "overloaded"}, {ID: "idle"}})
++	t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient(a.ID) })
++
++	before := RoutingObservationForAuth(a, now)
++	if !before.QuotaBlocked || !before.Models["idle"].Quota {
++		t.Fatalf("the credential block was not reported: %+v", before)
++	}
++	updated, changed, errRecover := m.RecoverQuota(t.Context(), a.ID, a.Generation, time.Now())
++	if errRecover != nil || !changed {
++		t.Fatalf("changed=%v error=%v", changed, errRecover)
++	}
++	after := RoutingObservationForAuth(updated, time.Now())
++	if after.QuotaBlocked || after.Status != "ready" {
++		t.Fatalf("after=%+v", after)
++	}
++	for _, model := range []string{"limited", "overloaded", "idle"} {
++		if after.Models[model].Status != "ready" {
++			t.Fatalf("%s still blocked: %+v", model, after.Models[model])
++		}
 +	}
 +	if _, again, _ := m.RecoverQuota(t.Context(), a.ID, updated.Generation, time.Now()); again {
 +		t.Fatal("a second recovery changed something")
@@ -14373,6 +14605,51 @@ index 0000000000000000000000000000000000000000..e2ae5c201c2d5cf67e5b36b9c8611d71
 +		}
 +	}
 +}
+diff --git a/sdk/cliproxy/auth/selector_test.go b/sdk/cliproxy/auth/selector_test.go
+index d8a17a0779f529749220a775380e21ff47ef252d..d46aec09f73fb022f30628941eacc4b3b769b374 100644
+--- a/sdk/cliproxy/auth/selector_test.go
++++ b/sdk/cliproxy/auth/selector_test.go
+@@ -2043,7 +2043,9 @@ func TestSessionAffinitySelector_CrossProviderIsolation(t *testing.T) {
+ func TestSessionCache_GetAndRefresh(t *testing.T) {
+ 	t.Parallel()
+ 
+-	cache := NewSessionCache(100 * time.Millisecond)
++	// The cache reads the real clock, so each wait leaves 400ms for a loaded machine to
++	// oversleep (at 100ms with 60ms waits, a 40ms overshoot expired the entry).
++	cache := NewSessionCache(time.Second)
+ 	defer cache.Stop()
+ 
+ 	cache.Set("session1", "auth1")
+@@ -2054,23 +2056,23 @@ func TestSessionCache_GetAndRefresh(t *testing.T) {
+ 		t.Fatalf("GetAndRefresh() = %q, %v, want auth1, true", got, ok)
+ 	}
+ 
+-	// Wait half TTL and access again (should refresh)
+-	time.Sleep(60 * time.Millisecond)
++	// Wait 60% of the TTL and access again (should refresh)
++	time.Sleep(600 * time.Millisecond)
+ 	got, ok = cache.GetAndRefresh("session1")
+ 	if !ok || got != "auth1" {
+-		t.Fatalf("GetAndRefresh() after 60ms = %q, %v, want auth1, true", got, ok)
++		t.Fatalf("GetAndRefresh() after 600ms = %q, %v, want auth1, true", got, ok)
+ 	}
+ 
+-	// Wait another 60ms (total 120ms from original, but TTL refreshed at 60ms)
++	// Wait another 600ms (1.2s from the original, past its TTL, but refreshed at 600ms)
+ 	// Entry should still be valid because TTL was refreshed
+-	time.Sleep(60 * time.Millisecond)
++	time.Sleep(600 * time.Millisecond)
+ 	got, ok = cache.GetAndRefresh("session1")
+ 	if !ok || got != "auth1" {
+ 		t.Fatalf("GetAndRefresh() after refresh = %q, %v, want auth1, true (TTL should have been refreshed)", got, ok)
+ 	}
+ 
+ 	// Now wait full TTL without access
+-	time.Sleep(110 * time.Millisecond)
++	time.Sleep(1100 * time.Millisecond)
+ 	got, ok = cache.GetAndRefresh("session1")
+ 	if ok {
+ 		t.Fatalf("GetAndRefresh() after expiry = %q, %v, want '', false", got, ok)
 diff --git a/sdk/cliproxy/auth/tool_route_test.go b/sdk/cliproxy/auth/tool_route_test.go
 new file mode 100644
 index 0000000000000000000000000000000000000000..867f9012e8d21239dd2d5e2c2278e88eff5518ea

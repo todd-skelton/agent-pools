@@ -641,6 +641,20 @@ llvm-mingw (`<install>\build`).
    and leave the model blocked until the weekly reset, and now clears it with the
    credential's block. The service counts a model without the field (an older proxy) as
    quota.
+   7.2.158-pool.39 (2026-11-23) keeps a swept model's own cooldown when recovery clears the
+   credential's block over it: a model that a 404 or an unsupported-model error had blocked
+   for 12 hours, or an auth error for 30 minutes, stays blocked until that cooldown ends
+   instead of being tried again at once. The sweep leaves the model's error and its time
+   alone, so the cooldown is the one the error set (one function now gives those lengths to
+   both). A credential-wide block is the quota's whatever the credential's last error says:
+   a request already running on another model that failed afterwards (a 529, say) overwrote
+   that error, recovery then left every model blocked until the weekly reset, and pool.38
+   also stopped reporting the block as one to clear. Two gate tests that raced their own
+   channels are fixed: a Responses stream test closed its data before queuing the error the
+   forwarder checks for once data closes, and a publisher test counted a payload the old
+   publisher queued before it stopped. The session
+   cache's refresh test runs on a 1 s TTL instead of 100 ms, so a loaded machine oversleeping
+   by 40 ms no longer expires the entry it checks.
 2. `Build-Pool-Proxy.ps1 -Version 7.2.158-pool.N` runs the proxy's test gate and builds
    `build\candidate.exe`.
 3. `Deploy-Pool-Proxy.ps1 -Root <install> -Live -Version 7.2.158-pool.N` builds, installs to
