@@ -43,8 +43,7 @@ pub struct ClaudeCredit {
     pub expires_at: Value,
     pub label: String,
     /// A model-scoped grant only: the usage windows the claim clears and how much of each the
-    /// server reports used (`percent_used` also carries `seven_day`, the all-model weekly, which
-    /// such a grant leaves as it is).
+    /// server reports used. `percent_used` can also carry the all-model weekly usage.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub clears: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -54,10 +53,9 @@ pub struct ClaudeCredit {
 /// `claudeBank(block, now)`: the grant the server will redeem next (if it may be offered), the
 /// count of usable refills, and why none is offered. `None` when the block is unreadable.
 ///
-/// A full refill clears the all-model weekly (`seven_day`). A grant that does not (a launch
-/// grant that resets only the Fable weekly cap, for one) restores nothing on an account that
-/// is out of all-model quota, so it is kept apart: `credits` and `count` are full refills only,
-/// `model_credits` and `model_count` the model-scoped grants.
+/// A full refill clears the all-model weekly (`seven_day`). A model-scoped grant can refund
+/// that model's contribution without clearing the whole weekly window. `credits` and `count`
+/// are full refills only; `model_credits` and `model_count` are the model-scoped grants.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ClaudeBank {
     pub credits: Vec<ClaudeCredit>,
@@ -214,8 +212,8 @@ mod tests {
     }
 
     #[test]
-    fn a_grant_that_leaves_the_all_model_weekly_is_kept_apart_from_full_refills() {
-        // As read live on 2026-11-10: the Fable launch grant clears only the Fable cap.
+    fn a_grant_without_a_full_weekly_refill_is_kept_apart_from_full_refills() {
+        // The Fable launch grant names only the Fable cap in `clears`.
         let fable = grant("launch-2610-fable", &["seven_day_overage_included"], json!({ "seven_day_overage_included": 13, "seven_day": 100 }));
         let bank = claude_bank(Some(&block(vec![fable], "launch-2610-fable")), NOW).unwrap();
         assert!(bank.credits.is_empty());

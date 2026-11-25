@@ -90,7 +90,7 @@ pub struct Bank {
     pub credits: Value,
     pub count: Value,
     pub note: Option<String>,
-    /// Claude grants that reset only a model's cap (`ClaudeBank::model_credits`), kept out of
+    /// Claude model-scoped grants (`ClaudeBank::model_credits`), kept out of
     /// `credits` and `count` so nothing spends or forecasts them as full refills.
     pub model_credits: Value,
     pub model_count: Value,

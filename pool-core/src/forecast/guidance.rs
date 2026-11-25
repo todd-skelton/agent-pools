@@ -512,7 +512,7 @@ pub(super) fn enrich(doc: &mut Value, accounts: &[Value], samples: &[Value], con
             "modeledGeneralCredits": supply.iter().map(|a| a.credits.len()).sum::<usize>(),
             "unmodeledGeneralCredits": supply.iter().map(|a| a.unmodeled_credits).sum::<f64>(),
             "modelScopedCreditsExcluded": accounts.iter().filter(|a| a["provider"] == *provider && !js::truthy(js::get(Some(*a), "disabled"))).map(|a| a["modelCreditCount"].as_u64().unwrap_or(0)).sum::<u64>(),
-            "reason": "model-scoped grants are not additional all-model supply; no unverified scope conversion",
+            "reason": "model-scoped grants are not full refills; the forecast excludes partial refunds",
         });
         g["key"] = json!(key);
         f["guidance"] = g;

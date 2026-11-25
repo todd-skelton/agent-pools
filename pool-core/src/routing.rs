@@ -35,7 +35,7 @@ pub struct Account {
     pub credits: Vec<Value>,
     /// Model caps (`quotaWindows` rows that are not `common`, a day or longer).
     pub model_windows: Vec<Window>,
-    /// `modelCredits`: grants that reset a model's cap but not the all-model quota.
+    /// `modelCredits`: grants that reset a model's cap without refilling the whole weekly quota.
     pub model_credits: Vec<Value>,
 }
 
@@ -123,35 +123,46 @@ impl Account {
 /// The session window's key in a grant's `clears`; any other key besides the all-model weekly
 /// is a model's cap.
 const CLAUDE_SESSION: &str = "five_hour";
+const CLAUDE_FABLE_WEEKLY: &str = "seven_day_overage_included";
+// Anthropic's Fable launch offer refunds the weekly usage spent on Fable, whose cap is half
+// the shared weekly quota: https://support.claude.com/en/articles/17506494
+const CLAUDE_FABLE_WEEKLY_SHARE: f64 = 0.5;
 
-/// What claiming model-scoped credit `c` on account `a` would add, in percent of `a`'s weekly:
-/// the all-model quota left that the cleared model cap is keeping it from using. `None` when the
-/// claim would add nothing worth spending it on: the account is out of all-model quota (the
-/// claim cannot lift that), or not yet out of the cap the credit clears. Within a day of the
-/// credit's expiry any real gain counts, as the credit is lost otherwise.
-fn model_credit_gain(a: &Account, c: &Value, headroom_percent: f64, now: f64) -> Option<f64> {
+/// Added usable capacity in weekly percentage points, and the refill share for the runway check.
+/// Wait for the cap the credit clears unless the credit is within a day of expiry.
+fn model_credit_gain(a: &Account, c: &Value, headroom_percent: f64, now: f64) -> Option<(f64, f64)> {
     if !a.status_is(&["available", "exhausted"]) {
         return None;
     }
     let all_used = a.all_model_used()?;
+    let clears = js::values(js::get(Some(c), "clears"));
+    let percent = js::get(Some(c), "percent_used");
+    let urgent = credit_expiry(c) <= now + DAY_MS;
+    if a.provider.as_deref() == Some("claude")
+        && clears.iter().any(|k| k.as_str() == Some(CLAUDE_FABLE_WEEKLY))
+    {
+        let used = js::finite(js::get(percent, CLAUDE_FABLE_WEEKLY))?;
+        let refund = (used.clamp(0.0, 100.0) * CLAUDE_FABLE_WEEKLY_SHARE).min(all_used);
+        return (refund > 0.0 && (urgent || used >= 100.0 - headroom_percent))
+            .then_some((refund, refund / 100.0));
+    }
+    // With no known refund into the shared weekly window, a scoped credit can only unlock
+    // quota the account still has.
     let headroom = 100.0 - all_used;
     if headroom <= headroom_percent.max(0.0) {
         return None;
     }
-    let clears = js::values(js::get(Some(c), "clears"));
-    let percent = js::get(Some(c), "percent_used");
     let cap_used = clears
         .iter()
         .filter_map(|k| k.as_str())
         .filter(|k| *k != CLAUDE_SESSION && *k != crate::banks::CLAUDE_ALL_MODEL_WEEKLY)
         .map(|k| js::finite(js::get(percent, k)).unwrap_or(0.0))
         .reduce(f64::max)?;
-    let urgent = credit_expiry(c) <= now + DAY_MS;
     if urgent {
         let gain = cap_used.min(headroom);
-        return (gain > 0.0).then_some(gain);
+        return (gain > 0.0).then_some((gain, 1.0));
     }
-    (cap_used >= 100.0 - headroom_percent).then_some(headroom)
+    (cap_used >= 100.0 - headroom_percent).then_some((headroom, 1.0))
 }
 
 /// A refill provider's demand for `refillNeedMs`: weighted account-units per hour.
@@ -269,13 +280,14 @@ pub fn rank_accounts<'a>(
 
 /// `refillNeedMs(a, pool, demand, now, drainFirst)`: how long account `a` needs to use up a
 /// refill after the accounts that reset sooner. `None` when demand is unknown.
-pub fn refill_need_ms(
+fn refill_need_ms(
     a: &Account,
     a_rank_reset: f64,
     pool: &[Account],
     demand: Option<&RefillDemand>,
     now: f64,
     drain_first: Option<&HashMap<String, f64>>,
+    refill_share: f64,
 ) -> Option<f64> {
     let demand = demand?;
     let rate = demand
@@ -286,7 +298,7 @@ pub fn refill_need_ms(
             .filter(|w| *w > 0.0)
             .unwrap_or(1.0)
     };
-    let mut units = weight(&a.id);
+    let mut units = weight(&a.id) * refill_share;
     for b in pool {
         if b.id == a.id || b.disabled || b.provider != a.provider {
             continue;
@@ -314,12 +326,13 @@ fn credit_expiry(c: &Value) -> f64 {
 }
 
 /// `refillRunwayOk(a, credit, policy, now, pool)`.
-pub fn refill_runway_ok(
+fn refill_runway_ok(
     a: &Account,
     credit: Option<&Value>,
     policy: &Policy,
     now: f64,
     pool: &[Account],
+    refill_share: f64,
 ) -> bool {
     if policy.redemption != "refill" {
         return true;
@@ -343,7 +356,7 @@ pub fn refill_runway_ok(
         .max_runway_percent
         .filter(|p| p.is_finite())
         .map_or(0.5, |p| p / 100.0)
-        * period_ms;
+        * period_ms * refill_share;
     let need = refill_need_ms(
         a,
         reset,
@@ -351,6 +364,7 @@ pub fn refill_runway_ok(
         policy.refill_demand.as_ref(),
         now,
         policy.drain_first.as_ref(),
+        refill_share,
     );
     reset - now >= need.map_or(cap, |n| n.min(cap))
 }
@@ -394,12 +408,9 @@ pub fn choose_reset(
         .or_else(|| choose_model_reset(&pool, policy, now, skip))
 }
 
-/// A model-scoped credit (Claude's launch grants that reset only the Fable weekly cap) is spent
-/// once no enrolled account can serve that model, each being out of all-model quota or of a
-/// model cap, on the account where it adds the most: one out of the cap it clears with the most
-/// all-model quota left, which the cap is holding back. Never on an account out of all-model
-/// quota, where it would restore nothing. A credit within a day of expiry is spent wherever it
-/// adds anything. The refill runway rule applies as for a full refill.
+/// A model-scoped credit is spent once no enrolled account can serve the model, on the account
+/// where it restores the most usable capacity. A credit close to expiry can be used earlier.
+/// For Fable, the refill runway is sized to the partial weekly refund, not a full refill.
 fn choose_model_reset(pool: &[Account], policy: &Policy, now: f64, skip: &HashSet<String>) -> Option<ResetChoice> {
     let natural_reset = |a: &Account| a.rank_reset.unwrap_or(f64::NEG_INFINITY);
     let blocked = pool.iter().all(|a| {
@@ -410,9 +421,9 @@ fn choose_model_reset(pool: &[Account], policy: &Policy, now: f64, skip: &HashSe
         .flat_map(|a| a.model_credits.iter().map(move |c| (a, c)))
         .filter(|(a, c)| js::truthy(Some(c)) && !skip.contains(&credit_key(&a.id, js::get(Some(c), "id"))))
         .filter_map(|(a, c)| {
-            let gain = model_credit_gain(a, c, policy.headroom_percent, now)?;
+            let (gain, share) = model_credit_gain(a, c, policy.headroom_percent, now)?;
             let urgent = credit_expiry(c) <= now + DAY_MS;
-            ((urgent || blocked) && refill_runway_ok(a, Some(c), policy, now, pool)).then_some((a, c, gain, urgent))
+            ((urgent || blocked) && refill_runway_ok(a, Some(c), policy, now, pool, share)).then_some((a, c, gain, urgent))
         })
         .collect();
     js::sort_by(&mut offered, |(a, ac, ag, au), (b, bc, bg, bu)| {
@@ -465,7 +476,7 @@ fn choose_full_reset(
                     return false;
                 };
                 if policy.redemption == "refill" {
-                    refill_runway_ok(a, Some(c), policy, now, pool)
+                    refill_runway_ok(a, Some(c), policy, now, pool, 1.0)
                 } else {
                     reset - now >= EARLY_MIN_REFILL_MS || credit_expiry(c) < reset
                 }
@@ -498,7 +509,7 @@ fn choose_full_reset(
                 .iter()
                 .find(|c| {
                     !skip.contains(&credit_key(&a.id, js::get(Some(c), "id")))
-                        && refill_runway_ok(a, Some(c), policy, now, pool)
+                        && refill_runway_ok(a, Some(c), policy, now, pool, 1.0)
                 })
                 .filter(|c| js::truthy(Some(c)))
                 .map(|c| (a, c))
@@ -581,11 +592,16 @@ mod model_credit_tests {
     }
 
     #[test]
-    fn never_on_an_account_out_of_all_model_quota() {
-        // The live case: all-model weekly spent, Fable barely used. Even with every account
-        // blocked, clearing Fable there restores nothing.
+    fn waits_for_the_fable_cap_when_the_credit_is_not_expiring() {
         let pool = [account("a", 100.0, 13.0, Some(FAR)), account("b", 100.0, 2.0, Some(FAR)), account("c", 100.0, 0.0, None)];
         assert_eq!(choose(&pool), None);
+    }
+
+    #[test]
+    fn fable_reset_can_restore_weekly_quota_on_an_exhausted_account() {
+        let pool = [account("a", 100.0, 100.0, Some(FAR)), account("b", 100.0, 12.0, None)];
+        let chosen = choose(&pool).expect("a Fable reset refunds its share of the all-model weekly quota");
+        assert_eq!((chosen.account_id.as_str(), chosen.trigger), ("a", Some("model-cap")));
     }
 
     #[test]
@@ -595,16 +611,33 @@ mod model_credit_tests {
     }
 
     #[test]
-    fn spent_where_the_cap_holds_back_the_most_all_model_quota() {
-        let pool = [
-            account("a", 40.0, 100.0, Some(FAR)),
-            account("b", 12.0, 100.0, Some(FAR)),
+    fn an_equal_fable_refund_prefers_the_later_weekly_reset() {
+        let mut pool = [
+            account("a", 60.0, 100.0, Some(FAR)),
+            account("b", 100.0, 100.0, Some(FAR)),
             account("c", 100.0, 13.0, Some(FAR)),
             account("d", 100.0, 0.0, None),
         ];
+        pool[0].rank_reset = Some(NOW + 3.0 * DAY_MS);
         let chosen = choose(&pool).unwrap();
         assert_eq!((chosen.account_id.as_str(), chosen.trigger), ("b", Some("model-cap")));
         assert_eq!(chosen.credit_id, json!("launch-2610-fable"));
+    }
+
+    #[test]
+    fn fable_runway_is_sized_to_the_refund() {
+        let mut pool = [account("a", 100.0, 100.0, Some(FAR)), account("b", 100.0, 100.0, None)];
+        assert_eq!(model_credit_gain(&pool[0], &pool[0].model_credits[0], 0.0, NOW), Some((50.0, 0.5)));
+        pool[0].rank_reset = Some(NOW + 2.0 * DAY_MS);
+        assert_eq!(choose(&pool).map(|c| c.account_id), Some("a".into()));
+        pool[0].rank_reset = Some(NOW + DAY_MS);
+        assert_eq!(choose(&pool), None);
+
+        let mut measured = policy(pool.len());
+        measured.refill_demand = Some(RefillDemand { units_per_hour: Some(0.02), weights: HashMap::new() });
+        assert!(choose_reset(&pool, &measured, NOW, &HashSet::new(), None).is_none());
+        pool[0].rank_reset = Some(NOW + 26.0 * HOUR_MS);
+        assert_eq!(choose_reset(&pool, &measured, NOW, &HashSet::new(), None).map(|c| c.account_id), Some("a".into()));
     }
 
     #[test]
@@ -619,7 +652,10 @@ mod model_credit_tests {
         let pool = [account("a", 100.0, 13.0, Some(&soon)), account("b", 30.0, 16.0, Some(&soon)), account("c", 0.0, 0.0, None)];
         assert_eq!(choose(&pool).map(|c| c.account_id), Some("b".into()));
         let spent = [account("a", 100.0, 13.0, Some(&soon)), account("c", 0.0, 0.0, None)];
-        assert_eq!(choose(&spent), None, "nothing to gain on an account out of all-model quota");
+        assert_eq!(model_credit_gain(&spent[0], &spent[0].model_credits[0], 0.0, NOW), Some((6.5, 0.065)));
+        assert_eq!(choose(&spent).map(|c| c.account_id), Some("a".into()));
+        let unused = [account("a", 100.0, 0.0, Some(&soon)), account("c", 0.0, 0.0, None)];
+        assert_eq!(choose(&unused), None, "no Fable usage to refund");
     }
 
     #[test]
