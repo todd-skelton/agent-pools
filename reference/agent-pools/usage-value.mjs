@@ -26,7 +26,8 @@ import { LEDGER_DIR, LEDGER_FILE } from "./usage-ledger.mjs";
 // Actual cost is what the subscriptions cost over the same window: each
 // account's plan price for the window, spread across the requests it served in
 // proportion to the quota they used (the fitted per-model rates; API dollars
-// without a fit, request counts when nothing is priced). An account's plan cost
+// without a fit, request counts if all known API weights are zero). Active spend
+// on accounts with unpriced requests is not allocated to models. An account's plan cost
 // is paid whether or not its quota is used, so idle quota raises the cost per
 // request; an account with no requests is reported as idle cost.
 
@@ -265,7 +266,7 @@ export async function buildUsageReports({ rows, samples = [], accounts = [], pri
   const cells = new Map(); // provider|account|bucket -> { usd: {model: $}, type: {in,cr,cw,out}, units }
   const cellOf = (provider, acct, bucket) => {
     const key = provider + "|" + acct + "|" + bucket;
-    if (!cells.has(key)) cells.set(key, { provider, acct, bucket, usd: {}, type: { in: 0, cr: 0, cw: 0, out: 0 }, units: 0 });
+    if (!cells.has(key)) cells.set(key, { provider, acct, bucket, usd: {}, type: { in: 0, cr: 0, cw: 0, out: 0 }, units: 0, hasUnpriced: false });
     return cells.get(key);
   };
   const accountsAgg = new Map();
@@ -312,30 +313,35 @@ export async function buildUsageReports({ rows, samples = [], accounts = [], pri
         a.count++; a.apiEquivalentUsd += usd;
       }
     }
-    if (acct && cost) {
+    if (acct) {
       const cell = cellOf(provider, acct, Math.floor(at / bucketMs));
-      cell.usd[model] = (cell.usd[model] ?? 0) + usd;
-      for (const t of ["in", "cr", "cw", "out"]) cell.type[t] += cost.byType[t];
+      if (cost) {
+        cell.usd[model] = (cell.usd[model] ?? 0) + usd;
+        for (const t of ["in", "cr", "cw", "out"]) cell.type[t] += cost.byType[t];
+      } else cell.hasUnpriced = true;
     }
     if (at >= valueFrom) {
       const acctKey = acct ?? "(unattributed)";
       const addPart = (parts) => { const p = ((parts[acctKey] ??= {})[model] ??= { usd: 0, requests: 0 }); p.usd += usd; p.requests++; };
-      const a = accountsAgg.get(acctKey) ?? { requests: 0, failed: 0, usd: 0, usdByModel: {}, requestsByModel: {} };
+      const a = accountsAgg.get(acctKey) ?? { requests: 0, unpriced: 0, failed: 0, usd: 0, usdByModel: {}, requestsByModel: {} };
       a.requests++; if (row.ok === false) a.failed++;
+      if (!cost) a.unpriced++;
       a.usd += usd; a.usdByModel[model] = (a.usdByModel[model] ?? 0) + usd;
       a.requestsByModel[model] = (a.requestsByModel[model] ?? 0) + 1;
       accountsAgg.set(acctKey, a);
       const mk = provider + "|" + model;
-      const m = modelsAgg.get(mk) ?? { provider, model, requests: 0, failed: 0, usd: 0, tokens: { in: 0, cr: 0, cw: 0, out: 0, rsn: 0 }, sessions: new Set(), parts: {} };
+      const m = modelsAgg.get(mk) ?? { provider, model, requests: 0, unpriced: 0, failed: 0, usd: 0, tokens: { in: 0, cr: 0, cw: 0, out: 0, rsn: 0 }, sessions: new Set(), parts: {} };
       m.requests++; if (row.ok === false) m.failed++;
+      if (!cost) m.unpriced++;
       m.usd += usd;
       addPart(m.parts);
       for (const t of ["in", "cr", "cw", "out", "rsn"]) m.tokens[t] += row[t] || 0;
       if (row.sid) m.sessions.add(row.sid);
       modelsAgg.set(mk, m);
       if (row.sid) {
-        const s = sessions.get(row.sid) ?? { sid: row.sid, client: row.client, provider, firstAt: at, lastAt: at, requests: 0, usd: 0, usdByModel: {}, parts: {} };
+        const s = sessions.get(row.sid) ?? { sid: row.sid, client: row.client, provider, firstAt: at, lastAt: at, requests: 0, unpriced: 0, usd: 0, usdByModel: {}, parts: {} };
         s.requests++; s.usd += usd; s.usdByModel[model] = (s.usdByModel[model] ?? 0) + usd;
+        if (!cost) s.unpriced++;
         addPart(s.parts);
         s.firstAt = Math.min(s.firstAt, at); s.lastAt = Math.max(s.lastAt, at);
         sessions.set(row.sid, s);
@@ -388,7 +394,7 @@ export async function buildUsageReports({ rows, samples = [], accounts = [], pri
   }
   // The newest bucket is still filling; quota reads lag requests within it.
   const currentBucket = Math.floor(now / bucketMs);
-  const fitCells = [...cells.values()].filter((c) => c.bucket < currentBucket);
+  const fitCells = [...cells.values()].filter((c) => c.bucket < currentBucket && !c.hasUnpriced);
 
   const fits = {};
   const modelFits = new Map();
@@ -555,7 +561,7 @@ export async function buildUsageReports({ rows, samples = [], accounts = [], pri
     const planUsd = monthly === null ? null : monthly * 12 / 365 * windowDays;
     const entries = Object.entries(agg?.usdByModel ?? {});
     let basis = null, weight = null;
-    if (agg?.requests) {
+    if (agg?.requests && !agg.unpriced) {
       const rates = entries.map(([m]) => rateFor(a.provider, m));
       if (rates.every((k) => k !== null) && entries.some(([, v], i) => rates[i] * v > 0)) { basis = "quota"; weight = (m, v) => rateFor(a.provider, m) * v; }
       else if (agg.usd > 0) { basis = "api"; weight = (m, v) => v; }
@@ -565,7 +571,7 @@ export async function buildUsageReports({ rows, samples = [], accounts = [], pri
     accountCost.set(a.id, { planUsd, basis, weight, perWeight: planUsd !== null && total > 0 ? planUsd / total : null });
   }
   // Costed share of parts ({ account: { model: { usd, requests } } }). Requests
-  // on an account without a plan price, or with no account, stay uncosted.
+  // without a known plan or on accounts with incomplete price coverage stay unallocated.
   const actualOf = (parts) => {
     let usd = 0, costed = 0, uncosted = 0;
     for (const [acct, models] of Object.entries(parts ?? {})) for (const [m, p] of Object.entries(models)) {
@@ -576,38 +582,41 @@ export async function buildUsageReports({ rows, samples = [], accounts = [], pri
     }
     return { usd: costed ? usd : null, costed, uncosted };
   };
+  const coveredUsd = (usd, requests, unpriced) => requests && requests === unpriced ? null : round(usd, 2);
+  const apiPerRequest = (usd, requests, unpriced) => requests > unpriced ? round(usd / (requests - unpriced), 4) : null;
   const accountRows = accounts.map((a) => {
-    const agg = accountsAgg.get(a.id) ?? { requests: 0, failed: 0, usd: 0, usdByModel: {}, requestsByModel: {} };
+    const agg = accountsAgg.get(a.id) ?? { requests: 0, unpriced: 0, failed: 0, usd: 0, usdByModel: {}, requestsByModel: {} };
     const usage = accountUsage.get(a.id);
     const weight = weightOf(a.id, a.provider);
     const usedPercent = (usage?.increments ?? []).filter((i) => i.at >= windowStart).reduce((s, i) => s + i.percent, 0);
     const usedUnits = (weight * usedPercent) / 100;
-    const predicted = estUnits(a.provider, agg.usdByModel);
+    const predicted = agg.unpriced ? null : estUnits(a.provider, agg.usdByModel);
     const { usd: monthly, source: planPriceSource } = planPrice(a.id, a.provider);
     const planPerWindow = monthly === null ? null : (monthly * 12 / 52) * weeks;
     const cost = accountCost.get(a.id);
     return {
       id: a.id, email: a.email, provider: a.provider, weight,
       requests: agg.requests, failedRequests: agg.failed,
-      apiEquivalentUsd: round(agg.usd, 2),
-      apiEquivalentUsdPerRequest: agg.requests ? round(agg.usd / agg.requests, 4) : null,
-      usdByModel: Object.fromEntries(Object.entries(agg.usdByModel).map(([m, v]) => [m, round(v, 2)])),
+      unpricedRequests: agg.unpriced,
+      apiEquivalentUsd: coveredUsd(agg.usd, agg.requests, agg.unpriced),
+      apiEquivalentUsdPerRequest: apiPerRequest(agg.usd, agg.requests, agg.unpriced),
+      usdByModel: Object.fromEntries(Object.entries(agg.usdByModel).map(([m, v]) => [m, priceEntry(prices, m) ? round(v, 2) : null])),
       // Plan cost over the value window, paid whether or not the quota is used.
       actualUsd: round(cost.planUsd, 2),
-      actualUsdPerRequest: cost.perWeight !== null ? round(cost.planUsd / agg.requests, 4) : null,
+      actualUsdPerRequest: cost.planUsd !== null && agg.requests ? round(cost.planUsd / agg.requests, 4) : null,
       actualUsdByModel: cost.perWeight === null ? {} : Object.fromEntries(Object.entries(agg.usdByModel).map(([m, v]) => [m, round(cost.weight(m, v, agg.requestsByModel[m] ?? 0) * cost.perWeight, 2)])),
       actualCostBasis: cost.basis,
       weeklyPercentUsed: round(usedPercent, 1),
       quotaUnitsUsed: round(usedUnits),
       quotaSource: usage?.source ?? "none",
       fitSource: usage?.fitSource ?? "none",
-      usdPerAccountWeek: enough && usedUnits > 0 && agg.usd > 0 ? round(agg.usd / usedUnits, 0) : null,
+      usdPerAccountWeek: enough && !agg.unpriced && usedUnits > 0 && agg.usd > 0 ? round(agg.usd / usedUnits, 0) : null,
       // Positive: quota used that this pool's requests do not explain at the
       // fitted rates (other clients, the web or phone apps, or fit error).
       unexplainedUnits: predicted !== null && enough ? round(usedUnits - predicted) : null,
       planUsdPerMonth: monthly,
       planPriceSource,
-      valueMultiple: planPerWindow && enough ? round(agg.usd / planPerWindow, 2) : null,
+      valueMultiple: planPerWindow && enough && !agg.unpriced ? round(agg.usd / planPerWindow, 2) : null,
     };
   });
   const unattributedAgg = accountsAgg.get("(unattributed)");
@@ -616,19 +625,25 @@ export async function buildUsageReports({ rows, samples = [], accounts = [], pri
   const providerUnits = {};
   const modelRows = [...modelsAgg.values()].map((m) => {
     const k = rateFor(m.provider, m.model);
-    const units = k === null ? null : k * m.usd;
+    const units = k === null || m.unpriced ? null : k * m.usd;
     if (units !== null) providerUnits[m.provider] = (providerUnits[m.provider] ?? 0) + units;
     const actual = actualOf(m.parts);
-    return { provider: m.provider, model: m.model, requests: m.requests, failedRequests: m.failed, sessions: m.sessions.size, apiEquivalentUsd: round(m.usd, 2), usdPerRequest: m.requests ? round(m.usd / m.requests, 3) : null,
+    return { provider: m.provider, model: m.model, requests: m.requests, failedRequests: m.failed, sessions: m.sessions.size,
+      unpricedRequests: m.unpriced, apiEquivalentUsd: coveredUsd(m.usd, m.requests, m.unpriced), usdPerRequest: apiPerRequest(m.usd, m.requests, m.unpriced),
       actualUsd: round(actual.usd, 2), actualUsdPerRequest: actual.costed ? round(actual.usd / actual.costed, 4) : null, uncostedRequests: actual.uncosted,
-      tokens: m.tokens, estimatedQuotaUnits: round(units) };
-  }).map((m) => ({ ...m, shareOfProviderQuota: m.estimatedQuotaUnits !== null && providerUnits[m.provider] > 0 ? round(m.estimatedQuotaUnits / providerUnits[m.provider], 3) : null }))
+      tokens: m.tokens, units, estimatedQuotaUnits: round(units) };
+  }).map(({ units, ...m }) => ({ ...m, shareOfProviderQuota: units !== null && providerUnits[m.provider] > 0 ? round(units / providerUnits[m.provider], 3) : null }))
     .sort((a, b) => b.apiEquivalentUsd - a.apiEquivalentUsd);
 
-  const sessionRows = [...sessions.values()].map((s) => ({
-    sid: s.sid, client: s.client, provider: s.provider, firstAt: new Date(s.firstAt).toISOString(), lastAt: new Date(s.lastAt).toISOString(),
-    requests: s.requests, apiEquivalentUsd: round(s.usd, 2), actualUsd: round(actualOf(s.parts).usd, 2), models: Object.keys(s.usdByModel), estimatedQuotaUnits: round(estUnits(s.provider, s.usdByModel)),
-  })).sort((a, b) => b.apiEquivalentUsd - a.apiEquivalentUsd).slice(0, 15);
+  const sessionRows = [...sessions.values()].map((s) => {
+    const actual = actualOf(s.parts);
+    return {
+      sid: s.sid, client: s.client, provider: s.provider, firstAt: new Date(s.firstAt).toISOString(), lastAt: new Date(s.lastAt).toISOString(),
+      requests: s.requests, unpricedRequests: s.unpriced, apiEquivalentUsd: coveredUsd(s.usd, s.requests, s.unpriced),
+      actualUsd: round(actual.usd, 2), uncostedRequests: actual.uncosted, models: Object.keys(s.usdByModel),
+      estimatedQuotaUnits: s.unpriced ? null : round(estUnits(s.provider, s.usdByModel)),
+    };
+  }).sort((a, b) => b.apiEquivalentUsd - a.apiEquivalentUsd).slice(0, 15);
 
   // Per provider: plan cost over the window (accounts with a known price),
   // how much of it the window's requests used and how much sat on idle accounts.
@@ -636,20 +651,23 @@ export async function buildUsageReports({ rows, samples = [], accounts = [], pri
   for (const p of [...new Set([...accountRows.map((a) => a.provider), ...modelRows.map((m) => m.provider)])].sort()) {
     const mine = accountRows.filter((a) => a.provider === p);
     const priced = mine.filter((a) => a.actualUsd !== null);
-    const used = priced.filter((a) => a.actualUsdPerRequest !== null);
+    const used = priced.filter((a) => a.requests > 0);
     const models = modelRows.filter((m) => m.provider === p);
-    const requests = models.reduce((s, m) => s + m.requests, 0), uncosted = models.reduce((s, m) => s + m.uncostedRequests, 0);
+    const requests = models.reduce((s, m) => s + m.requests, 0), unpriced = models.reduce((s, m) => s + m.unpricedRequests, 0);
+    const costed = used.reduce((s, a) => s + a.requests, 0);
     const planUsd = priced.reduce((s, a) => s + accountCost.get(a.id).planUsd, 0);
-    const allocated = used.reduce((s, a) => s + accountCost.get(a.id).planUsd, 0);
-    const api = models.reduce((s, m) => s + m.apiEquivalentUsd, 0);
+    const spent = used.reduce((s, a) => s + accountCost.get(a.id).planUsd, 0);
+    const unallocated = used.filter((a) => a.actualCostBasis === null).reduce((s, a) => s + accountCost.get(a.id).planUsd, 0);
+    const api = [...modelsAgg.values()].filter((m) => m.provider === p).reduce((s, m) => s + m.usd, 0);
     actualCost[p] = {
-      requests, apiEquivalentUsd: round(api, 2), apiEquivalentUsdPerRequest: requests ? round(api / requests, 4) : null,
+      requests, unpricedRequests: unpriced, apiEquivalentUsd: coveredUsd(api, requests, unpriced), apiEquivalentUsdPerRequest: apiPerRequest(api, requests, unpriced),
       planUsd: priced.length ? round(planUsd, 2) : null,
-      actualUsd: used.length ? round(allocated, 2) : null,
-      idleUsd: priced.length ? round(planUsd - allocated, 2) : null,
-      actualUsdPerRequest: used.length && requests > uncosted ? round(allocated / (requests - uncosted), 4) : null,
-      uncostedRequests: uncosted, unpricedAccounts: mine.length - priced.length,
-      basis: [...new Set(used.map((a) => a.actualCostBasis))].sort(),
+      actualUsd: used.length ? round(spent, 2) : null,
+      idleUsd: priced.length ? round(planUsd - spent, 2) : null,
+      unallocatedUsd: used.length ? round(unallocated, 2) : null,
+      actualUsdPerRequest: costed ? round(spent / costed, 4) : null,
+      uncostedRequests: requests - costed, unpricedAccounts: mine.length - priced.length,
+      basis: [...new Set(used.map((a) => a.actualCostBasis).filter(Boolean))].sort(),
     };
   }
 

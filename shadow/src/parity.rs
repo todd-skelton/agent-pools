@@ -438,7 +438,7 @@ pub fn value_at(inp: &ValueInputs, t: f64) -> Value {
 pub fn reports_at(inp: &ValueInputs, t: f64) -> value::UsageReports {
     let settings = inp.install.settings();
     let (config, problems) = value::value_config(settings.get("usageLedger"));
-    let prices = inp.install.json("model-prices.json").unwrap_or(Value::Null);
+    let prices = value::supplement_prices(inp.install.json("model-prices.json").unwrap_or(Value::Null), t);
     let registry = inp.install.json("state/model-registry.json");
     let first_day: String = js::iso(t - (config.analysis_days + 1.0) * DAY)
         .chars()

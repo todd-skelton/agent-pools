@@ -314,7 +314,10 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   orchestrator (`node golden/routing-attempts.mjs`: 4 cases, 11 attempts), and to the live file:
   `pools-shadow check-attempts` rebuilds the live `state/routing-attempts.json` from the live
   `state/session-usage.json` and the orchestrator's log, reading only (measured 2026-10-27: 5,481
-  attempts, the same document);
+  attempts, the same document). The [verified rate supplement](pool-core/src/model-prices-supplement.json)
+  fills missing entries in new reports without replacing install prices. In `/api/value`, `unpricedRequests` counts
+  requests outside the API subtotal, and `unallocatedUsd` is active plan spend that could not be
+  split by model. Neither is a zero-cost request or idle spend;
 - the model refresh (`writer::models`, model-refresh.mjs with model-store.mjs): three minutes
   after the start and then hourly (`SHADOW_COPY_MODEL_FIRST_SECS`, `SHADOW_COPY_MODEL_REFRESH_SECS`),
   under `state/model-registry.json.lock` (renewed while held, taken over only when stale, released

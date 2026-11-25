@@ -133,6 +133,29 @@ fn value_check_matches_the_golden_report() {
     ));
 }
 
+#[test]
+fn usage_shows_unknown_and_partial_costs_without_hiding_plan_spend() {
+    let value = read("outputs/value/deployed.json");
+    let data = crate::dash::Data {
+        s: std::sync::Arc::new(read("inputs/pool-state.json")),
+        now: pool_core::js::date_parse_value(value.get("generatedAt")),
+        v: Some(std::sync::Arc::new(value)),
+        z: crate::dash::fmt::Zone::from_env(),
+        writable: false,
+        signin: None,
+        service: false,
+    };
+    let fragments = crate::dash::fragments(&data, None, None);
+    let usage = fragments["usage"].as_str().unwrap();
+    let row = |name: &str| usage.split("</tr>").find(|r| r.contains(name)).unwrap();
+    assert!(row("claude-haiku-4-5-20251001").contains(">Unknown</td>"));
+    let claude = row("claude total");
+    assert!(claude.contains("(partial)"));
+    assert!(claude.contains("not split by model"));
+    assert!(usage.contains("requires complete API price coverage"));
+    assert!(usage.contains("Est. quota share"));
+}
+
 async fn get(app: corten::axum::Router, path: &str) -> (StatusCode, String) {
     let req = Request::builder()
         .uri(path)

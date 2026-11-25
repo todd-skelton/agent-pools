@@ -593,7 +593,7 @@ pub fn UsageTab<'a>(u: &'a Result<UsageView, String>) -> impl Render {
                         <Table>
                             <table class={Costs}>
                                 <colgroup><col class={ModelCol}><col><col><col><col><col><col class={HideSm}></colgroup>
-                                <thead><tr><th>"Model"</th><th class={Num}>"Requests"</th><th class={Num}>"API cost"</th><th class={Num}>"Actual cost"</th><th class={Num}>"API / request"</th><th class={Num}>"Actual / request"</th><th class={(Num, HideSm)}>"Quota share"</th></tr></thead>
+                                <thead><tr><th>"Model"</th><th class={Num}>"Requests"</th><th class={Num}>"API cost"</th><th class={Num}>"Actual cost"</th><th class={Num} title="Only requests with known API prices">"API / priced request"</th><th class={Num}>"Actual / request"</th><th class={(Num, HideSm)} title="Share of estimated quota from priced usage">"Est. quota share"</th></tr></thead>
                                 <tbody>
                                     for m in &u.models {
                                         <tr>
@@ -611,7 +611,7 @@ pub fn UsageTab<'a>(u: &'a Result<UsageView, String>) -> impl Render {
                                             <td><ProviderDot provider={&t.provider} size={DotSize::Sm} title={None} />" "<b>{&t.name}</b></td>
                                             <td class={Num}>{&t.requests}</td>
                                             <td class={Num}>{&t.api}</td>
-                                            <td class={Num} title={&t.actual_title}>{&t.actual}if let Some(i) = &t.idle { <div class={Sub}>{i}</div> }</td>
+                                            <td class={Num} title={&t.actual_title}>{&t.actual}if let Some(i) = &t.idle { <div class={Sub}>{i}</div> }if let Some(u) = &t.unallocated { <div class={Sub}>{u}</div> }</td>
                                             <td class={Num}>{&t.api_per}</td>
                                             <td class={Num}>{&t.actual_per}</td>
                                             <td class={(Num, HideSm)}><span class={Dim}>"—"</span></td>
@@ -626,7 +626,7 @@ pub fn UsageTab<'a>(u: &'a Result<UsageView, String>) -> impl Render {
                         <Table>
                             <table class={Costs}>
                                 <colgroup><col class={AccountCol}><col><col><col><col><col><col class={HideSm}><col class={HideSm}><col></colgroup>
-                                <thead><tr><th>"Account"</th><th class={Num}>"Requests"</th><th class={Num}>"API cost"</th><th class={Num}>"Actual cost"</th><th class={Num}>"API / request"</th><th class={Num}>"Actual / request"</th><th class={(Num, HideSm)}>"$ / acct-week"</th><th class={(Num, HideSm)}>"Plan / mo"</th><th class={Num}>"Value vs plan"</th></tr></thead>
+                                <thead><tr><th>"Account"</th><th class={Num}>"Requests"</th><th class={Num}>"API cost"</th><th class={Num}>"Actual cost"</th><th class={Num} title="Only requests with known API prices">"API / priced request"</th><th class={Num}>"Actual / request"</th><th class={(Num, HideSm)}>"$ / acct-week"</th><th class={(Num, HideSm)}>"Plan / mo"</th><th class={Num}>"Value vs plan"</th></tr></thead>
                                 <tbody>
                                     for a in &u.accounts {
                                         <tr>

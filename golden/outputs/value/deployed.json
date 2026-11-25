@@ -89,14 +89,14 @@
    }
   },
   "claude": {
-   "observations": 15,
+   "observations": 12,
    "hours": 120,
-   "usd": 6205.4,
-   "units": 2.53,
+   "usd": 4295.36,
+   "units": 1.75,
    "status": "ok",
    "pooled": {
-    "usdPerAccountWeek": 2467,
-    "unitsPerUsd": 0.00040539458881280266,
+    "usdPerAccountWeek": 2471,
+    "unitsPerUsd": 0.0004046887617530018,
     "r2": 0.996,
     "outliers": 0
    },
@@ -105,19 +105,19 @@
     "outliers": 0,
     "models": {
      "claude-fable-5-1": {
-      "usdPerAccountWeek": 2780,
-      "unitsPerUsd": 0.0003596513188717374,
-      "usd": 91.49
+      "usdPerAccountWeek": 3396,
+      "unitsPerUsd": 0.00029450548686154264,
+      "usd": 67.95
      },
      "claude-opus-5-5": {
-      "usdPerAccountWeek": 2461,
-      "unitsPerUsd": 0.0004063870258221123,
-      "usd": 6109.81
+      "usdPerAccountWeek": 2457,
+      "unitsPerUsd": 0.0004070780518822689,
+      "usd": 4223.53
      },
      "(other)": {
       "usdPerAccountWeek": null,
       "unitsPerUsd": 0,
-      "usd": 4.1
+      "usd": 3.88
      }
     }
    },
@@ -126,27 +126,27 @@
     "outliers": 0,
     "types": {
      "in": {
-      "unitsPerUsd": 0.004646433179586215,
-      "usdPerAccountWeek": 215
+      "unitsPerUsd": 0.006309015263998154,
+      "usdPerAccountWeek": 159
      },
      "cr": {
-      "unitsPerUsd": 0.0002273912357206001,
-      "usdPerAccountWeek": 4398
+      "unitsPerUsd": 0.00026853043051327743,
+      "usdPerAccountWeek": 3724
      },
      "cw": {
-      "unitsPerUsd": 0.0004971384669800326,
-      "usdPerAccountWeek": 2012
+      "unitsPerUsd": 0.0005108485441022478,
+      "usdPerAccountWeek": 1958
      },
      "out": {
-      "unitsPerUsd": 0.0006206480100065433,
-      "usdPerAccountWeek": 1611
+      "unitsPerUsd": 0.0005150245096451103,
+      "usdPerAccountWeek": 1942
      }
     }
    },
    "singleModel": {
     "claude-opus-5-5": {
-     "buckets": 15,
-     "usdPerAccountWeek": 2448
+     "buckets": 12,
+     "usdPerAccountWeek": 2422
     }
    }
   }
@@ -160,22 +160,24 @@
     "claude-fable-5",
     "claude-fable-5-1"
    ],
-   "kind": "cap",
-   "shareOfCommon": 0.1776,
-   "shareBasis": "model",
+   "kind": "reserve",
+   "shareOfCommon": 0.2011,
+   "shareBasis": "pooled",
    "source": "measured",
-   "observations": 8,
+   "observations": 6,
    "note": null
   }
  ],
  "actualCost": {
   "claude": {
    "requests": 76687,
+   "unpricedRequests": 32,
    "apiEquivalentUsd": 6698.82,
    "apiEquivalentUsdPerRequest": 0.0874,
    "planUsd": 98.63,
    "actualUsd": 98.63,
    "idleUsd": 0,
+   "unallocatedUsd": 65.75,
    "actualUsdPerRequest": 0.0013,
    "uncostedRequests": 0,
    "unpricedAccounts": 0,
@@ -185,11 +187,13 @@
   },
   "codex": {
    "requests": 173551,
-   "apiEquivalentUsd": 4160.16,
+   "unpricedRequests": 0,
+   "apiEquivalentUsd": 4160.17,
    "apiEquivalentUsdPerRequest": 0.024,
    "planUsd": 115.07,
    "actualUsd": 115.07,
    "idleUsd": 0,
+   "unallocatedUsd": 0,
    "actualUsdPerRequest": 0.0007,
    "uncostedRequests": 0,
    "unpricedAccounts": 0,
@@ -206,34 +210,29 @@
    "weight": 1,
    "requests": 25209,
    "failedRequests": 14,
+   "unpricedRequests": 2,
    "apiEquivalentUsd": 2106.51,
    "apiEquivalentUsdPerRequest": 0.0836,
    "usdByModel": {
     "claude-opus-5-5": 2073.89,
     "claude-sonnet-5-5": 0.2,
-    "claude-haiku-4-5-20251001": 0,
+    "claude-haiku-4-5-20251001": null,
     "claude-fable-5-1": 32.41,
     "claude-haiku-5-5": 0.01
    },
    "actualUsd": 32.88,
    "actualUsdPerRequest": 0.0013,
-   "actualUsdByModel": {
-    "claude-opus-5-5": 32.43,
-    "claude-sonnet-5-5": 0,
-    "claude-haiku-4-5-20251001": 0,
-    "claude-fable-5-1": 0.45,
-    "claude-haiku-5-5": 0
-   },
-   "actualCostBasis": "quota",
+   "actualUsdByModel": {},
+   "actualCostBasis": null,
    "weeklyPercentUsed": 86,
    "quotaUnitsUsed": 0.86,
    "quotaSource": "samples",
    "fitSource": "headers",
-   "usdPerAccountWeek": 2449,
-   "unexplainedUnits": 0.0055,
+   "usdPerAccountWeek": null,
+   "unexplainedUnits": null,
    "planUsdPerMonth": 200,
    "planPriceSource": "list",
-   "valueMultiple": 63.9
+   "valueMultiple": null
   },
   {
    "id": "claude-550c2ce1-user4@example.invalid.json",
@@ -242,6 +241,7 @@
    "weight": 1,
    "requests": 22253,
    "failedRequests": 20,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 2127.84,
    "apiEquivalentUsdPerRequest": 0.0956,
    "usdByModel": {
@@ -253,9 +253,9 @@
    "actualUsd": 32.88,
    "actualUsdPerRequest": 0.0015,
    "actualUsdByModel": {
-    "claude-opus-5-5": 32.38,
+    "claude-opus-5-5": 32.47,
     "claude-sonnet-5-5": 0,
-    "claude-fable-5-1": 0.49,
+    "claude-fable-5-1": 0.4,
     "claude-haiku-5-5": 0
    },
    "actualCostBasis": "quota",
@@ -264,7 +264,7 @@
    "quotaSource": "samples",
    "fitSource": "headers",
    "usdPerAccountWeek": 2391,
-   "unexplainedUnits": 0.0269,
+   "unexplainedUnits": 0.0278,
    "planUsdPerMonth": 200,
    "planPriceSource": "list",
    "valueMultiple": 64.54
@@ -276,36 +276,30 @@
    "weight": 1,
    "requests": 29225,
    "failedRequests": 19,
+   "unpricedRequests": 30,
    "apiEquivalentUsd": 2464.47,
-   "apiEquivalentUsdPerRequest": 0.0843,
+   "apiEquivalentUsdPerRequest": 0.0844,
    "usdByModel": {
     "claude-opus-5-5": 2433.97,
     "claude-sonnet-5-5": 3.79,
     "claude-fable-5-1": 23.25,
-    "claude-haiku-4-5-20251001": 0,
-    "claude-sonnet-5": 0,
+    "claude-haiku-4-5-20251001": null,
+    "claude-sonnet-5": null,
     "claude-opus-5": 3.47
    },
    "actualUsd": 32.88,
    "actualUsdPerRequest": 0.0011,
-   "actualUsdByModel": {
-    "claude-opus-5-5": 32.51,
-    "claude-sonnet-5-5": 0.05,
-    "claude-fable-5-1": 0.27,
-    "claude-haiku-4-5-20251001": 0,
-    "claude-sonnet-5": 0,
-    "claude-opus-5": 0.05
-   },
-   "actualCostBasis": "quota",
+   "actualUsdByModel": {},
+   "actualCostBasis": null,
    "weeklyPercentUsed": 99,
    "quotaUnitsUsed": 0.99,
    "quotaSource": "samples",
    "fitSource": "headers",
-   "usdPerAccountWeek": 2489,
-   "unexplainedUnits": -0.0104,
+   "usdPerAccountWeek": null,
+   "unexplainedUnits": null,
    "planUsdPerMonth": 200,
    "planPriceSource": "list",
-   "valueMultiple": 74.76
+   "valueMultiple": null
   },
   {
    "id": "codex-4a53e220-user1@example.invalid-pro.json",
@@ -314,6 +308,7 @@
    "weight": 1,
    "requests": 58678,
    "failedRequests": 12704,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 1323.15,
    "apiEquivalentUsdPerRequest": 0.0225,
    "usdByModel": {
@@ -346,6 +341,7 @@
    "weight": 1,
    "requests": 39435,
    "failedRequests": 12909,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 908,
    "apiEquivalentUsdPerRequest": 0.023,
    "usdByModel": {
@@ -378,6 +374,7 @@
    "weight": 1,
    "requests": 62325,
    "failedRequests": 11568,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 1527.42,
    "apiEquivalentUsdPerRequest": 0.0245,
    "usdByModel": {
@@ -410,6 +407,7 @@
    "weight": 0.5,
    "requests": 13113,
    "failedRequests": 40,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 401.59,
    "apiEquivalentUsdPerRequest": 0.0306,
    "usdByModel": {
@@ -441,11 +439,12 @@
    "requests": 75865,
    "failedRequests": 51,
    "sessions": 527,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 6599.76,
    "usdPerRequest": 0.087,
-   "actualUsd": 97.31,
-   "actualUsdPerRequest": 0.0013,
-   "uncostedRequests": 0,
+   "actualUsd": 32.47,
+   "actualUsdPerRequest": 0.0015,
+   "uncostedRequests": 53845,
    "tokens": {
     "in": 577600,
     "cr": 14117154084,
@@ -453,8 +452,8 @@
     "out": 66462783,
     "rsn": 30337176
    },
-   "estimatedQuotaUnits": 2.6821,
-   "shareOfProviderQuota": 0.987
+   "estimatedQuotaUnits": 2.6866,
+   "shareOfProviderQuota": 0.989
   },
   {
    "provider": "codex",
@@ -462,8 +461,9 @@
    "requests": 162784,
    "failedRequests": 35986,
    "sessions": 1204,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 2714.71,
-   "usdPerRequest": 0.017,
+   "usdPerRequest": 0.0167,
    "actualUsd": 77.74,
    "actualUsdPerRequest": 0.0005,
    "uncostedRequests": 0,
@@ -483,8 +483,9 @@
    "requests": 10339,
    "failedRequests": 1087,
    "sessions": 180,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 1445.22,
-   "usdPerRequest": 0.14,
+   "usdPerRequest": 0.1398,
    "actualUsd": 37.32,
    "actualUsdPerRequest": 0.0036,
    "uncostedRequests": 0,
@@ -504,11 +505,12 @@
    "requests": 646,
    "failedRequests": 2,
    "sessions": 16,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 91.49,
-   "usdPerRequest": 0.142,
-   "actualUsd": 1.21,
-   "actualUsdPerRequest": 0.0019,
-   "uncostedRequests": 0,
+   "usdPerRequest": 0.1416,
+   "actualUsd": 0.4,
+   "actualUsdPerRequest": 0.0018,
+   "uncostedRequests": 419,
    "tokens": {
     "in": 1917,
     "cr": 100405280,
@@ -516,8 +518,8 @@
     "out": 760504,
     "rsn": 450524
    },
-   "estimatedQuotaUnits": 0.0329,
-   "shareOfProviderQuota": 0.012
+   "estimatedQuotaUnits": 0.0269,
+   "shareOfProviderQuota": 0.01
   },
   {
    "provider": "claude",
@@ -525,11 +527,12 @@
    "requests": 109,
    "failedRequests": 0,
    "sessions": 16,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 4.08,
-   "usdPerRequest": 0.037,
-   "actualUsd": 0.06,
+   "usdPerRequest": 0.0375,
+   "actualUsd": 0,
    "actualUsdPerRequest": 0.0005,
-   "uncostedRequests": 0,
+   "uncostedRequests": 106,
    "tokens": {
     "in": 1401,
     "cr": 10548469,
@@ -546,11 +549,12 @@
    "requests": 26,
    "failedRequests": 0,
    "sessions": 1,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 3.47,
-   "usdPerRequest": 0.133,
-   "actualUsd": 0.05,
-   "actualUsdPerRequest": 0.0018,
-   "uncostedRequests": 0,
+   "usdPerRequest": 0.1333,
+   "actualUsd": null,
+   "actualUsdPerRequest": null,
+   "uncostedRequests": 26,
    "tokens": {
     "in": 52,
     "cr": 3256234,
@@ -567,8 +571,9 @@
    "requests": 428,
    "failedRequests": 148,
    "sessions": 118,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 0.23,
-   "usdPerRequest": 0.001,
+   "usdPerRequest": 0.0005,
    "actualUsd": 0.01,
    "actualUsdPerRequest": 0,
    "uncostedRequests": 0,
@@ -588,11 +593,12 @@
    "requests": 9,
    "failedRequests": 0,
    "sessions": 9,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 0.02,
-   "usdPerRequest": 0.002,
+   "usdPerRequest": 0.0018,
    "actualUsd": 0,
    "actualUsdPerRequest": 0,
-   "uncostedRequests": 0,
+   "uncostedRequests": 6,
    "tokens": {
     "in": 18,
     "cr": 113020,
@@ -609,11 +615,12 @@
    "requests": 4,
    "failedRequests": 0,
    "sessions": 4,
-   "apiEquivalentUsd": 0,
-   "usdPerRequest": 0,
-   "actualUsd": 0,
-   "actualUsdPerRequest": 0,
-   "uncostedRequests": 0,
+   "unpricedRequests": 4,
+   "apiEquivalentUsd": null,
+   "usdPerRequest": null,
+   "actualUsd": null,
+   "actualUsdPerRequest": null,
+   "uncostedRequests": 4,
    "tokens": {
     "in": 977,
     "cr": 0,
@@ -621,8 +628,8 @@
     "out": 79,
     "rsn": 0
    },
-   "estimatedQuotaUnits": 0,
-   "shareOfProviderQuota": 0
+   "estimatedQuotaUnits": null,
+   "shareOfProviderQuota": null
   },
   {
    "provider": "claude",
@@ -630,11 +637,12 @@
    "requests": 28,
    "failedRequests": 0,
    "sessions": 3,
-   "apiEquivalentUsd": 0,
-   "usdPerRequest": 0,
-   "actualUsd": 0,
-   "actualUsdPerRequest": 0,
-   "uncostedRequests": 0,
+   "unpricedRequests": 28,
+   "apiEquivalentUsd": null,
+   "usdPerRequest": null,
+   "actualUsd": null,
+   "actualUsdPerRequest": null,
+   "uncostedRequests": 28,
    "tokens": {
     "in": 1278,
     "cr": 545946,
@@ -642,8 +650,8 @@
     "out": 1226,
     "rsn": 0
    },
-   "estimatedQuotaUnits": 0,
-   "shareOfProviderQuota": 0
+   "estimatedQuotaUnits": null,
+   "shareOfProviderQuota": null
   }
  ],
  "sessions": [
@@ -654,12 +662,14 @@
    "firstAt": "2026-10-22T02:41:33.870Z",
    "lastAt": "2026-10-27T02:38:29.219Z",
    "requests": 17548,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 1508.9,
-   "actualUsd": 22.52,
+   "actualUsd": 8,
+   "uncostedRequests": 11742,
    "models": [
     "claude-opus-5-5"
    ],
-   "estimatedQuotaUnits": 0.6132
+   "estimatedQuotaUnits": 0.6142
   },
   {
    "sid": "01a14fb1-ae81-7ff1-bec3-a463d5318d2a",
@@ -668,8 +678,10 @@
    "firstAt": "2026-10-22T02:42:06.303Z",
    "lastAt": "2026-10-27T02:41:26.454Z",
    "requests": 16961,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 818.84,
-   "actualUsd": 17.14,
+   "actualUsd": 13.87,
+   "uncostedRequests": 2406,
    "models": [
     "claude-opus-5-5",
     "gpt-6.1-sol",
@@ -677,7 +689,7 @@
     "claude-fable-5-1",
     "claude-sonnet-5-5"
    ],
-   "estimatedQuotaUnits": 0.3312
+   "estimatedQuotaUnits": 0.3297
   },
   {
    "sid": "01a16bfb-f9cb-7973-b90f-bffec1e87718",
@@ -686,12 +698,14 @@
    "firstAt": "2026-10-24T03:37:22.700Z",
    "lastAt": "2026-10-27T02:41:25.369Z",
    "requests": 8799,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 741.44,
-   "actualUsd": 10.41,
+   "actualUsd": 0.15,
+   "uncostedRequests": 8745,
    "models": [
     "claude-opus-5-5"
    ],
-   "estimatedQuotaUnits": 0.3013
+   "estimatedQuotaUnits": 0.3018
   },
   {
    "sid": "01a16b18-9688-7e40-a606-788b06828861",
@@ -700,12 +714,14 @@
    "firstAt": "2026-10-23T23:29:03.428Z",
    "lastAt": "2026-10-27T02:40:39.403Z",
    "requests": 4274,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 376.7,
-   "actualUsd": 5.43,
+   "actualUsd": 0.17,
+   "uncostedRequests": 4209,
    "models": [
     "claude-opus-5-5"
    ],
-   "estimatedQuotaUnits": 0.1531
+   "estimatedQuotaUnits": 0.1533
   },
   {
    "sid": "01a156c4-0eb1-7832-b850-0b76a6285a9b",
@@ -714,12 +730,14 @@
    "firstAt": "2026-10-22T02:44:47.829Z",
    "lastAt": "2026-10-25T18:15:12.508Z",
    "requests": 3595,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 353.15,
-   "actualUsd": 5.45,
+   "actualUsd": 3.42,
+   "uncostedRequests": 1521,
    "models": [
     "claude-opus-5-5"
    ],
-   "estimatedQuotaUnits": 0.1435
+   "estimatedQuotaUnits": 0.1438
   },
   {
    "sid": "01a16167-c87e-73a2-b566-9c25e84800d1",
@@ -728,12 +746,14 @@
    "firstAt": "2026-10-22T02:43:18.998Z",
    "lastAt": "2026-10-23T18:50:25.264Z",
    "requests": 2521,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 233.08,
-   "actualUsd": 3.61,
+   "actualUsd": 3.33,
+   "uncostedRequests": 120,
    "models": [
     "claude-opus-5-5"
    ],
-   "estimatedQuotaUnits": 0.0947
+   "estimatedQuotaUnits": 0.0949
   },
   {
    "sid": "f70ad3f8-991e-4685-ab15-69770b357774",
@@ -742,12 +762,14 @@
    "firstAt": "2026-10-26T22:49:33.219Z",
    "lastAt": "2026-10-27T02:41:24.874Z",
    "requests": 701,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 219.36,
-   "actualUsd": 3.34,
+   "actualUsd": 2.99,
+   "uncostedRequests": 95,
    "models": [
     "claude-opus-5-5"
    ],
-   "estimatedQuotaUnits": 0.0891
+   "estimatedQuotaUnits": 0.0893
   },
   {
    "sid": "01a15974-11b3-7ea1-ada8-237779e09fd5",
@@ -756,12 +778,14 @@
    "firstAt": "2026-10-22T02:41:34.586Z",
    "lastAt": "2026-10-23T22:58:28.741Z",
    "requests": 1918,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 211.64,
-   "actualUsd": 3.29,
+   "actualUsd": 2.08,
+   "uncostedRequests": 759,
    "models": [
     "claude-opus-5-5"
    ],
-   "estimatedQuotaUnits": 0.086
+   "estimatedQuotaUnits": 0.0862
   },
   {
    "sid": "01a12613-4cd8-7db3-b1e6-76e27fbbef8b",
@@ -770,12 +794,14 @@
    "firstAt": "2026-10-22T02:51:56.043Z",
    "lastAt": "2026-10-27T02:13:20.946Z",
    "requests": 810,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 197.72,
-   "actualUsd": 2.94,
+   "actualUsd": 0.81,
+   "uncostedRequests": 572,
    "models": [
     "claude-opus-5-5"
    ],
-   "estimatedQuotaUnits": 0.0804
+   "estimatedQuotaUnits": 0.0805
   },
   {
    "sid": "ab9a85af-336f-4f4b-983b-9630c77bdbff",
@@ -784,12 +810,14 @@
    "firstAt": "2026-10-26T23:17:54.937Z",
    "lastAt": "2026-10-27T02:41:33.269Z",
    "requests": 852,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 185.5,
-   "actualUsd": 2.51,
+   "actualUsd": 0.25,
+   "uncostedRequests": 759,
    "models": [
     "claude-opus-5-5"
    ],
-   "estimatedQuotaUnits": 0.0754
+   "estimatedQuotaUnits": 0.0755
   },
   {
    "sid": "01a17354-fcb0-7d30-8da2-f1400760a99f",
@@ -798,12 +826,14 @@
    "firstAt": "2026-10-25T13:52:03.444Z",
    "lastAt": "2026-10-27T02:41:28.472Z",
    "requests": 1730,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 165.14,
-   "actualUsd": 2.24,
+   "actualUsd": 0.25,
+   "uncostedRequests": 1603,
    "models": [
     "claude-opus-5-5"
    ],
-   "estimatedQuotaUnits": 0.0671
+   "estimatedQuotaUnits": 0.0672
   },
   {
    "sid": "01a14f7e-e2f9-75b0-b8bb-335e47e4d145",
@@ -812,12 +842,14 @@
    "firstAt": "2026-10-22T03:06:33.197Z",
    "lastAt": "2026-10-27T02:02:59.280Z",
    "requests": 373,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 136.47,
-   "actualUsd": 2.04,
+   "actualUsd": 0.7,
+   "uncostedRequests": 244,
    "models": [
     "claude-opus-5-5"
    ],
-   "estimatedQuotaUnits": 0.0555
+   "estimatedQuotaUnits": 0.0556
   },
   {
    "sid": "01a16fc5-322e-7a80-b7fd-e3e110d8ea64",
@@ -826,8 +858,10 @@
    "firstAt": "2026-10-24T21:15:57.225Z",
    "lastAt": "2026-10-24T23:02:50.650Z",
    "requests": 469,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 75.59,
    "actualUsd": 1.62,
+   "uncostedRequests": 0,
    "models": [
     "gpt-6-astra"
    ],
@@ -840,8 +874,10 @@
    "firstAt": "2026-10-24T20:49:10.846Z",
    "lastAt": "2026-10-25T09:11:18.745Z",
    "requests": 865,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 66.94,
-   "actualUsd": 1.02,
+   "actualUsd": null,
+   "uncostedRequests": 865,
    "models": [
     "claude-opus-5-5"
    ],
@@ -854,8 +890,10 @@
    "firstAt": "2026-10-23T03:43:19.701Z",
    "lastAt": "2026-10-23T06:34:25.051Z",
    "requests": 374,
+   "unpricedRequests": 0,
    "apiEquivalentUsd": 59.33,
    "actualUsd": 1.59,
+   "uncostedRequests": 0,
    "models": [
     "gpt-6-astra"
    ],

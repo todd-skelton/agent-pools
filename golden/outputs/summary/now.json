@@ -14,7 +14,7 @@
   "creditPlan (refill providers): per banked credit, what automation does and whether it gets used. action: redeem-now (the account is out and redeeming now beats waiting for every account to run out), drain-first (routing sends new sessions to that account before its weekly reset order so it reaches its limit before drainBy, the credit expiry; a refill only applies at the limit), wait (acting early would not add usage). Each action is taken only when it is never worse at the low, measured and planning paces and better at one. outcome = the credit's fate at the measured pace under the plan (used, lapses, banked); planned false = too little demand evidence or automation off, nothing is acted on; needUnitsPerHour = lowest steady pace that uses it (x168 = account-weeks per week), null when none does. AgentPools applies these itself; a lapsing outcome means more work on that provider is the only remedy.",
   "Model limits: a cap sits inside the all-models quota; a reserve adds capacity outside it. Kind and share are measured or configured, and stay unknown without evidence.",
   "priceSource: provider = the provider's own billing data; list = public list price for the plan tier the provider reports; config = install.json usageLedger.planPrices.",
-  "value: apiEquivalentUsd = the window's requests at API list prices; actualUsd = what the subscriptions cost over the same windowDays, each account's plan price spread over the requests it served by fitted quota use (idleUsd = plan cost of accounts that served none); per-request figures divide by the requests they cover."
+  "value: apiEquivalentUsd covers priced requests only (unpricedRequests counts exclusions); actualUsd is prorated plan spend for accounts with requests and known plan prices (idleUsd is idle plan cost; unallocatedUsd is active plan cost that cannot be split by model). Per-request figures divide by the requests they cover."
  ],
  "providers": {
   "codex": {
@@ -197,12 +197,15 @@
     "modelLimits": []
    },
    "value": {
-    "apiEquivalentUsd": 4160.16,
+    "apiEquivalentUsd": 4160.17,
     "apiEquivalentUsdPerRequest": 0.024,
     "actualUsd": 115.07,
     "actualUsdPerRequest": 0.0007,
     "idleUsd": 0,
-    "windowDays": 5
+    "windowDays": 5,
+    "unpricedRequests": 0,
+    "uncostedRequests": 0,
+    "unallocatedUsd": 0
    }
   },
   "claude": {
@@ -359,9 +362,9 @@
       "state": "spend",
       "firstShortAt": null,
       "window": "limit:2",
-      "kind": "cap",
-      "shareOfCommon": 0.1776,
-      "shareBasis": "model",
+      "kind": "reserve",
+      "shareOfCommon": 0.2011,
+      "shareBasis": "pooled",
       "source": "measured",
       "models": [
        "claude-fable-5",
@@ -393,7 +396,10 @@
     "actualUsd": 98.63,
     "actualUsdPerRequest": 0.0013,
     "idleUsd": 0,
-    "windowDays": 5
+    "windowDays": 5,
+    "unpricedRequests": 32,
+    "uncostedRequests": 0,
+    "unallocatedUsd": 65.75
    }
   }
  },
@@ -447,10 +453,11 @@
    },
    "value": {
     "apiEquivalentUsd": 2106.51,
-    "valueMultiple": 63.9,
+    "valueMultiple": null,
     "requests": 25209,
     "actualUsd": 32.88,
-    "actualUsdPerRequest": 0.0013
+    "actualUsdPerRequest": 0.0013,
+    "unpricedRequests": 2
    }
   },
   {
@@ -505,7 +512,8 @@
     "valueMultiple": 64.54,
     "requests": 22253,
     "actualUsd": 32.88,
-    "actualUsdPerRequest": 0.0015
+    "actualUsdPerRequest": 0.0015,
+    "unpricedRequests": 0
    }
   },
   {
@@ -557,10 +565,11 @@
    },
    "value": {
     "apiEquivalentUsd": 2464.47,
-    "valueMultiple": 74.76,
+    "valueMultiple": null,
     "requests": 29225,
     "actualUsd": 32.88,
-    "actualUsdPerRequest": 0.0011
+    "actualUsdPerRequest": 0.0011,
+    "unpricedRequests": 30
    }
   },
   {
@@ -601,7 +610,8 @@
     "valueMultiple": 40.14,
     "requests": 58678,
     "actualUsd": 32.88,
-    "actualUsdPerRequest": 0.0006
+    "actualUsdPerRequest": 0.0006,
+    "unpricedRequests": 0
    }
   },
   {
@@ -642,7 +652,8 @@
     "valueMultiple": 27.54,
     "requests": 39435,
     "actualUsd": 32.88,
-    "actualUsdPerRequest": 0.0008
+    "actualUsdPerRequest": 0.0008,
+    "unpricedRequests": 0
    }
   },
   {
@@ -684,7 +695,8 @@
     "valueMultiple": 46.33,
     "requests": 62325,
     "actualUsd": 32.88,
-    "actualUsdPerRequest": 0.0005
+    "actualUsdPerRequest": 0.0005,
+    "unpricedRequests": 0
    }
   },
   {
@@ -725,7 +737,8 @@
     "valueMultiple": 24.36,
     "requests": 13113,
     "actualUsd": 16.44,
-    "actualUsdPerRequest": 0.0013
+    "actualUsdPerRequest": 0.0013,
+    "unpricedRequests": 0
    }
   }
  ]

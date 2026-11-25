@@ -16,7 +16,7 @@ const NOTES: [&str; 7] = [
     "creditPlan (refill providers): per banked credit, what automation does and whether it gets used. action: redeem-now (the account is out and redeeming now beats waiting for every account to run out), drain-first (routing sends new sessions to that account before its weekly reset order so it reaches its limit before drainBy, the credit expiry; a refill only applies at the limit), wait (acting early would not add usage). Each action is taken only when it is never worse at the low, measured and planning paces and better at one. outcome = the credit's fate at the measured pace under the plan (used, lapses, banked); planned false = too little demand evidence or automation off, nothing is acted on; needUnitsPerHour = lowest steady pace that uses it (x168 = account-weeks per week), null when none does. AgentPools applies these itself; a lapsing outcome means more work on that provider is the only remedy.",
     "Model limits: a cap sits inside the all-models quota; a reserve adds capacity outside it. Kind and share are measured or configured, and stay unknown without evidence.",
     "priceSource: provider = the provider's own billing data; list = public list price for the plan tier the provider reports; config = install.json usageLedger.planPrices.",
-    "value: apiEquivalentUsd = the window's requests at API list prices; actualUsd = what the subscriptions cost over the same windowDays, each account's plan price spread over the requests it served by fitted quota use (idleUsd = plan cost of accounts that served none); per-request figures divide by the requests they cover.",
+    "value: apiEquivalentUsd covers priced requests only (unpricedRequests counts exclusions); actualUsd is prorated plan spend for accounts with requests and known plan prices (idleUsd is idle plan cost; unallocatedUsd is active plan cost that cannot be split by model). Per-request figures divide by the requests they cover.",
 ];
 
 // --- freshness -------------------------------------------------------------------------
@@ -260,13 +260,17 @@ pub fn summary_account(a: &Value, value_row: Option<&Value>) -> Value {
     m.insert(
         "value".into(),
         if value_row.is_some() {
-            json!({
+            let mut result = json!({
                 "apiEquivalentUsd": or_null(js::get(value_row, "apiEquivalentUsd")),
                 "valueMultiple": or_null(js::get(value_row, "valueMultiple")),
                 "requests": or_null(js::get(value_row, "requests")),
                 "actualUsd": or_null(js::get(value_row, "actualUsd")),
                 "actualUsdPerRequest": or_null(js::get(value_row, "actualUsdPerRequest")),
-            })
+            });
+            if let Some(unpriced) = js::get(value_row, "unpricedRequests") {
+                result["unpricedRequests"] = unpriced.clone();
+            }
+            result
         } else {
             Value::Null
         },
@@ -557,14 +561,21 @@ pub fn build_summary(
                 ))
             });
             let cost = js::get(js::get(value, "actualCost"), id);
-            json!({
-                "apiEquivalentUsd": round2(usd),
+            let covered = js::get(cost, "unpricedRequests");
+            let mut result = json!({
+                "apiEquivalentUsd": if covered.is_some() { or_null(js::get(cost, "apiEquivalentUsd")) } else { round2(usd) },
                 "apiEquivalentUsdPerRequest": or_null(js::get(cost, "apiEquivalentUsdPerRequest")),
                 "actualUsd": or_null(js::get(cost, "actualUsd")),
                 "actualUsdPerRequest": or_null(js::get(cost, "actualUsdPerRequest")),
                 "idleUsd": or_null(js::get(cost, "idleUsd")),
                 "windowDays": or_null(js::get(value, "valueWindowDays")),
-            })
+            });
+            if let Some(unpriced) = covered {
+                result["unpricedRequests"] = unpriced.clone();
+                result["uncostedRequests"] = or_null(js::get(cost, "uncostedRequests"));
+                result["unallocatedUsd"] = or_null(js::get(cost, "unallocatedUsd"));
+            }
+            result
         } else {
             Value::Null
         };
