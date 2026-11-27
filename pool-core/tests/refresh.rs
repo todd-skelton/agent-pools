@@ -295,6 +295,72 @@ fn texts(vs: &[Value]) -> Vec<String> {
     vs.iter().map(|v| canonical(v).to_string()).collect()
 }
 
+#[tokio::test]
+async fn manual_refills_use_only_the_confirmed_offer_and_journal_once() {
+    use pool_core::refresh::{adapters::CLAUDE_USAGE_URL, manual::{Refill, Scope}};
+    let doc = traces();
+    let fixture = &doc["traces"].as_array().unwrap().iter().find(|t| t["name"] == "claude-weekly-out-claims-one-reset").unwrap()["scenario"];
+    for scope in [Scope::Full, Scope::Model] {
+        let mut routes = fixture["routes"].as_object().unwrap().clone();
+        let usage = routes.get_mut(CLAUDE_USAGE_URL).unwrap();
+        if scope == Scope::Model {
+            usage["cedar_ember"]["grants"][0]["clears"] = json!(["seven_day_overage_included"]);
+        }
+        let claim_url = routes.keys().find(|k| k.ends_with("/reset_rate_limits")).unwrap().clone();
+        let fake = Fake {
+            clock: Mutex::new(doc["t0"].as_f64().unwrap()), files: Mutex::new(fixture["files"].clone()),
+            routes: Mutex::new(routes), counts: Default::default(), hooks: Default::default(), trace: Default::default(),
+            uuids: Default::default(), config: json!({}), versions: json!({"claude":"1.0.0"}),
+            org: Some("a0b1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d".into()),
+        };
+        let mut state = json!({"accounts":[], "resetAutomation":false});
+        migrate_state(&mut state);
+        let mut refresh = Refresh::new(Default::default(), &state);
+        refresh.refresh(&mut state, &fake).await;
+        let make_request = |state: &Value| Refill {
+            account: "claude-2.json".into(), grant: "fixture-launch-grant".into(), scope,
+            observed: state["accounts"][1]["creditsUpdatedAt"].as_str().unwrap().into(), request_id: "manual-test-id".into(),
+        };
+        let req = make_request(&state);
+        assert!(req.confirmed_in(&state, fake.now()));
+        let other_scope = Refill { scope: if scope == Scope::Full { Scope::Model } else { Scope::Full }, ..make_request(&state) };
+        assert!(!other_scope.confirmed_in(&state, fake.now()));
+        assert!(!req.confirmed_in(&state, fake.now() + 300_001.0));
+
+        // Same saved offer, but Anthropic stops offering it before the claim.
+        fake.routes.lock().unwrap()[CLAUDE_USAGE_URL]["cedar_ember"]["next_grant_id"] = json!("replacement");
+        refresh.refresh_with_refill(&mut state, &fake, Some(&req)).await;
+        assert!(req.result(&state).starts_with("Not submitted"));
+        fake.routes.lock().unwrap()[CLAUDE_USAGE_URL]["cedar_ember"]["next_grant_id"] = json!("fixture-launch-grant");
+        refresh.refresh(&mut state, &fake).await;
+        let req = make_request(&state);
+        *fake.clock.lock().unwrap() += 1000.0;
+        let uncertain = scope == Scope::Model;
+        let reply = if uncertain { json!({"reason":"reset_unconfirmed"}) } else { json!({"result":"reset"}) };
+        fake.routes.lock().unwrap().insert(claim_url.clone(), reply);
+        refresh.refresh_with_refill(&mut state, &fake, Some(&req)).await;
+        if uncertain {
+            assert!(req.result(&state).starts_with("Outcome not confirmed"));
+            assert!(!req.confirmed_in(&state, fake.now()), "an uncertain claim holds the slot");
+            fake.routes.lock().unwrap().insert(claim_url.clone(), json!({"result":"reset"}));
+            refresh.refresh(&mut state, &fake).await;
+        }
+        assert_eq!(req.result(&state), "Provider confirmed the refill.");
+        assert_eq!(state["resets"]["claude"]["last"]["trigger"], "manual");
+        assert_eq!(state["resetAutomation"], false);
+        refresh.refresh_with_refill(&mut state, &fake, Some(&req)).await;
+        let trace = fake.trace.lock().unwrap();
+        let sends: Vec<_> = trace.calls.iter().filter(|c| c["body"]["url"] == claim_url).collect();
+        assert_eq!(sends.len(), if uncertain { 2 } else { 1 }, "only the uncertain send is retried");
+        for call in sends {
+            assert_eq!(call["body"]["auth_index"], "claude-idx-2");
+            let body: Value = serde_json::from_str(call["body"]["data"].as_str().unwrap()).unwrap();
+            assert_eq!(body, json!({"program":"cedar_ember","grant_id":req.grant,"request_id":req.request_id}));
+        }
+        assert!(trace.saves.iter().any(|s| s["resets"]["claude"]["pending"]["requestId"] == req.request_id));
+    }
+}
+
 fn sorted(vs: &[Value]) -> Vec<String> {
     let mut t = texts(vs);
     t.sort();

@@ -263,6 +263,12 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   ladders (`pool-core::ladder`, routing-ladder.mjs with model-calibrate.mjs's scores) from it,
   their file inputs read again after an hour, published to `state/routing-ladders.json` and
   served at `/api/ladders` (503 before there are any, as the live service answers);
+- On the writable local dashboard (or as the tailnet owner), expand a Claude row under
+  **Accounts** and choose **Review refill**. The confirmation names the account and the full or
+  model-only grant. Confirming spends only that grant, after another provider check. It does not
+  change automation or the weekly renewal date. Stale confirmations are not applied to another
+  grant. Manual claims use the same pending journal, retry identity and refusal backoff as
+  automated claims. The public machine-key gateway does not forward refill submissions.
 - the dashboard, where Refresh is a form posting to `/refresh` (Corten's cross-site check
   applies: a cross-site POST gets 403), and so is each "Refresh", "Retry now" and "Refresh
   usage" (a row's comes back to that row). The read-only shadow keeps them disabled and answers 404;

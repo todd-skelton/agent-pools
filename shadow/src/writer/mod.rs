@@ -24,6 +24,7 @@ use std::time::Duration;
 
 use pool_core::js;
 use pool_core::refresh::{Options, Outcome, Refresh, account::invalidate, migrate_state};
+use pool_core::refresh::manual::Refill;
 use serde_json::{Value, json};
 use tokio::sync::Notify;
 
@@ -120,9 +121,37 @@ pub struct Trigger {
     requested: AtomicBool,
     running: AtomicBool,
     notify: Notify,
+    refills: std::sync::Mutex<Refills>,
+}
+
+#[derive(Default)]
+struct Refills {
+    queued: Option<(Refill, tokio::sync::oneshot::Sender<String>)>,
+    active_account: Option<String>,
+    results: std::collections::HashMap<String, String>,
 }
 
 impl Trigger {
+    /// A confirmed refill must start its own cycle, not join one already past its bank read.
+    pub fn refill(&self, request: Refill) -> Option<tokio::sync::oneshot::Receiver<String>> {
+        let mut refills = self.refills.lock().unwrap();
+        if refills.active_account.is_some() { return None; }
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        refills.active_account = Some(request.account.clone());
+        refills.queued = Some((request, tx));
+        self.requested.store(true, Ordering::SeqCst);
+        self.notify.notify_waiters();
+        Some(rx)
+    }
+
+    pub fn last_refill(&self, account: &str) -> Option<String> {
+        let refills = self.refills.lock().unwrap();
+        if refills.active_account.as_deref() == Some(account) {
+            return Some("In progress; awaiting the provider check.".into());
+        }
+        refills.results.get(account).cloned()
+    }
+
     /// Asks for a cycle now. False when one is already running (the request joins it).
     pub fn request(&self) -> bool {
         if self.running.load(Ordering::SeqCst) {
@@ -178,6 +207,7 @@ pub trait Check {
 
 /// `pool_core::refresh` over the copy's files and the stand-in proxy.
 struct Cycle<F> {
+    trigger: Arc<Trigger>,
     io: Arc<io::FileIo>,
     health: Arc<health::Health>,
     ledger: Arc<ledger::Ledger>,
@@ -190,7 +220,15 @@ impl<F: Fn() + Send> Check for Cycle<F> {
     async fn check(&mut self) -> Outcome {
         // The proxy watch's holdSince, as the one state object pool-service.mjs shares holds it.
         self.health.apply(&mut self.state);
-        let outcome = self.refresh.refresh(&mut self.state, &*self.io).await;
+        let manual = self.trigger.refills.lock().unwrap().queued.take();
+        let outcome = self.refresh.refresh_with_refill(&mut self.state, &*self.io, manual.as_ref().map(|m| &m.0)).await;
+        if let Some((request, tx)) = manual {
+            let result = request.result(&self.state);
+            let mut refills = self.trigger.refills.lock().unwrap();
+            refills.results.insert(request.account, format!("{}: {result}", js::iso(io::now_ms())));
+            refills.active_account = None;
+            let _ = tx.send(result);
+        }
         // The ledger attributes rows by the accounts the cycle left (`accounts: () => state.accounts`).
         self.ledger.set_accounts(&self.state);
         // What the routes answer from: the state as the cycle left it (saved or not).
@@ -218,7 +256,7 @@ pub async fn run(copy: Arc<Copy>, delays: Delays, options: Options, changed: imp
     // The proxy watch starts the first cycle instead when the proxy is not up yet.
     let bootstrap = healthy && !copy.health.bootstrapped.swap(true, Ordering::SeqCst);
     let trigger = copy.trigger.clone();
-    let mut cycle = Cycle { io: copy.io.clone(), health: copy.health.clone(), ledger: copy.ledger.clone(), state, refresh, changed };
+    let mut cycle = Cycle { trigger: trigger.clone(), io: copy.io.clone(), health: copy.health.clone(), ledger: copy.ledger.clone(), state, refresh, changed };
     run_loop(&trigger, delays, bootstrap, &mut cycle, &signal).await;
 }
 

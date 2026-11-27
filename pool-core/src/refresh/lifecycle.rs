@@ -119,7 +119,7 @@ pub trait Lifecycle {
 
 /// `processReset(state, { policy, ... })`: one provider's reset slot, one step. Returns the
 /// outcome code when a claim was answered.
-pub async fn process_reset<L: Lifecycle + Sync>(state: &mut Value, policy: &CyclePolicy, cx: &L) -> Result<Option<String>, Failure> {
+pub async fn process_reset<L: Lifecycle + Sync>(state: &mut Value, policy: &CyclePolicy, cx: &L, manual: Option<&super::manual::Refill>, confirmed: bool) -> Result<Option<String>, Failure> {
     let io = cx.io();
     let provider = policy.reset.provider.clone();
     let now = io.now();
@@ -153,7 +153,7 @@ pub async fn process_reset<L: Lifecycle + Sync>(state: &mut Value, policy: &Cycl
     let skip: HashSet<String> = refused.keys().cloned().collect();
     let routing = routing_accounts(&accounts);
     let p = policy.routing();
-    let selected = choose_reset(&routing, &p, now, &skip, before_lapse.as_ref());
+    let automatic = choose_reset(&routing, &p, now, &skip, before_lapse.as_ref());
     let finish = |state: &mut Value, outcome: &str| {
         let s = slot_mut(state, &provider);
         let current = at(s, "pending").cloned().unwrap_or(Value::Null);
@@ -171,17 +171,24 @@ pub async fn process_reset<L: Lifecycle + Sync>(state: &mut Value, policy: &Cycl
             !super::obj::strict_eq(Some(&json!(sel.account_id)), at(&p, "accountId"))
                 || !super::obj::strict_eq(Some(&sel.credit_id), at(&p, "creditId"))
         };
-        if str_at(&p, "phase") == Some("unsent") && (!automation || selected.as_ref().is_none_or(mismatch)) {
+        if str_at(&p, "phase") == Some("unsent") && (!automation || automatic.as_ref().is_none_or(mismatch)) {
             put(slot_mut(state, &provider), "pending", p);
             finish(state, "cancelled-before-send");
             io.save(state).await?;
             pending = None;
         }
     }
-    let mut pending = match pending {
-        Some(p) => p,
-        None => {
-            let Some(sel) = selected.as_ref().filter(|_| automation) else { return Ok(None) };
+    let mut pending = match (pending, manual) {
+        (Some(p), _) => p,
+        (None, Some(r)) => {
+            if !confirmed || !r.offered_in(state, now) {
+                return Ok(None);
+            }
+            json!({"accountId":r.account, "creditId":r.grant, "phase":"unsent",
+                "requestId":r.request_id, "trigger":"manual", "scope":r.scope})
+        }
+        (None, None) => {
+            let Some(sel) = automatic.as_ref().filter(|_| automation) else { return Ok(None) };
             let a = accounts.iter().find(|a| at(a, "id") == Some(&json!(sel.account_id)));
             let mut p = super::obj::jsify(serde_json::to_value(sel).unwrap_or(Value::Null));
             put(&mut p, "phase", json!("unsent"));
@@ -192,7 +199,8 @@ pub async fn process_reset<L: Lifecycle + Sync>(state: &mut Value, policy: &Cycl
             p
         }
     };
-    let account = accounts.iter().find(|a| super::obj::strict_eq(at(a, "id"), at(&pending, "accountId"))).cloned();
+    let account = accounts.iter().find(|a| str_at(a, "provider") == Some(&provider)
+        && super::obj::strict_eq(at(a, "id"), at(&pending, "accountId"))).cloned();
     put(slot_mut(state, &provider), "pending", pending.clone());
     if !js::truthy(at(&pending, "requestId")) {
         let p = spread(&pending, vec![

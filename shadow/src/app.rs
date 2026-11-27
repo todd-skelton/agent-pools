@@ -17,6 +17,7 @@ use corten::prelude::*;
 use pool_core::js;
 use serde_json::{Value, json};
 
+use crate::dash::refill::{review as refill_review, submit as refill_submit};
 use crate::dash::signin::{cancel as signin_cancel, finish as signin_finish, open as signin_open, page as signin_page};
 use crate::dash::{accounts, live, overview, policy, usage};
 use crate::parity::{self, Kind, Outcome};
@@ -168,6 +169,11 @@ pub mod url {
 
     #[route("/refresh", post = refresh_now)]
     pub struct RefreshNow;
+
+    #[route("/refill", get = refill_review, post = refill_submit)]
+    pub struct Refill<'a> {
+        pub account: Option<&'a str>,
+    }
 
     #[route("/signin", get = signin_page, post = signin_open)]
     pub struct Signin<'a> {

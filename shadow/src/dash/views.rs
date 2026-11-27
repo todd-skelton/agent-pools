@@ -507,6 +507,9 @@ fn AcctDetail<'a>(d: &'a Detail) -> impl Render {
                 <h4>"Actions"</h4>
                 <div class={Dacts}>
                     for a in &d.acts { <Action a={a} sm={true} /> }
+                    if d.review_refill {
+                        <Button variant={ButtonVariant::Outline} size={ButtonSize::Sm}><a href={url::Refill { account: Some(&d.id) }}>"Review refill"</a></Button>
+                    }
                 </div>
                 if !d.notes.is_empty() { <p class={Notes}>for n in &d.notes { {n}<br> }</p> }
                 <p class={Fine}>"Id "<code>{&d.id}</code></p>

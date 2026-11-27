@@ -1417,6 +1417,7 @@ pub struct KV {
 }
 
 pub struct Detail {
+    pub review_refill: bool,
     pub windows: Vec<KV>,
     pub models_ready: String,
     pub models: Vec<(String, bool)>,
@@ -1754,6 +1755,8 @@ impl<'a> Ctx<'a> {
         .collect();
         let ml = a.get("modelList");
         Detail {
+            review_refill: self.writable && a["provider"] == "claude" && a["disabled"] != true
+                && a["creditsKnown"] == true && (n(a.get("creditCount")) > 0.0 || n(a.get("modelCreditCount")) > 0.0),
             windows,
             models_ready: format!("Models ({} of {} ready)", models.len() - down, models.len()),
             models,

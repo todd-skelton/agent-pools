@@ -21,6 +21,7 @@
 pub mod account;
 pub mod adapters;
 pub mod lifecycle;
+pub mod manual;
 pub mod notify;
 pub mod obj;
 
@@ -357,7 +358,14 @@ impl Refresh {
 
     /// One cycle. Never fails: a failure is recorded on the state, which is saved.
     pub async fn refresh<I: Io>(&mut self, state: &mut Value, io: &I) -> Outcome {
-        match self.cycle(state, io).await {
+        self.refresh_with_refill(state, io, None).await
+    }
+
+    /// An explicit Claude refill is checked against the confirmed snapshot, then against
+    /// the newly read provider offer. Only this cycle owns the journal.
+    pub async fn refresh_with_refill<I: Io>(&mut self, state: &mut Value, io: &I, manual: Option<&manual::Refill>) -> Outcome {
+        let confirmed = manual.is_some_and(|r| r.confirmed_in(state, io.now()));
+        match self.cycle(state, io, manual, confirmed).await {
             Ok(outcome) => outcome,
             Err(e) => {
                 put(state, "error", json!(e.message));
@@ -377,7 +385,7 @@ impl Refresh {
         }
     }
 
-    async fn cycle<I: Io>(&mut self, state: &mut Value, io: &I) -> Result<Outcome, Failure> {
+    async fn cycle<I: Io>(&mut self, state: &mut Value, io: &I, manual: Option<&manual::Refill>, confirmed: bool) -> Result<Outcome, Failure> {
         let listing = io.management("auth-files", None, None).await?;
         let files: Vec<Value> = match at(&listing, "files") {
             Some(Value::Array(fs)) => fs
@@ -498,7 +506,8 @@ impl Refresh {
             let cx = Claims { cycle: &cycle, files: &files };
             for policy in &policies {
                 let provider = policy.reset.provider.clone();
-                match lifecycle::process_reset(state, policy, &cx).await {
+                let request = manual.filter(|_| provider == "claude");
+                match lifecycle::process_reset(state, policy, &cx, request, confirmed).await {
                     Ok(outcome) => {
                         lifecycle::clear_error(state, &provider);
                         if outcome.is_some() {
@@ -735,7 +744,8 @@ impl<I: Io> lifecycle::Lifecycle for Claims<'_, '_, I> {
         let file = self
             .files
             .iter()
-            .find(|f| obj::strict_eq(at(f, "id"), at(account, "id")) && !js::truthy(at(f, "disabled")))
+            .find(|f| obj::strict_eq(at(f, "id"), at(account, "id"))
+                && obj::strict_eq(at(f, "provider"), at(account, "provider")) && !js::truthy(at(f, "disabled")))
             .cloned();
         let pending = pending.clone();
         async move {

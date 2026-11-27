@@ -14,6 +14,7 @@
 
 pub mod fmt;
 pub mod model;
+pub mod refill;
 pub mod signin;
 pub mod views;
 

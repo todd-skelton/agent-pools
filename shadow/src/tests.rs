@@ -603,6 +603,49 @@ async fn a_copys_dashboard_signs_in_and_refreshes_through_the_stand_in() {
     std::fs::remove_file(t.dir.join("logs/fake-proxy.jsonl")).unwrap();
 }
 
+#[tokio::test]
+async fn refill_review_names_the_grant_and_rejects_stale_or_cross_origin_forms() {
+    use serde_json::json;
+    use std::sync::Arc;
+    let t = snapshot("refill-review", false);
+    let (status, _) = get(router(&t), "/refill?account=fixture.json").await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "the read-only shadow cannot offer a refill");
+    let io = Arc::new(crate::writer::io::FileIo::new(t.dir.clone(), "http://127.0.0.1:9".into(), "fixture".into()));
+    let copy = Arc::new(crate::writer::Copy::new(io));
+    let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
+    let app = crate::app::app_copy(shadow, copy.clone(), Default::default(), Default::default()).router();
+    let mut pool = (*copy.io.memory.pool()).clone();
+    let a = pool["accounts"].as_array_mut().unwrap().iter_mut().find(|a| a["provider"] == "claude").unwrap();
+    let id = a["id"].as_str().unwrap().to_owned();
+    let observed = js::iso(now_ms());
+    a["usageUpdatedAt"] = json!(observed);
+    a["creditsUpdatedAt"] = json!(observed);
+    a["creditsKnown"] = json!(true);
+    a["usageStale"] = json!(false);
+    a["disabled"] = json!(false);
+    a["credits"] = json!([]);
+    a["modelCreditCount"] = json!(1);
+    a["modelCredits"] = json!([{"id":"fixture-fable","label":"Fable only","expires_at":js::iso(now_ms()+86400000.0)}]);
+    pool["resets"]["claude"] = json!({});
+    copy.io.memory.set_pool(&pool);
+    let (status, row) = get(app.clone(), &format!("/accounts?open={}", enc(&id))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(row.contains("Review refill"));
+    let (status, review) = get(app.clone(), &format!("/refill?account={}", enc(&id))).await;
+    assert_eq!(status, StatusCode::OK);
+    for expected in ["Model-only refill", "Fable only", "Confirm and spend one refill", id.as_str(), "fixture-fable"] {
+        assert!(review.contains(expected), "missing {expected}");
+    }
+    let stale = format!("account={}&grant=fixture-fable&scope=model&observed=old", enc(&id));
+    let (status, page, _) = send_form(app.clone(), "/refill", &stale).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains("Not submitted."));
+    let forged = Request::builder().method("POST").uri("/refill").header("host","localhost")
+        .header("origin","https://example.invalid").header("content-type","application/x-www-form-urlencoded")
+        .body(Body::from(stale)).unwrap();
+    assert_eq!(app.oneshot(forged).await.unwrap().status(), StatusCode::FORBIDDEN);
+}
+
 /// The tailnet view (tailnet-dashboard-proxy.mjs): the tailnet name is answered and its pages
 /// read by anyone on it; a write from it (a form, or the service's JSON) needs the owner's
 /// Tailscale login, and the tailnet page's origin passes the JSON write's origin check. Without a
@@ -640,6 +683,8 @@ async fn the_tailnet_reads_and_only_its_owner_writes() {
     assert_eq!(status(app.clone(), send("GET", "/", Some("guest@example.com"), form, "")).await, StatusCode::OK, "anyone on the tailnet reads");
     assert_eq!(status(app.clone(), send("GET", "/accounts", None, form, "")).await, StatusCode::OK);
     for login in [None, Some("guest@example.com")] {
+        assert_eq!(status(app.clone(), send("GET", "/refill", login, form, "")).await, StatusCode::FORBIDDEN);
+        assert_eq!(status(app.clone(), send("POST", "/refill", login, form, "account=a&grant=g&scope=full&observed=x")).await, StatusCode::FORBIDDEN);
         assert_eq!(status(app.clone(), send("POST", "/refresh", login, form, "")).await, StatusCode::FORBIDDEN, "{login:?}");
         assert_eq!(status(app.clone(), send("POST", "/signin", login, form, "provider=codex")).await, StatusCode::FORBIDDEN, "{login:?}");
         assert_eq!(status(app.clone(), send("POST", "/api/refresh", login, "application/json", "{}")).await, StatusCode::FORBIDDEN, "{login:?}");

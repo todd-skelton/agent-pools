@@ -392,8 +392,16 @@ impl Fake {
             limits.push(json!({ "kind": "session", "group": "session", "percent": 0, "resets_at": null, "scope": null }));
             limits.push(json!({ "kind": "weekly_all", "group": "weekly", "percent": 10, "resets_at": js::iso(crate::watch::now_ms() + 4.0 * 86_400_000.0), "scope": null }));
         }
-        let credits = js::values(a.get("credits"));
-        let count = js::finite(a.get("creditCount")).unwrap_or(credits.len() as f64);
+        // The fixture holds the same single next offer as a real Claude bank.
+        let mut credits = js::values(a.get("credits"));
+        let mut count = js::finite(a.get("creditCount")).unwrap_or(credits.len() as f64);
+        if credits.is_empty() {
+            let scoped = js::values(a.get("modelCredits"));
+            if !scoped.is_empty() {
+                count = js::finite(a.get("modelCreditCount")).unwrap_or(scoped.len() as f64);
+                credits = scoped;
+            }
+        }
         let grants: Vec<Value> = credits
             .iter()
             .enumerate()
@@ -402,6 +410,7 @@ impl Fake {
                 "resets_left": if i == 0 { (count - credits.len() as f64 + 1.0).max(1.0) } else { 1.0 },
                 "starts_at": js::iso(self.started - 86_400_000.0), "ends_at": c.get("expires_at"),
                 "paused": false, "usable_now": true, "use_requires_limit": false,
+                "clears": c.get("clears"), "percent_used": c.get("percent_used"),
             }))
             .collect();
         json!({
