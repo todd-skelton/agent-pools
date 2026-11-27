@@ -233,11 +233,12 @@ pub async fn open(req: Req, State(shadow): State<Shared>, _owner: Caller<Owner>,
     let Some(login) = login_id(&p).filter(|_| known(&p)) else {
         return draw(req, &shadow, &d, &steps_of(&c, 1, None, None, None, Some((Tone::Bad, "Unknown provider".into()))));
     };
-    let url = match copy.io.call(&format!("{login}-auth-url?is_webui=true"), None, None).await {
-        Ok(r) => r.get("url").or_else(|| r.get("auth_url")).and_then(Value::as_str).map(str::to_string).ok_or_else(|| "Sign-in URL unavailable".to_string()),
+    let url = match copy.io.start_signin(login).await {
+        Ok(r) => r.get("url").or_else(|| r.get("auth_url")).and_then(Value::as_str)
+            .map(|u| (u.to_string(), r["manualCallback"] == true)).ok_or_else(|| "Sign-in URL unavailable".to_string()),
         Err(e) => Err(e.message),
     };
-    let url = match url {
+    let (url, manual) = match url {
         Ok(u) => u,
         Err(e) => return draw(req, &shadow, &d, &steps_of(&c, 2, Some(p), account, None, Some((Tone::Bad, e)))),
     };
@@ -247,7 +248,11 @@ pub async fn open(req: Req, State(shadow): State<Shared>, _owner: Caller<Owner>,
         .filter(|(_, v)| v.get("provider").and_then(Value::as_str) == Some(&p))
         .map(|(id, _)| id)
         .collect();
-    let note = (Tone::Neutral, format!("Open the sign-in page and complete {} sign-in in the new tab.", signin_name(&p)));
+    let note = (Tone::Neutral, if manual {
+        "Open the Claude sign-in page. After signing in, the localhost page will not load. Paste its full address here and select Submit link.".into()
+    } else {
+        format!("Open the sign-in page and complete {} sign-in in the new tab.", signin_name(&p))
+    });
     shadow.signin.start(Pending { provider: p.clone(), started_at: d.now, accounts: ids(c.accounts(&p)), reauth, url: Some(url.clone()), note: Some(note.clone()) });
     shadow.changed_inputs();
     wait(shadow.clone(), p.clone());
@@ -391,8 +396,7 @@ pub fn SigninSteps<'a>(s: &'a Steps) -> impl Render {
                                 <h3>"Finish"</h3>
                                 <div class={Body}>
                                     if let Some(u) = &s.url { <p><Button variant={ButtonVariant::Outline} size={ButtonSize::Sm}><a target="_blank" rel="noopener" href={u.as_str()}>"Open the sign-in page"</a></Button></p> }
-                                    <p>"On this PC the sign-in finishes by itself; keep this page open to see it confirmed."</p>
-                                    <p>"On a phone or another device, the browser ends on a localhost page that will not load. That is expected: copy its address and paste it here."</p>
+                                    <p>"Keep this page open for confirmation. If the localhost page does not load after sign-in, paste its full address below and select Submit link."</p>
                                     <form method="post" action={url::SigninFinish}>
                                         if let Some(p) = p { <input type="hidden" name="provider" value={p}> }
                                         <Input><input name="link" autocomplete="off" aria-label="The localhost sign-in link" placeholder={format!("http://localhost:{port}/callback?code=...")}></Input>

@@ -385,7 +385,7 @@ async fn api_login(State(shadow): State<Shared>, Caller(owner): Caller<Owner>, h
     let Some(adapter) = input.get("provider").and_then(Value::as_str).and_then(pool_core::providers::provider) else {
         return error(StatusCode::INTERNAL_SERVER_ERROR, "Unknown provider");
     };
-    match copy.io.call(&format!("{}-auth-url?is_webui=true", adapter.login_id), None, None).await {
+    match copy.io.start_signin(adapter.login_id).await {
         Ok(result) => send(StatusCode::OK, result),
         Err(e) => error(StatusCode::INTERNAL_SERVER_ERROR, &e.message),
     }
