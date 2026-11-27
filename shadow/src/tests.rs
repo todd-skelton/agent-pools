@@ -455,6 +455,67 @@ fn enc(s: &str) -> String {
     s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-._~".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect()
 }
 
+#[tokio::test]
+async fn claude_signin_retries_only_a_callback_listener_failure() {
+    use corten::axum::{self, Json, Router, http::Uri, routing::get};
+    use serde_json::json;
+    use std::sync::{Arc, Mutex};
+
+    let t = snapshot("signin-fallback", false);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let proxy = format!("http://{}", listener.local_addr().unwrap());
+    let replies = Arc::new(Mutex::new(std::collections::VecDeque::new()));
+    let expected = replies.clone();
+    let stub = Router::new().route("/v0/management/{endpoint}", get(move |uri: Uri| {
+        let (path, status, body) = expected.lock().unwrap().pop_front().expect("unexpected retry");
+        async move {
+            assert_eq!(uri.path_and_query().unwrap().as_str(), path);
+            (status, Json(body))
+        }
+    }));
+    let server = tokio::spawn(async move { axum::serve(listener, stub).await.unwrap() });
+    // Bound but not listening: this test owns the port, but redirects cannot connect.
+    let callback = tokio::net::TcpSocket::new_v4().unwrap();
+    callback.bind("127.0.0.1:0".parse().unwrap()).unwrap();
+    let io = Arc::new(crate::writer::io::FileIo::new(t.dir.clone(), proxy, "test-key".into())
+        .with_claude_callback_port(callback.local_addr().unwrap().port()));
+    let copy = Arc::new(crate::writer::Copy::new(io));
+    let shadow = Shadow::new(t.install(), "(a copy)".into(), t.dir.join("parity.jsonl"));
+    let app = crate::app::app_copy(shadow, copy, Default::default(), Default::default()).router();
+
+    let web = "/v0/management/anthropic-auth-url?is_webui=true";
+    let manual = "/v0/management/anthropic-auth-url";
+    let ok = StatusCode::OK;
+    let fail = StatusCode::INTERNAL_SERVER_ERROR;
+    let listener_error = json!({"error":"failed to start callback server"});
+    let success = json!({"url":"https://example.invalid/sign-in","state":"test-state"});
+    let login = |provider| send_json(app.clone(), "POST", "/api/login", Some("http://localhost"), provider);
+
+    replies.lock().unwrap().extend([(web, fail, listener_error.clone()), (manual, ok, success.clone())]);
+    let (status, page, _) = send_form(app.clone(), "/signin", "provider=claude").await;
+    assert_eq!(status, ok);
+    assert!(page.contains("https://example.invalid/sign-in") && page.contains("After signing in, the localhost page will not load."));
+
+    replies.lock().unwrap().extend([(web, fail, listener_error.clone()), (manual, ok, success.clone())]);
+    let (status, result) = login(r#"{"provider":"claude"}"#).await;
+    assert_eq!(status, ok);
+    assert_eq!(result, json!({"url":success["url"], "state":success["state"], "manualCallback":true}));
+
+    replies.lock().unwrap().push_back((web, ok, success.clone()));
+    assert_eq!(login(r#"{"provider":"claude"}"#).await, (ok, success));
+    replies.lock().unwrap().push_back((web, fail, json!({"error":"failed to generate PKCE codes"})));
+    assert_eq!(login(r#"{"provider":"claude"}"#).await, (fail, json!({"error":"Proxy management anthropic-auth-url returned HTTP 500"})));
+    replies.lock().unwrap().extend([(web, fail, listener_error.clone()), (manual, StatusCode::UNAUTHORIZED, json!({}))]);
+    assert_eq!(login(r#"{"provider":"claude"}"#).await, (fail, json!({"error":"Proxy management anthropic-auth-url returned HTTP 401"})));
+    replies.lock().unwrap().push_back(("/v0/management/codex-auth-url?is_webui=true", fail, listener_error));
+    assert_eq!(login(r#"{"provider":"codex"}"#).await, (fail, json!({"error":"Proxy management codex-auth-url returned HTTP 500"})));
+    let _other_listener = callback.listen(1).unwrap();
+    replies.lock().unwrap().push_back((web, fail, json!({"error":"failed to start callback server"})));
+    assert_eq!(login(r#"{"provider":"claude"}"#).await, (fail, json!({"error":"Proxy management anthropic-auth-url returned HTTP 500"})));
+    assert!(replies.lock().unwrap().is_empty());
+    server.abort();
+}
+
 async fn send_form(app: corten::axum::Router, path: &str, body: &str) -> (StatusCode, String, Option<String>) {
     let req = Request::builder()
         .method("POST")

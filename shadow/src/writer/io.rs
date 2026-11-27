@@ -27,6 +27,7 @@ pub struct FileIo {
     proxy: String,
     key: String,
     http: reqwest::Client,
+    claude_callback_port: u16,
     pub publisher: Arc<Publisher>,
     /// What the routes answer from: the state as last saved, the forecast and ladders as last
     /// published, the value report as last written.
@@ -44,6 +45,18 @@ pub fn now_ms() -> f64 {
 
 /// One process's appends, so concurrent events never split or lose a line.
 static APPEND: Mutex<()> = Mutex::new(());
+
+// The proxy uses the same error when Windows reserves the port and when another
+// process owns it. Do not offer a redirect to a known listener (or on timeout).
+async fn callback_unserved(port: u16) -> bool {
+    let refused = |ip| async move {
+        let addr = std::net::SocketAddr::new(ip, port);
+        matches!(tokio::time::timeout(Duration::from_secs(4), tokio::net::TcpStream::connect(addr)).await,
+            Ok(Err(e)) if e.kind() == std::io::ErrorKind::ConnectionRefused)
+    };
+    let (v4, v6) = tokio::join!(refused(std::net::Ipv4Addr::LOCALHOST.into()), refused(std::net::Ipv6Addr::LOCALHOST.into()));
+    v4 && v6
+}
 
 /// events.mjs `createEventLog(file)(type, details)`: rotate past 5 MiB, then append one line.
 pub fn append_event(file: &Path, kind: &str, details: Value) -> std::io::Result<()> {
@@ -79,6 +92,7 @@ impl FileIo {
             proxy: proxy.trim_end_matches('/').to_string(),
             key,
             http,
+            claude_callback_port: 54545,
             zone: Zone::from_env(),
             versions: Mutex::new((f64::NEG_INFINITY, HashMap::new())),
             policies: Mutex::new((None, String::new())),
@@ -89,6 +103,12 @@ impl FileIo {
     /// The same, showing toasts on the desktop as notifications.mjs `toast` does.
     pub fn with_desktop_toasts(mut self) -> FileIo {
         self.desktop_toasts = true;
+        self
+    }
+
+    #[cfg(test)]
+    pub fn with_claude_callback_port(mut self, port: u16) -> Self {
+        self.claude_callback_port = port;
         self
     }
 
@@ -120,6 +140,32 @@ impl FileIo {
 
     /// pool-service.mjs `management(endpoint, body, method)`.
     pub async fn call(&self, endpoint: &str, body: Option<Value>, method: Option<String>) -> Result<Value, Failure> {
+        let r = self.request(endpoint, body, method).await?;
+        Self::management_json(endpoint, r).await
+    }
+
+    /// Prefer the automatic localhost redirect. If the Anthropic callback listener
+    /// cannot start, the proxy can still accept the redirect via `oauth-callback`.
+    pub async fn start_signin(&self, login: &str) -> Result<Value, Failure> {
+        let endpoint = format!("{login}-auth-url");
+        let r = self.request(&format!("{endpoint}?is_webui=true"), None, None).await?;
+        if login == "anthropic" && r.status() == reqwest::StatusCode::INTERNAL_SERVER_ERROR {
+            let error = Self::management_error(&endpoint, r.status());
+            let detail = r.json::<Value>().await.ok();
+            if detail.as_ref().and_then(|v| v["error"].as_str()) != Some("failed to start callback server")
+                || !callback_unserved(self.claude_callback_port).await {
+                return Err(error);
+            }
+            let mut result = self.call(&endpoint, None, None).await?;
+            if let Some(obj) = result.as_object_mut() {
+                obj.insert("manualCallback".into(), Value::Bool(true));
+            }
+            return Ok(result);
+        }
+        Self::management_json(&endpoint, r).await
+    }
+
+    async fn request(&self, endpoint: &str, body: Option<Value>, method: Option<String>) -> Result<reqwest::Response, Failure> {
         let url = format!("{}/v0/management/{endpoint}", self.proxy);
         let method = method.unwrap_or_else(|| if body.is_some() { "POST".into() } else { "GET".into() });
         let method = reqwest::Method::from_bytes(method.as_bytes()).map_err(|e| Failure::new(e.to_string()))?;
@@ -132,11 +178,18 @@ impl FileIo {
         if let Some(b) = &body {
             req = req.body(js::stringify(b));
         }
-        let r = req.send().await.map_err(transport)?;
+        req.send().await.map_err(transport)
+    }
+
+    fn management_error(endpoint: &str, status: reqwest::StatusCode) -> Failure {
+        let name = endpoint.split('?').next().unwrap_or(endpoint);
+        Failure::with_status(format!("Proxy management {name} returned HTTP {}", status.as_u16()), status.as_u16())
+    }
+
+    async fn management_json(endpoint: &str, r: reqwest::Response) -> Result<Value, Failure> {
         let status = r.status();
         if !status.is_success() {
-            let name = endpoint.split('?').next().unwrap_or(endpoint);
-            return Err(Failure::with_status(format!("Proxy management {name} returned HTTP {}", status.as_u16()), status.as_u16()));
+            return Err(Self::management_error(endpoint, status));
         }
         let text = r.text().await.map_err(transport)?;
         serde_json::from_str(&text).map_err(|_| Failure { syntax: true, name: Some("SyntaxError".into()), ..Failure::new("Unexpected token in JSON") })
