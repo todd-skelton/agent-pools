@@ -304,7 +304,9 @@ fn missing_prices_leave_costs_unknown_and_partial_totals_keep_known_spend() {
     assert_eq!(model("free")["actualUsd"], 0.0);
     assert_eq!(model("priced")["actualUsd"], 84.0);
     assert_eq!(model("priced")["uncostedRequests"], 1.0);
-    assert!(r["accounts"][0]["valueMultiple"].is_null());
+    assert_eq!(r["accounts"][0]["valueMultiple"], 0.02); // $2 priced usage / $84 plan cost
+    assert_eq!(r["accounts"][2]["valueMultiple"], 0.0); // idle, not unknown
+    assert!(r["accounts"][3]["valueMultiple"].is_null()); // only unpriced requests
     assert_eq!(r["sessions"][0]["unpricedRequests"], 1.0);
     assert_eq!(r["sessions"][0]["apiEquivalentUsd"], 2.0);
     assert!(r["sessions"][0]["actualUsd"].is_null());

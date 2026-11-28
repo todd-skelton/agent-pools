@@ -232,7 +232,7 @@
    "unexplainedUnits": null,
    "planUsdPerMonth": 200,
    "planPriceSource": "list",
-   "valueMultiple": null
+   "valueMultiple": 63.9
   },
   {
    "id": "claude-550c2ce1-user4@example.invalid.json",
@@ -299,7 +299,7 @@
    "unexplainedUnits": null,
    "planUsdPerMonth": 200,
    "planPriceSource": "list",
-   "valueMultiple": null
+   "valueMultiple": 74.76
   },
   {
    "id": "codex-4a53e220-user1@example.invalid-pro.json",

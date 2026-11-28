@@ -616,7 +616,7 @@ export async function buildUsageReports({ rows, samples = [], accounts = [], pri
       unexplainedUnits: predicted !== null && enough ? round(usedUnits - predicted) : null,
       planUsdPerMonth: monthly,
       planPriceSource,
-      valueMultiple: planPerWindow && enough && !agg.unpriced ? round(agg.usd / planPerWindow, 2) : null,
+      valueMultiple: planPerWindow && enough && (!agg.requests || agg.requests > agg.unpriced) ? round(agg.usd / planPerWindow, 2) : null,
     };
   });
   const unattributedAgg = accountsAgg.get("(unattributed)");

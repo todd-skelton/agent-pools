@@ -134,7 +134,7 @@ fn value_check_matches_the_golden_report() {
 }
 
 #[test]
-fn usage_shows_unknown_and_partial_costs_without_hiding_plan_spend() {
+fn usage_compares_priced_requests_with_full_plan_spend() {
     let value = read("outputs/value/deployed.json");
     let data = crate::dash::Data {
         s: std::sync::Arc::new(read("inputs/pool-state.json")),
@@ -150,9 +150,11 @@ fn usage_shows_unknown_and_partial_costs_without_hiding_plan_spend() {
     let row = |name: &str| usage.split("</tr>").find(|r| r.contains(name)).unwrap();
     assert!(row("claude-haiku-4-5-20251001").contains(">Unknown</td>"));
     let claude = row("claude total");
-    assert!(claude.contains("(partial)"));
+    assert!(!usage.contains("(partial)"));
     assert!(claude.contains("not split by model"));
-    assert!(usage.contains("requires complete API price coverage"));
+    assert!(usage.contains("requests excluded (no API price)"));
+    assert!(usage.contains("50.8x"));
+    assert!(usage.contains("$10,859 vs $214 of plan cost"));
     assert!(usage.contains("Est. quota share"));
 }
 
