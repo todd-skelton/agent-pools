@@ -36,12 +36,12 @@
    "sha256": "4997e9438a2240cfdb365389db5603e9f2ecef33dc850f9e16331cfb40e44ea3"
   },
   "summary/cases.json": {
-   "bytes": 91244,
-   "sha256": "c87381576691c9c35e59d3047d13da07e4bd4023a6ba42f3060ecf8676517ffc"
+   "bytes": 91247,
+   "sha256": "5ed70f60f0d644ed500838222b43632da7fe6cc8ad742b056797d50bd89d264e"
   },
   "summary/now.json": {
-   "bytes": 20429,
-   "sha256": "ec8f62a419b891f452faf637631dd8f10f32a4a772c248fb704b01d4b6f92572"
+   "bytes": 20430,
+   "sha256": "204052263ea59f07732fd1be0c34b2ad74f8429c22496255fcb6b98f8d1802d7"
   },
   "value/config.json": {
    "bytes": 5232,
@@ -56,16 +56,16 @@
    "sha256": "a4eff7edc56509c6394a81f4235593b20fa48dda553f8fef1ffa3400e3d7d372"
   },
   "value/deployed.json": {
-   "bytes": 23936,
-   "sha256": "c47893372a7143fd5a7cebd5970ba55cf50878d03e273be34ab3fc018c1e3ae8"
+   "bytes": 23937,
+   "sha256": "148d766cc4b1a604e8fa13423ea8a43348b3ce75d69c6810e740187c79b78391"
   },
   "value/quota-increments.json": {
    "bytes": 4735,
    "sha256": "709260a5f999b8cbe13dece00b25be2516103505a18b8398ffe3bf9a11db962d"
   },
   "value/short-windows.json": {
-   "bytes": 22292,
-   "sha256": "b67c62e4c43eee9a5c60bf9a420458d0774eede0a6565be14b9143d767514475"
+   "bytes": 22294,
+   "sha256": "824952255e58a18946fb53926904863bd4abe4123e25d9950311263c1af3d182"
   }
  }
 }

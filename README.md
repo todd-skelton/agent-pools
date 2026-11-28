@@ -323,7 +323,8 @@ claim, logs each call to `logs/fake-proxy.jsonl`), and then runs:
   attempts, the same document). The [verified rate supplement](pool-core/src/model-prices-supplement.json)
   fills missing entries in new reports without replacing install prices. In `/api/value`, `unpricedRequests` counts
   requests outside the API subtotal, and `unallocatedUsd` is active plan spend that could not be
-  split by model. Neither is a zero-cost request or idle spend;
+  split by model. Neither is a zero-cost request or idle spend. Value vs plans divides the priced
+  API subtotal by the full prorated plan cost for the same window;
 - the model refresh (`writer::models`, model-refresh.mjs with model-store.mjs): three minutes
   after the start and then hourly (`SHADOW_COPY_MODEL_FIRST_SECS`, `SHADOW_COPY_MODEL_REFRESH_SECS`),
   under `state/model-registry.json.lock` (renewed while held, taken over only when stale, released

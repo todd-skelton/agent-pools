@@ -463,7 +463,7 @@
       },
       "value": {
        "apiEquivalentUsd": 2106.51,
-       "valueMultiple": null,
+       "valueMultiple": 63.9,
        "requests": 25209,
        "actualUsd": 32.88,
        "actualUsdPerRequest": 0.0013,
@@ -575,7 +575,7 @@
       },
       "value": {
        "apiEquivalentUsd": 2464.47,
-       "valueMultiple": null,
+       "valueMultiple": 74.76,
        "requests": 29225,
        "actualUsd": 32.88,
        "actualUsdPerRequest": 0.0011,
@@ -1216,7 +1216,7 @@
       },
       "value": {
        "apiEquivalentUsd": 2106.51,
-       "valueMultiple": null,
+       "valueMultiple": 63.9,
        "requests": 25209,
        "actualUsd": 32.88,
        "actualUsdPerRequest": 0.0013,
@@ -1328,7 +1328,7 @@
       },
       "value": {
        "apiEquivalentUsd": 2464.47,
-       "valueMultiple": null,
+       "valueMultiple": 74.76,
        "requests": 29225,
        "actualUsd": 32.88,
        "actualUsdPerRequest": 0.0011,
@@ -1632,7 +1632,7 @@
       },
       "value": {
        "apiEquivalentUsd": 2106.51,
-       "valueMultiple": null,
+       "valueMultiple": 63.9,
        "requests": 25209,
        "actualUsd": 32.88,
        "actualUsdPerRequest": 0.0013,
@@ -1744,7 +1744,7 @@
       },
       "value": {
        "apiEquivalentUsd": 2464.47,
-       "valueMultiple": null,
+       "valueMultiple": 74.76,
        "requests": 29225,
        "actualUsd": 32.88,
        "actualUsdPerRequest": 0.0011,

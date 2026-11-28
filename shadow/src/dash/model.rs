@@ -1726,7 +1726,7 @@ impl<'a> Ctx<'a> {
                 note: (failed != 0.0 && !failed.is_nan()).then(|| format!("({} failed)", cat(v.get("failedRequests")))),
             });
             let covered = v.get("unpricedRequests").is_some();
-            rows.push(kv("API-equivalent", cost_label(js::finite(v.get("apiEquivalentUsd")), 2, truthy(v.get("unpricedRequests")))));
+            rows.push(kv("API-equivalent", cost_label(js::finite(v.get("apiEquivalentUsd")), 2)));
             if let Some(api) = rows.last_mut() {
                 api.note = if covered {
                     js::finite(v.get("apiEquivalentUsdPerRequest")).map(|p| format!("({}/priced request)", usd(p, 4)))
@@ -2017,12 +2017,8 @@ fn per_req_v(v: Option<&Value>) -> String {
     per_req((!js::nullish(v)).then(|| n(v)))
 }
 
-fn cost_label(amount: Option<f64>, digits: usize, partial: bool) -> String {
-    match amount {
-        None => "Unknown".into(),
-        Some(amount) if partial => format!("{} (partial)", usd(amount, digits)),
-        Some(amount) => usd(amount, digits),
-    }
+fn cost_label(amount: Option<f64>, digits: usize) -> String {
+    amount.map_or_else(|| "Unknown".into(), |n| usd(n, digits))
 }
 
 fn cost_per(v: Option<&Value>) -> String {
@@ -2089,10 +2085,9 @@ impl<'a> Ctx<'a> {
         } else {
             Some(acc.iter().map(|a| or(a.get("apiEquivalentUsd"), 0.0)).sum::<f64>())
         };
-        let multiple = spend.filter(|_| unpriced == 0.0 && days >= 1.0 && plan_share > 0.0).map(|s| s / plan_share);
+        let multiple = spend.filter(|_| days >= 1.0 && plan_share > 0.0).map(|s| s / plan_share);
         let actual = acs.iter().any(|(_, c)| !js::nullish(c.get("actualUsd"))).then(|| acs.iter().fold(0.0, |s, (_, c)| s + or(c.get("actualUsd"), 0.0)));
         let idle = acs.iter().fold(0.0, |s, (_, c)| s + or(c.get("idleUsd"), 0.0));
-        let partial_actual = acs.iter().any(|(_, c)| truthy(c.get("uncostedRequests")));
         let costed = acs.iter().fold(0.0, |s, (_, c)| {
             s + if js::nullish(c.get("actualUsd")) { 0.0 } else { or(c.get("requests"), 0.0) - or(c.get("uncostedRequests"), 0.0) }
         });
@@ -2104,16 +2099,16 @@ impl<'a> Ctx<'a> {
             },
             Kpi {
                 label: "API-equivalent",
-                value: cost_label(spend, 0, unpriced > 0.0),
+                value: cost_label(spend, 0),
                 sub: if unpriced > 0.0 {
-                    format!("{} of {} requests unpriced", fmt::locale(unpriced, 0, 3), fmt::locale(api_requests, 0, 3))
+                    format!("{} of {} requests excluded (no API price)", fmt::locale(unpriced, 0, 3), fmt::locale(api_requests, 0, 3))
                 } else {
                     format!("list-price value{}", if reqs != 0.0 { format!(", {}/request", per_req(spend.map(|s| s / reqs))) } else { String::new() })
                 },
             },
             Kpi {
                 label: "Actual cost",
-                value: cost_label(actual, 0, partial_actual),
+                value: cost_label(actual, 0),
                 sub: match actual {
                     None if truthy(ac) => "needs plan prices".into(),
                     None => "report predates actual cost".into(),
@@ -2131,9 +2126,9 @@ impl<'a> Ctx<'a> {
             },
             Kpi {
                 label: "Value vs plans",
-                value: if unpriced > 0.0 { "Unavailable".into() } else { multiple.map_or_else(|| "pending".to_string(), |m| format!("{}x", num(m, 1))) },
+                value: multiple.map_or_else(|| if spend.is_none() { "Unavailable" } else { "pending" }.into(), |m| format!("{}x", num(m, 1))),
                 sub: match multiple {
-                    None if unpriced > 0.0 => "requires complete API price coverage".into(),
+                    None if spend.is_none() => "no priced requests in this window".into(),
                     None if monthly != 0.0 => "needs a full day of ledger data".into(),
                     None => "needs plan prices".into(),
                     Some(_) => format!("{} vs {} of plan cost", usd(spend.unwrap(), 0), usd(plan_share, 0)),
@@ -2169,8 +2164,8 @@ impl<'a> Ctx<'a> {
                 provider: text(m.get("provider")),
                 model: text(m.get("model")),
                 requests: fmt::locale(or(m.get("requests"), 0.0), 0, 3),
-                api: cost_label(js::finite(m.get("apiEquivalentUsd")), 2, truthy(m.get("unpricedRequests"))),
-                actual: cost_label(js::finite(m.get("actualUsd")), 2, truthy(m.get("uncostedRequests"))),
+                api: cost_label(js::finite(m.get("apiEquivalentUsd")), 2),
+                actual: cost_label(js::finite(m.get("actualUsd")), 2),
                 actual_title: truthy(m.get("uncostedRequests"))
                     .then(|| format!("{} requests have no attributable plan cost", cat(m.get("uncostedRequests")))),
                 api_per: if has_coverage { cost_per(m.get("usdPerRequest")) } else { per_req(truthy(m.get("requests")).then(|| n(m.get("apiEquivalentUsd")) / n(m.get("requests")))) },
@@ -2185,8 +2180,8 @@ impl<'a> Ctx<'a> {
                 provider: p.clone(),
                 name: format!("{} total", self.pname(p)),
                 requests: fmt::locale(n(c.get("requests")), 0, 3),
-                api: cost_label(js::finite(c.get("apiEquivalentUsd")), 2, truthy(c.get("unpricedRequests"))),
-                actual: cost_label(js::finite(c.get("actualUsd")), 2, truthy(c.get("uncostedRequests"))),
+                api: cost_label(js::finite(c.get("apiEquivalentUsd")), 2),
+                actual: cost_label(js::finite(c.get("actualUsd")), 2),
                 actual_title: std::iter::once("Known plan cost of accounts that served requests".into()).chain(arr(c.get("basis")).iter().map(|b| basis_text(&text(Some(b))))).collect::<Vec<_>>().join("; "),
                 idle: truthy(c.get("idleUsd")).then(|| format!("+ {} idle", usd_v(c.get("idleUsd"), 2))),
                 unallocated: truthy(c.get("unallocatedUsd")).then(|| format!("{} not split by model", usd_v(c.get("unallocatedUsd"), 2))),
@@ -2205,8 +2200,8 @@ impl<'a> Ctx<'a> {
                     label: format!("{} {}", text(x.get("client")), sid.chars().take(6).collect::<String>()),
                     title: format!("{sid} · {}", models.join(", ")),
                     width: or(x.get("apiEquivalentUsd"), 0.0) / max_s * 100.0,
-                    right: cost_label(js::finite(x.get("apiEquivalentUsd")), 0, truthy(x.get("unpricedRequests"))),
-                    sub: format!("{} actual", cost_label(js::finite(x.get("actualUsd")), 2, truthy(x.get("uncostedRequests")))),
+                    right: cost_label(js::finite(x.get("apiEquivalentUsd")), 0),
+                    sub: format!("{} actual", cost_label(js::finite(x.get("actualUsd")), 2)),
                 }
             })
             .collect();
@@ -2229,8 +2224,8 @@ impl<'a> Ctx<'a> {
                     name: label(a),
                     email: text(a.get("email")),
                     requests: fmt::locale(or(a.get("requests"), 0.0), 0, 3),
-                    usd: cost_label(js::finite(a.get("apiEquivalentUsd")), 2, truthy(a.get("unpricedRequests"))),
-                    actual: cost_label(js::finite(a.get("actualUsd")), 2, false),
+                    usd: cost_label(js::finite(a.get("apiEquivalentUsd")), 2),
+                    actual: cost_label(js::finite(a.get("actualUsd")), 2),
                     idle: !js::nullish(a.get("actualUsd")) && !truthy(a.get("requests")),
                     api_per: if has_coverage { cost_per(a.get("apiEquivalentUsdPerRequest")) } else { per_req(truthy(a.get("requests")).then(|| n(a.get("apiEquivalentUsd")) / n(a.get("requests")))) },
                     actual_per: per_req_v(a.get("actualUsdPerRequest")),
@@ -2263,7 +2258,7 @@ impl<'a> Ctx<'a> {
             .collect();
         let unpriced: Vec<String> = js::entries(get(get(v, "coverage"), "unpricedModels")).into_iter().map(|(k, _)| k).collect();
         let footnote = format!(
-            "Measured from {} requests since {}. API cost is a list-price estimate, not money saved. Partial costs exclude requests without known prices or allocations. API per-request averages cover only priced requests. Quota shares are estimated from priced usage, not measured. Actual cost is prorated plan spend. It is split by fitted quota use or API cost only where the account has complete price coverage. Plans still cost money when idle. \"$ / acct-week\" and value multiples need a full day of data and complete price coverage.{} {} Report updated {}.",
+            "Measured from {} requests since {}. API cost is a list-price estimate, not money saved. Cost totals exclude requests without known prices or allocations. API per-request averages cover only priced requests. Quota shares are estimated from priced usage, not measured. Actual cost is prorated plan spend. It is split by fitted quota use or API cost only where the account has complete price coverage. Plans still cost money when idle. Value vs plan compares priced API usage with the full plan cost for the same window and needs a full day of data. \"$ / acct-week\" also needs complete price coverage.{} {} Report updated {}.",
             fmt::locale(or(get(get(v, "coverage"), "ledgerRows"), 0.0), 0, 3),
             self.dt(get(get(v, "coverage"), "ledgerSince")),
             if unpriced.is_empty() { String::new() } else { format!(" Unpriced models: {}.", unpriced.join(", ")) },

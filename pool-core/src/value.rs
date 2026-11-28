@@ -2030,7 +2030,7 @@ pub fn build_usage_reports(
             row.insert(
                 "valueMultiple".into(),
                 match plan_per_window {
-                    Some(p) if p != 0.0 && !p.is_nan() && enough && agg.unpriced == 0.0 => round(agg.usd / p, 2),
+                    Some(p) if p != 0.0 && !p.is_nan() && enough && (agg.requests == 0.0 || agg.requests > agg.unpriced) => round(agg.usd / p, 2),
                     _ => Value::Null,
                 },
             );
